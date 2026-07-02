@@ -1,9 +1,9 @@
 {
 	"ver": 1,
-	"version": "2.10.3",
+	"version": "3.0.0",
 	"name": "Reference Extravaganza",
 	"icon": "ti-pencil",
-	"description": "Supercharge Thymer references. Type [[ to reference any line of text inline (search, pick, insert). Set an alias on any reference, page or line, to change what its chip shows without recreating the link: the box pre-fills with the current title so you can trim it down. Inline Transclusion: expand a selected reference in place with Cmd/Ctrl+Down (Cmd/Ctrl+Up collapses) to see and edit what it points to, nested right under it. Many embeds stay open at once and persist across reload; expanding a page reference also shows an EDITABLE property card (Status, Due, relations, etc.) above the body, keyboard-navigable like a native record (press Down from the reference to arrow through and edit its properties). Commands: \"Set alias for reference\" (shortcut Cmd/Ctrl+Shift+A, rebindable via \"Set alias keyboard shortcut\"), \"Collapse all embeds (this page)\".",
+	"description": "Supercharge Thymer references. Type [[ to reference any line of text inline (search, pick, insert). Set an alias on any reference, page or line, to change what its chip shows without recreating the link. Inline Transclusion: expand a selected reference in place with Cmd/Ctrl+Down (Cmd/Ctrl+Up collapses) — many embeds at once, persisting across reload; a page reference shows an EDITABLE, native-looking property card (pills, icons, native pickers) with a Properties view chooser (All / Filled in / Custom), keyboard-navigable like a native record. Convert a reference ↔ embedded line with Cmd+Ctrl+R. Commands: \"Set alias for reference\" (Cmd/Ctrl+Shift+A), \"Convert reference ↔ embedded line\", \"Collapse all embeds (this page)\", \"Set Reference Extravaganza shortcuts\" (rebind both in-app).",
 	"custom": {
 		"shortcut": "Mod+Shift+A"
 	}

@@ -33,9 +33,18 @@ Works on both page references and the line references you create with `[[`.
 
 The box opens under the reference, follows your theme (light or dark), and uses Thymer's accent for the Save button.
 
-### Changing the keyboard shortcut
+### Changing the keyboard shortcuts
 
-The default is **Cmd+Shift+A** (macOS) / **Ctrl+Shift+A** (Windows/Linux). To rebind it, run **Set alias keyboard shortcut** from the Command Palette, press the keys you want, and click Save. It applies immediately, with no restart and no JSON. (You can also set `custom.shortcut` directly in the **Configuration** tab, e.g. `Mod+Shift+L`; `Mod` = Cmd on macOS, Ctrl elsewhere. At least one of Cmd/Ctrl/Alt is required, so the shortcut can't clash with plain typing.)
+Run **Set Reference Extravaganza shortcuts** from the Command Palette to rebind both the alias shortcut (default **Cmd/Ctrl+Shift+A**) and the convert shortcut (default **Cmd+Ctrl+R**): click a row, press the keys you want, Save. It applies immediately, with no restart and no JSON. (You can also set `custom.shortcut` / `custom.convertShortcut` directly in the **Configuration** tab, e.g. `Mod+Shift+L`; `Mod` = Cmd on macOS, Ctrl elsewhere. At least one of Cmd/Ctrl/Alt is required, so a shortcut can't clash with plain typing.)
+
+## Convert a reference ↔ embedded line
+
+Thymer has two ways to point at another line: a compact reference chip, and an embedded line (a one-line transclusion that mirrors the whole target — checkbox, dates and all). This command swaps between them, keeping the position:
+
+- Cursor on an **embedded line** → converts it to a reference chip.
+- A **standalone reference** selected (a line that is just one reference) → converts it to an embedded line.
+
+Run **Convert reference ↔ embedded line** from the Command Palette, or press **Cmd+Ctrl+R**.
 
 ## Inline Transclusion
 
@@ -47,7 +56,7 @@ See what a reference points to without leaving the page you're on — and open a
 
 **Many at once, and they persist.** Expanding a second reference no longer collapses the first — every embed stays open. Because each embed is a real line in your document, it survives a reload; it stays until you collapse it.
 
-**Property card on record embeds.** When you expand a *page* reference, its properties appear as a card above the body — Status, Due, numbers, relations, and so on. Click any value to edit it inline (a text/number field, a date picker, a choice picker, or a record search for relations) and the change saves straight to the record. (Line references have no properties, so they just show the line and its children.)
+**Property card on record embeds.** When you expand a *page* reference, its properties appear as a card above the body — rendered with Thymer's own property-pane styling (row layout, value pills with each record's icon, native-format dates), so it looks and themes exactly like the real page header. Click any value to edit it inline (a text/number field, a date picker replicating the native one, a choice picker, or a record picker that shows your current values with checkmarks and suggests records with their icons — multi-value fields toggle without closing). Changes save straight to the record. A **Properties · All ⌄** chooser on the card switches between **All**, **Filled in**, and a **Custom** selection of properties to show. (Line references have no properties, so they just show the line and its children.)
 
 **Keyboard navigation of the card.** With the cursor on the record reference, press **↓** to step into the card (just like arrowing from a record's title into its properties in Thymer). **↑/↓** move a highlight through the values; **Enter** edits the highlighted value (an inline field for text/number/date, or the choice/relation picker), and the highlight returns to it once you save. **↑** from the first value, or **Esc**, returns the cursor to the reference line; **↓** past the last value drops into the embed's body. For an empty record, **↓** highlights **＋ Add content** — press **Enter** and you're typing the first line. (A Command-Palette path, **Edit embedded record (properties)**, still opens a normal Tab-through dialog if you prefer it.)
 
@@ -55,7 +64,7 @@ Under the hood this is a native Thymer transclusion, added when you expand. Nati
 
 ## Notes & limitations
 
-- **Property cards show up to 8 properties** (system/internal fields are always hidden). Open the record itself for the full set.
+- **Property cards show the record's user-defined fields** (system/internal and deleted fields are hidden, exactly like the native pane). Use the card's **Properties** chooser to switch All / Filled in / Custom. The view choice is per device (it isn't synced content).
 - **Cards are drawn per client**, not synced content: on a device that didn't open the embed, the card appears after discovery (typically well under a second after a change, or on focus/navigation) rather than instantly.
 - **Schema changes made mid-session** (a brand-new property or collection) may take one interaction to be picked up — the plugin refreshes its schema map in the background and self-corrects.
 - **Relations in the "Edit embedded record" dialog are read-only** — edit them by clicking/Enter-ing the value on the card, which opens the record picker.

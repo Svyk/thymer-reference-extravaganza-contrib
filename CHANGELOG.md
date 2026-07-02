@@ -1,5 +1,25 @@
 # Changelog
 
+## v3.0.0 — 2026-07-02
+
+The property-card release: community PR #1 by **@Svyk** (persistent multi-embeds + editable property cards, v2.3.0–v2.10.3 below) merged, plus a native-look pass and the pending features on top:
+
+**Native-look property cards**
+- The card now renders through Thymer's own property-pane classes: native row layout with type icons, value pills with enum colors and each record's own icon (falling back to its collection's icon), a clickable ↗ on record pills that opens the record, dates/text in native plain style, and empty values blank with a hover pencil — pixel-matched against the real pane (chip height, fonts, radii) and theme-tracking by construction.
+- The card's background/border are copied from the transclusion body at render, so card + body read as one box in any theme.
+- **Properties view chooser** on the card ("Properties · All ⌄"), like the native pane: **All** (always everything), **Filled in** (non-empty), and **Custom** (your own checklist — toggling a field switches to Custom seeded from the current view). Checkmarks always reflect what the card is showing.
+- **Native-anatomy relation picker:** current values listed first with green check badges (click to remove), suggestions with their icons below — the field's target collection when declared, otherwise recently edited records workspace-wide. Multi-value fields (schema `many`) toggle without closing; single-value picks replace and close; "(None)" only where it applies. Read-only fields refuse politely.
+- System fields (Title, Collection, Banner, …) and deleted fields are excluded, exactly like the native pane.
+
+**Fixes**
+- **View changes no longer jump the page.** Root causes: saving view prefs through the plugin config made Thymer reload the whole plugin (cards torn down and rebuilt = the jump) — prefs now live in localStorage; and manual scroll "restoring" fought the browser's scroll anchoring — removed in favor of it.
+- **Keyboard focus returns to the editor** after closing any picker/popup or committing an inline edit (and after the alias box) — previously the next keystroke could scroll the page instead of typing.
+
+**Pending features folded in**
+- **Convert reference ↔ embedded line** (Cmd+Ctrl+R + command): swap a compact reference chip and a whole-line embed in place, both directions, position preserved (including nested lines).
+- **Set Reference Extravaganza shortcuts**: one dialog rebinding both the alias and convert shortcuts.
+- Alias focus fix: pressing Space right after setting an alias types a space instead of scrolling.
+
 ## v2.10.3 — 2026-07-01
 
 - Fixed a daylight-saving off-by-one in the week-number label (Week 27 shown for Week 28).

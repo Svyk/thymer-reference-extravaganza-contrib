@@ -26,6 +26,8 @@ class Plugin extends AppPlugin {
   _link = null;
   _lastBracketTs = 0;
   _hotkey = null;
+  _convertCmd = null;
+  _convertHotkey = null;
   // Multiple embeds are real document lines (the source of truth); we keep no
   // single-slot state. _expandInFlight only debounces double-creates from fast
   // keypresses. _cards indexes THIS page's plugin-created record embeds
@@ -92,6 +94,18 @@ class Plugin extends AppPlugin {
     e.preventDefault();
     e.stopImmediatePropagation();
     this._onCommand();
+  };
+
+  // Shortcut for "Convert reference ↔ embedded line". Same cheap-first guards.
+  _handleConvertKey = (e) => {
+    if (this._modal || this._link) return;
+    const h = this._convertHotkey;
+    if (!h) return;
+    if (e.metaKey !== h.meta || e.ctrlKey !== h.ctrl || e.shiftKey !== h.shift || e.altKey !== h.alt) return;
+    if (e.code !== h.code && (e.key || "").toLowerCase() !== h.key) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    this._onConvert();
   };
 
   // Watches for "[" only (first line rejects every other key). When a second
@@ -203,7 +217,7 @@ class Plugin extends AppPlugin {
   _discoverTrigger = () => { if (!document.hidden) this._scheduleDiscover(true); };
 
   onLoad() {
-    try { window.__REFX_VERSION = "2.10.3"; } catch (e) {} // live-version tell for debugging
+    try { window.__REFX_VERSION = "3.0.0"; } catch (e) {} // live-version tell for debugging
     this._killStaleObservers(); // clear any observer/cards leaked by a hot-reload
     this._injectStyle();
     this._buildFieldTypes(); // async; schema-based property typing (empty fields)
@@ -214,7 +228,7 @@ class Plugin extends AppPlugin {
       onSelected: () => { this._onCommand(); },
     });
     this._shortcutCmd = this.ui.addCommandPaletteCommand({
-      label: "Set alias keyboard shortcut",
+      label: "Set Reference Extravaganza shortcuts",
       icon: "ti-keyboard",
       onSelected: () => { this._openShortcutModal(); },
     });
@@ -230,19 +244,27 @@ class Plugin extends AppPlugin {
       icon: "ti-pencil",
       onSelected: () => { this._onEditEmbedCommand(); },
     });
+    this._convertCmd = this.ui.addCommandPaletteCommand({
+      label: "Convert reference ↔ embedded line",
+      icon: "ti-arrows-exchange",
+      onSelected: () => { this._onConvert(); },
+    });
 
     const cfg = (this.getConfiguration && this.getConfiguration()) || {};
     const shortcutStr = (cfg.custom && cfg.custom.shortcut) || "Mod+Shift+A";
     this._hotkey = this._parseShortcut(shortcutStr);
+    const convertStr = (cfg.custom && cfg.custom.convertShortcut) || "Mod+Ctrl+R";
+    this._convertHotkey = this._parseShortcut(convertStr);
     window.addEventListener("keydown", this._handleKeydown, true);
     window.addEventListener("keydown", this._handleBracketKey, true);
     window.addEventListener("keydown", this._handleExpandKey, true);
     window.addEventListener("keydown", this._handleCardNavTrigger, true);
+    window.addEventListener("keydown", this._handleConvertKey, true);
     // Window-singleton stash of the always-on handlers: a hot-reload re-runs onLoad
     // on the SAME document without disposing the prior instance, so without this
     // every update stacks another copy of all four capture listeners (and the old
     // ones' stopImmediatePropagation can starve the live instance).
-    window.__refxKeyHandlers = [this._handleKeydown, this._handleBracketKey, this._handleExpandKey, this._handleCardNavTrigger];
+    window.__refxKeyHandlers = [this._handleKeydown, this._handleBracketKey, this._handleExpandKey, this._handleCardNavTrigger, this._handleConvertKey];
 
     // Embeds persist across reload, so re-discover the record embeds on the
     // active page and (re)attach their property cards; repeat on navigation.
@@ -319,6 +341,7 @@ class Plugin extends AppPlugin {
     window.removeEventListener("keydown", this._handleBracketKey, true);
     window.removeEventListener("keydown", this._handleExpandKey, true);
     window.removeEventListener("keydown", this._handleCardNavTrigger, true);
+    window.removeEventListener("keydown", this._handleConvertKey, true);
     window.__refxKeyHandlers = null;
     this._exitCardNav();
     try { document.removeEventListener("visibilitychange", this._discoverTrigger, false); } catch (e) {}
@@ -331,12 +354,13 @@ class Plugin extends AppPlugin {
     if (this._navHandler) { try { this.events.off(this._navHandler); } catch (e) {} this._navHandler = null; }
     if (this._recUpdHandler) { try { this.events.off(this._recUpdHandler); } catch (e) {} this._recUpdHandler = null; }
     this._exitLinkMode();
-    this._hotkey = null;
+    this._hotkey = this._convertHotkey = null;
     if (this._cmd && this._cmd.remove) this._cmd.remove();
     if (this._shortcutCmd && this._shortcutCmd.remove) this._shortcutCmd.remove();
     if (this._collapseAllCmd && this._collapseAllCmd.remove) this._collapseAllCmd.remove();
     if (this._editRecordCmd && this._editRecordCmd.remove) this._editRecordCmd.remove();
-    this._cmd = this._shortcutCmd = this._collapseAllCmd = this._editRecordCmd = null;
+    if (this._convertCmd && this._convertCmd.remove) this._convertCmd.remove();
+    this._cmd = this._shortcutCmd = this._collapseAllCmd = this._editRecordCmd = this._convertCmd = null;
     this._closeModal();
     const st = document.getElementById(this._STYLE_ID);
     if (st) st.remove();
@@ -475,6 +499,7 @@ class Plugin extends AppPlugin {
     next[r.refIdx] = newSeg;
     r.li.setSegments(next);
     this._toast(toast);
+    this._refocusEditor(); // hand the keyboard back to the editor (Space after alias must type, not scroll)
   }
 
   async _onCommand() {
@@ -486,6 +511,68 @@ class Plugin extends AppPlugin {
   }
 
   // ------------------------------------------------ expand/collapse references
+
+  // ------------------------------------------------ convert embedded ↔ reference
+
+  // Toggle between the two ways to point at another line:
+  //   • an EMBEDDED line = a `type:"ref"` line item with `props.itemref` (mirrors
+  //     the whole target line inline, checkbox/date and all), and
+  //   • a REFERENCE = a compact chip: a normal line holding one `ref` segment
+  //     (what `[[` inserts).
+  // On an embedded line → collapse to a reference; on a standalone reference line
+  // → expand to an embedded line. Both directions recreate the line (setSegments
+  // is ignored on a `type:"ref"` line), preserving position, then delete the old.
+  async _onConvert() {
+    const hit = this._detect();
+    if (!hit) return this._toast("Select a reference, or put your cursor on an embedded line.");
+    const it = ((window.g_universe && window.g_universe.itemsByGuid) || {})[hit.lineGuid];
+
+    // Embedded line → reference.
+    const embRef = it && it.type === "ref" && it.props && it.props.itemref;
+    if (embRef) return this._replaceLine(hit, "text", (line) => line.setSegments([{ type: "ref", text: { guid: embRef, title: this._lineTextByGuid(embRef) || "" } }]), "Converted to a reference");
+
+    // Standalone reference line → embedded line. Only when the line is JUST one
+    // reference (whitespace around it is fine); a mid-sentence chip can't become
+    // a whole-line embed.
+    const live = this._liveSegs(hit.lineGuid) || [];
+    const refs = live.filter((s) => s.type === "ref");
+    const otherText = live.filter((s) => s.type !== "ref" && !(typeof s.text === "string" && s.text.trim() === ""));
+    const targetGuid = refs.length === 1 && !otherText.length && refs[0].text && refs[0].text.guid;
+    if (targetGuid) return this._replaceLine(hit, "ref", (line) => line.setMetaProperty("itemref", targetGuid), "Converted to an embedded line");
+
+    return this._toast("Select a reference, or put your cursor on an embedded line.");
+  }
+
+  // Recreate the caret's line as `newType`, run `apply(newLine)` to fill it, then
+  // delete the original. Preserves parent + position, including for nested lines.
+  async _replaceLine(hit, newType, apply, okMsg) {
+    const rec = this.data.getRecord(hit.pageGuid);
+    if (!rec) return this._toast("Couldn't find the current page.");
+    let items; try { items = await rec.getLineItems(); } catch (e) { items = []; }
+    const found = this._findWithParent(items, hit.lineGuid, null);
+    if (!found) return this._toast("Couldn't find the line.");
+    const old = found.item;
+    // Use the parent from the tree, NOT old.getParent() — the latter returns an
+    // object with no .guid for a nested line, which we can't pass to
+    // createLineItem, so the new line would land at the ROOT (top of the page).
+    const parent = found.parent; // a real line item when nested, null at the root
+    let line = null;
+    try { line = await rec.createLineItem(parent, old, newType); } catch (e) {}
+    if (!line) return this._toast("Couldn't convert the line.");
+    try { apply(line); } catch (e) {}
+    try { if (old.delete) await old.delete(); } catch (e) {}
+    this._toast(okMsg);
+  }
+
+  // Find a line item by guid anywhere in the record's tree, with its parent line
+  // item (null when the line is top-level).
+  _findWithParent(items, guid, parent) {
+    for (const it of items || []) {
+      if (it && it.guid === guid) return { item: it, parent: parent || null };
+      if (it && it.children && it.children.length) { const f = this._findWithParent(it.children, guid, it); if (f) return f; }
+    }
+    return null;
+  }
 
   // Synchronously work out which reference (if any) is selected on the current
   // line, and its target. No async (no getLineItems) so the keydown handler can
@@ -956,7 +1043,7 @@ class Plugin extends AppPlugin {
         try { const g = col.getGuid && col.getGuid(); if (g) colByGuid[g] = col; } catch (e) {}
         for (const f of (cfg && cfg.fields) || []) {
           if (!f) continue;
-          if (f.id != null) { map[f.id] = f.type; meta[f.id] = { type: f.type, filter_colguid: f.filter_colguid || null }; }
+          if (f.id != null) { map[f.id] = f.type; meta[f.id] = { type: f.type, filter_colguid: f.filter_colguid || null, many: !!f.many, read_only: !!f.read_only }; }
           if (f.label) {
             const lk = "label:" + String(f.label).toLowerCase();
             if (lk in byLabel && byLabel[lk] !== f.type) conflicted.add(lk);
@@ -996,11 +1083,14 @@ class Plugin extends AppPlugin {
   // isolated — property reads throw on unresolved records.
   _recCardFields(rec) {
     const out = [];
+    const prefs = this._cardPrefs();
     let props = [];
     try { props = (rec.getAllProperties && rec.getAllProperties()) || []; } catch (e) {}
     for (const p of props) {
       const name = p && p.name;
       if (!name || this._CARD_SKIP.has(name)) continue;
+      if (!this._isUserField(p)) continue; // mirror native: no system/deleted fields
+      if (prefs.mode === "custom" && prefs.hidden.has(name)) continue; // checklist applies ONLY in Custom
       let kind = "text", choices = null, value = "", display = "";
       const ft = this._fieldTypeFor(p);
       if (ft === "choice") { kind = "choice"; try { choices = ((p.choices && p.choices()) || []).map((c) => ({ id: c.id, label: c.label })); } catch (e) { choices = []; } }
@@ -1051,46 +1141,209 @@ class Plugin extends AppPlugin {
         }
         else if (kind === "number") { const n = p.number && p.number(); value = (n == null ? "" : n); }
         else if (kind === "relation") {
-          value = ((p.linkedRecords && p.linkedRecords()) || []).map((r) => (r && r.getName && r.getName()) || "").filter(Boolean).join(", ");
+          var relRecs = (p.linkedRecords && p.linkedRecords()) || [];
+          var relParts = relRecs.map((r) => (r && r.getName && r.getName()) || "").filter(Boolean);
+          var relIcons = relRecs.map((r) => this._iconForRecord(r));
+          var relGuids = relRecs.map((r) => { try { return (r._getRow && r._getRow().guid) || null; } catch (e2) { return null; } });
+          value = relParts.join(", ");
           // linkedRecords() returns [] for stored-but-unresolved relations AND for
           // legacy plain-text values in a record prop (e.g. Lead = "Svy"). Fall back
           // to the RAW values() and normalize: guid → record name, text → as-is.
           if (!value) {
             let raw = null; try { raw = p.values && p.values(); } catch (e2) {}
-            const parts = [];
+            const parts = [], icons2 = [], guids2 = [];
             for (let v of raw || []) {
               if (typeof v === "string" && v.trim().charAt(0) === "[") { try { v = JSON.parse(v); } catch (e2) {} }
               for (const x of (Array.isArray(v) ? v : [v])) {
                 if (typeof x === "string" && x) {
                   const r2 = /^[0-9A-Z]{20,}$/.test(x) ? this.data.getRecord(x) : null;
-                  parts.push((r2 && r2.getName && r2.getName()) || x);
+                  if (r2 && r2.getName && r2.getName()) { parts.push(r2.getName()); icons2.push(this._iconForRecord(r2)); guids2.push(x); }
+                  else { parts.push(x); icons2.push(null); guids2.push(null); }
                 } else if (x && typeof x === "object") {
                   const g = x.guid || (x.getGuid && x.getGuid());
                   const r2 = g ? this.data.getRecord(g) : null;
-                  parts.push((r2 && r2.getName && r2.getName()) || "");
+                  if (r2 && r2.getName && r2.getName()) { parts.push(r2.getName()); icons2.push(this._iconForRecord(r2)); guids2.push(g); }
                 }
               }
             }
-            value = parts.filter(Boolean).join(", ");
+            relParts = parts.filter(Boolean);
+            relIcons = icons2;
+            relGuids = guids2;
+            value = relParts.join(", ");
           }
         }
         else value = (p.text && p.text()) || "";
       } catch (e) {}
-      out.push({ name, id: p.guid || null, kind, value, display: display || "", choices });
-      if (out.length >= 8) break; // display cap — stop PROBING too, not just slicing
+      // Per-value {text, icon} for relation/choice pills (native renders one pill
+      // per value with the target's collection icon; splitting the joined display
+      // on ", " would break names containing commas).
+      let pills = null;
+      if (kind === "relation" && typeof relParts !== "undefined" && relParts && relParts.length) {
+        pills = relParts.map((t, i) => ({ t, icon: (typeof relIcons !== "undefined" && relIcons && relIcons[i]) || null, guid: (typeof relGuids !== "undefined" && relGuids && relGuids[i]) || null }));
+      } else if (kind === "choice" && value) pills = [{ t: String(value), icon: null, guid: null }];
+      out.push({ name, id: p.guid || null, kind, value, display: display || "", choices, pills });
+      if (out.length >= 32) break; // sanity cap — stop PROBING too, not just slicing
     }
-    return out.filter((p) => p && p.name).slice(0, 8);
+    let res = out.filter((p) => p && p.name);
+    if (prefs.mode === "filled") res = res.filter((f) => !(f.value === "" || f.value == null));
+    return res.slice(0, 32);
   }
+
+  // Mirror the native property pane's field set: USER-DEFINED collection fields
+  // have generated ids ("F" + uppercase alphanumerics, e.g. F35H0RTXPMHK1ZM);
+  // system fields carry lowercase ids (title, collection, banner, icon,
+  // updated_at, …) and never render in the native pane. Deleted fields get
+  // relabeled "Deleted (…)" — hide those too, exactly like native.
+  _isUserField(p) {
+    const id = String((p && p.guid) || "");
+    if (!/^F[0-9A-Z]{8,}$/.test(id)) return false;
+    const name = String((p && p.name) || "");
+    if (/^Deleted\s*\(/.test(name)) return false;
+    return true;
+  }
+
+  // ---- Properties chooser (like the native "Properties · All ⌄" row) ----
+
+  _cardPrefs() {
+    // localStorage, NOT plugin config: saveConfiguration makes Thymer RELOAD the
+    // whole plugin (verified live — that reload tore down every card and was THE
+    // view-change jump). Per-client persistence is fine for a view preference.
+    // Modes: "all" = every user field, ALWAYS · "filled" = non-empty, ALWAYS ·
+    // "custom" = the user's own checklist (the only mode where `hidden` applies —
+    // a hidden set leaking into All meant "All" lied).
+    let c = {};
+    try { c = JSON.parse(localStorage.getItem("refx-card-prefs") || "{}") || {}; } catch (e) {}
+    const mode = (c.mode === "filled" || c.mode === "custom") ? c.mode : "all";
+    return { mode, hidden: new Set(Array.isArray(c.hidden) ? c.hidden : []) };
+  }
+
+  async _applyCardPrefs(mode, hidden, keepOpen) {
+    try { localStorage.setItem("refx-card-prefs", JSON.stringify({ mode, hidden: [...hidden] })); } catch (e) {}
+    // Scroll strategy (measured live): the browser's own scroll anchoring keeps
+    // the viewport visually still through the card's height change — DON'T fight
+    // it with scrollTop restores (that caused the jump). Shrinks land pixel-
+    // stable; growth leaves a ~10px residue from post-anchoring settle, so take
+    // ONE gentle correction at the end, anchored on a line the user actually
+    // SEES: remember a visible line's viewport offset, and after everything
+    // settles nudge its scroller by the drift.
+    let anchor = null;
+    try {
+      const vh = window.innerHeight;
+      const it = [...document.querySelectorAll(".listitem")].find((el) => { const r = el.getBoundingClientRect(); return r.top >= 80 && r.top < vh - 120 && r.height > 8; });
+      if (it && it.getAttribute("data-guid")) anchor = { guid: it.getAttribute("data-guid"), top: it.getBoundingClientRect().top };
+    } catch (e) {}
+    if (!keepOpen) this._closeCardPopup();
+    await Promise.all([...this._cards].map(([lg, e]) => this._renderFreshCard(lg, e.recordGuid, true)));
+    if (anchor) {
+      setTimeout(() => {
+        try {
+          const esc = (window.CSS && CSS.escape) ? CSS.escape(anchor.guid) : anchor.guid;
+          const el = document.querySelector('.listitem[data-guid="' + esc + '"]');
+          if (!el) return;
+          const d = el.getBoundingClientRect().top - anchor.top;
+          const sc = el.closest(".panel-scroller-y");
+          if (sc && Math.abs(d) > 3) sc.scrollTop += d;
+        } catch (e) {}
+      }, 650);
+    }
+  }
+
+  // Popup mirroring the native property chooser: a "View properties ..." filter
+  // field, view modes (Filled in / All / Custom), then a per-property checklist.
+  // The checkmarks SHOW WHAT THE CARD CURRENTLY SHOWS; toggling a field switches
+  // to Custom seeded from the current view, so "All" always means all.
+  _openPropsChooser(rec, lineGuid, anchorEl) {
+    const pop = this._el("div", "refalias-pop refx-cardpop refx-propchooser");
+    const inp = this._el("input", "refalias-input");
+    inp.placeholder = "View properties ...";
+    const list = this._el("div", "refalias-results");
+
+    // The record's user fields + emptiness (drives "what shows" per mode). Read
+    // through _recCardFields UNFILTERED by briefly pinning prefs to "all" — one
+    // source of truth for field typing/values, no duplicated probing logic.
+    let fields = [];
+    try {
+      const saved = localStorage.getItem("refx-card-prefs");
+      localStorage.setItem("refx-card-prefs", JSON.stringify({ mode: "all", hidden: [] }));
+      const allFields = this._recCardFields(rec);
+      if (saved != null) localStorage.setItem("refx-card-prefs", saved); else localStorage.removeItem("refx-card-prefs");
+      fields = allFields.map((f) => ({ name: f.name, empty: f.value === "" || f.value == null }));
+    } catch (e) {}
+
+    const visibleNow = () => {
+      const p = this._cardPrefs();
+      return new Set(fields.filter((f) => {
+        if (p.mode === "filled") return !f.empty;
+        if (p.mode === "custom") return !p.hidden.has(f.name);
+        return true;
+      }).map((f) => f.name));
+    };
+
+    const rebuild = () => {
+      list.innerHTML = "";
+      const p = this._cardPrefs();
+      const vis = visibleNow();
+      const addRow = (label, checked, cb, isMode) => {
+        const r = this._el("div", "refalias-result");
+        if (isMode) r.dataset.mode = "1";
+        const chk = this._el("span", "refx-chk ti " + (checked ? "ti-check" : ""));
+        r.append(chk, this._el("span", "refx-chooser-lbl", label));
+        r.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); cb(); });
+        list.append(r);
+      };
+      addRow("Filled in", p.mode === "filled", () => { this._applyCardPrefs("filled", p.hidden, true); rebuild(); }, true);
+      addRow("All", p.mode === "all", () => { this._applyCardPrefs("all", p.hidden, true); rebuild(); }, true);
+      addRow("Custom", p.mode === "custom", () => { this._applyCardPrefs("custom", p.hidden, true); rebuild(); }, true);
+      list.append(this._el("div", "refx-chooser-sep"));
+      const q = (inp.value || "").toLowerCase();
+      for (const f of fields) {
+        if (q && !f.name.toLowerCase().includes(q)) continue;
+        addRow(f.name, vis.has(f.name), () => {
+          // Toggling a field = switch to Custom, seeded from what's visible NOW.
+          const want = visibleNow();
+          if (want.has(f.name)) want.delete(f.name); else want.add(f.name);
+          const hidden = new Set(fields.map((x) => x.name).filter((n) => !want.has(n)));
+          this._applyCardPrefs("custom", hidden, true);
+          rebuild();
+        });
+      }
+    };
+    inp.addEventListener("input", rebuild);
+    rebuild();
+    pop.append(inp, list);
+    this._openCardPopup(pop, anchorEl, {}); // default: focuses the input → arrows/Enter/Esc work
+  }
+
 
   _buildPropCard(rec, fields, lineGuid, bodyEmpty) {
     const card = this._el("div", this._CARD_CLASS);
     card.append(this._el("div", "refx-propcard-title", (rec.getName && rec.getName()) || "Untitled"));
+    // "Properties · All ⌄" chooser row, structured like the native pane header
+    // (muted label · mode chip).
+    const head = this._el("div", "refx-props-header");
+    head.append(this._el("span", null, "Properties"), this._el("span", null, "·"));
+    const mode = this._el("span", "refx-props-mode");
+    const m0 = this._cardPrefs().mode;
+    mode.append(document.createTextNode(m0 === "filled" ? "Filled in" : (m0 === "custom" ? "Custom" : "All")));
+    const car = this._el("span", "ti ti-selector");
+    mode.append(car);
+    const openCh = (e) => { e.preventDefault(); e.stopPropagation(); this._openPropsChooser(rec, lineGuid, head); };
+    mode.addEventListener("mousedown", openCh);
+    mode.addEventListener("click", openCh);
+    head.append(mode);
+    card.append(head);
     if (fields.length) {
+      // Wrap the rows in the native property-editor containers so Thymer's own
+      // row/cell/pill CSS applies (native look, theme-following).
+      const wrap = this._el("div", "page-props-editor refx-native-props");
+      const props = this._el("div", "id--props");
       for (const f of fields) {
         const row = this._el("div", "refx-propcard-row");
         this._fillPropRow(rec, lineGuid, f, row);
-        card.append(row);
+        props.append(row);
       }
+      wrap.append(props);
+      card.append(wrap);
     } else {
       card.append(this._el("div", "refx-propcard-empty", "No properties"));
     }
@@ -1285,13 +1538,27 @@ class Plugin extends AppPlugin {
   }
 
   // (Re)render a single property row: label + clickable value (— when empty).
+  // NATIVE-LOOK ROWS: reuse Thymer's own property-editor classes so the card rows
+  // pick up the exact native styling (typography, spacing, pills) and follow the
+  // theme for free. Structure mirrors the real .page-props-row (confirmed live):
+  //   .page-props-cell.page-prop-type  → type icon + .prop-label-text
+  //   .page-props-cell.page-prop-val   → value (pills / plain text) + hover pencil
+  // The refx-* classes stay on the same elements — all nav/edit/refresh code keys
+  // off them and is unchanged.
   _fillPropRow(rec, lineGuid, field, rowEl) {
     rowEl.innerHTML = "";
     rowEl.dataset.refxRow = field.name; // maps row → field for in-place refresh
-    rowEl.append(this._el("span", "refx-propcard-label", field.name));
+    rowEl.classList.add("page-props-row", "id-prop-row");
+    const typeCell = this._el("div", "page-props-cell page-prop-type page-props-cell-fixed-width");
+    typeCell.append(this._el("span", "ti ti-align-left"));
+    typeCell.append(this._el("span", "prop-label-text refx-propcard-label", field.name));
+    rowEl.append(typeCell);
+
     const empty = field.value === "" || field.value == null;
-    const shown = empty ? "—" : String(field.display || (field.kind === "date" && this._fmtDateDisplay(field.value)) || field.value);
-    const val = this._el("span", "refx-propcard-value" + (empty ? " refx-propcard-empty" : ""), shown);
+    const shown = empty ? "" : String(field.display || (field.kind === "date" && this._fmtDateDisplay(field.value)) || field.value);
+    const valCell = this._el("div", "page-props-cell page-prop-val");
+    const val = this._el("span", "refx-propcard-value" + (empty ? " refx-propcard-empty" : ""));
+    this._renderValContent(val, field, empty, shown);
     if (!empty) val.title = shown;
     // Keyed by name so the keyboard-nav cursor + in-place refresh can re-derive
     // the field (the row itself is keyed via rowEl.dataset.refxRow above).
@@ -1301,7 +1568,83 @@ class Plugin extends AppPlugin {
     const open = (e) => { e.preventDefault(); e.stopPropagation(); this._editCardValue(rec, lineGuid, field, val, rowEl); };
     val.addEventListener("mousedown", open);
     val.addEventListener("click", open);
-    rowEl.append(val);
+    valCell.addEventListener("mousedown", open); // blank cell area edits too (native empties are blank)
+    valCell.addEventListener("click", open);
+    valCell.append(val);
+    // Native-style hover pencil as the edit affordance (empties render blank).
+    valCell.append(this._el("span", "refx-propcard-pencil ti ti-pencil"));
+    rowEl.append(valCell);
+  }
+
+  // Render a value span's CONTENT the way the native property pane does:
+  // relation/choice → one pill per value (native .prop-status chip, enum colors,
+  // the target's collection icon leading — native markup verbatim);
+  // date/text/number → plain text. Empty → blank (native shows nothing).
+  // The display string is stashed on the span so refresh can no-op cheaply.
+  _renderValContent(val, field, empty, display) {
+    val.dataset.refxDisplay = display || "";
+    val.innerHTML = "";
+    if (empty) return;
+    if (field.kind === "relation" || field.kind === "choice") {
+      const parts = (field.pills && field.pills.length) ? field.pills : [{ t: display, icon: null }];
+      const host = parts.length > 1 ? this._el("span", "prop-multi-values") : val;
+      for (const p of parts) {
+        const chip = this._el("span", "prop-status prop-status-record");
+        chip.style.backgroundColor = "var(--enum-zinc-bg)";
+        chip.style.color = "var(--enum-zinc-fg)";
+        if (p.icon) { const ic = this._el("span", "ti " + p.icon); ic.style.marginRight = "5px"; chip.append(ic); }
+        chip.append(document.createTextNode(p.t != null ? p.t : String(p)));
+        // Native record chips end with a clickable ↗ that opens the record (this is
+        // also what gives native chips their height — the arrow is the tallest part).
+        if (p.guid) {
+          const ar = this._el("span", "link-menu-opener ti ti-arrow-up-right refx-chip-arrow");
+          // Native arrows carry these data attrs; if Thymer's link-menu handling is
+          // event-delegated, our arrows inherit the full native hover menu ("Open in
+          // other panel" etc.) for free. Our own click nav stays as the guaranteed
+          // baseline (same destination, so a double-handle is harmless).
+          ar.setAttribute("data-mode", "link");
+          ar.setAttribute("data-guid", p.guid);
+          ar.setAttribute("data-padding", "3px");
+          const go = (e) => { e.preventDefault(); e.stopPropagation(); this._openRecord(p.guid); };
+          ar.addEventListener("mousedown", go);
+          ar.addEventListener("click", go);
+          chip.append(ar);
+        }
+        host.append(chip);
+      }
+      if (host !== val) val.append(host);
+    } else {
+      // Plain values (dates, text, numbers) get the native plain-value class so
+      // size/typography match the real pane exactly and track the theme.
+      val.append(this._el("span", "prop-status prop-status-0p", display));
+    }
+  }
+
+  // Open a record in the active panel (the chip arrow's action, like native).
+  _openRecord(guid) {
+    try {
+      const p = this.ui.getActivePanel && this.ui.getActivePanel();
+      const ws = (window.g_universe && window.g_universe.workspaceGuid) || null;
+      if (p && p.navigateTo) p.navigateTo({ type: "edit_panel", rootId: guid, subId: null, workspaceGuid: ws, state: { positions: [guid, "empty-" + guid, 0, "L"] } });
+    } catch (e) {}
+  }
+
+  // The icon shown in a native record pill = the record's OWN icon (the "Icon"
+  // system property, e.g. ti-check on a Done status record — verified live);
+  // fall back to its collection's icon when the record has none set.
+  _iconForRecord(rec) {
+    let ic = null;
+    try { const ip = rec && rec.prop && rec.prop("Icon"); const t = ip && ip.text && ip.text(); if (t && typeof t === "string") ic = t.trim(); } catch (e) {}
+    if (!ic) {
+      try {
+        const row = rec && rec._getRow && rec._getRow();
+        const pg = row && row.pguid;
+        const col = pg && this._colByGuid && this._colByGuid[pg];
+        if (col) { const cfg = col.getConfiguration && col.getConfiguration(); ic = (cfg && cfg.icon) || null; }
+      } catch (e) {}
+    }
+    if (!ic) return null;
+    return String(ic).indexOf("ti-") === 0 ? ic : "ti-" + ic;
   }
 
 
@@ -1321,25 +1664,28 @@ class Plugin extends AppPlugin {
       if (!rowEl) return;
     }
     const empty = field.value === "" || field.value == null;
-    const display = empty ? "—" : String(field.display || (field.kind === "date" && this._fmtDateDisplay(field.value)) || field.value);
+    const display = empty ? "" : String(field.display || (field.kind === "date" && this._fmtDateDisplay(field.value)) || field.value);
     let val = rowEl.querySelector(".refx-propcard-value");
     if (val) {
-      // Skip no-op writes: a textContent swap is a mutation the body observer
-      // wakes on — a refresh pass over unchanged rows would otherwise amplify
-      // into observer callbacks for nothing.
-      if (val.textContent !== display) val.textContent = display;
+      // Skip no-op writes: a DOM swap is a mutation the body observer wakes on —
+      // a refresh pass over unchanged rows would otherwise amplify into observer
+      // callbacks for nothing. The last-rendered display is stashed on the span.
+      if (val.dataset.refxDisplay !== display) this._renderValContent(val, field, empty, display);
       if (val.classList.contains("refx-propcard-empty") !== empty) val.classList.toggle("refx-propcard-empty", empty);
       if (empty) { if (val.hasAttribute("title")) val.removeAttribute("title"); } else if (val.title !== display) val.title = display;
       if (val.dataset.refxField !== field.name) val.dataset.refxField = field.name;
     } else {
       const input = rowEl.querySelector("input");
-      val = this._el("span", "refx-propcard-value" + (empty ? " refx-propcard-empty" : ""), display);
+      val = this._el("span", "refx-propcard-value" + (empty ? " refx-propcard-empty" : ""));
+      this._renderValContent(val, field, empty, display);
       val.dataset.refxField = field.name;
       if (!empty) val.title = display;
       const open = (e) => { e.preventDefault(); e.stopPropagation(); this._editCardValue(rec, lineGuid, field, val, rowEl); };
       val.addEventListener("mousedown", open);
       val.addEventListener("click", open);
-      if (input) input.replaceWith(val); else rowEl.append(val);
+      const cell = rowEl.querySelector(".page-prop-val") || rowEl;
+      if (input) input.replaceWith(val);
+      else { const pen = cell.querySelector(".refx-propcard-pencil"); if (pen) cell.insertBefore(val, pen); else cell.append(val); }
     }
   }
 
@@ -1540,6 +1886,11 @@ class Plugin extends AppPlugin {
       card.style.marginRight = mr;
       card.style.width = "calc(100% - " + ml + " - " + mr + ")";
       card.style.flex = "0 0 auto";
+      // Fuse the card with the body box: copy the transclusion container's OWN
+      // computed background/border colours (no CSS var exposes them, and hardcoding
+      // a colour would break on theme switch — this follows any theme).
+      if (cs.backgroundColor && cs.backgroundColor !== "rgba(0, 0, 0, 0)") card.style.backgroundColor = cs.backgroundColor;
+      if (cs.borderTopColor) card.style.borderColor = cs.borderTopColor;
     } catch (e) {}
   }
 
@@ -1686,13 +2037,14 @@ class Plugin extends AppPlugin {
     // commit: write + optimistic in-place row update + poll-confirm (no teardown).
     // cancel: swap the <input> back to a value span showing the original value, in
     // place (no innerHTML clear). Both re-establish the nav cursor.
-    const commit = (raw) => { if (done) return; done = true; this._activeEdit = null; this._commitClaim(lineGuid); this._cardEditing = false; this._writeCardProp(rec, field, raw); this._commitRefreshRow(rec, lineGuid, field, field.value, rowEl, raw); this._flushDeferredDiscover(); };
+    const commit = (raw) => { if (done) return; done = true; this._activeEdit = null; this._commitClaim(lineGuid); this._cardEditing = false; this._writeCardProp(rec, field, raw); this._commitRefreshRow(rec, lineGuid, field, field.value, rowEl, raw); this._flushDeferredDiscover(); this._refocusEditor(); };
     const cancel = () => {
       if (done) return; done = true; this._activeEdit = null; this._cardEditing = false;
       let fresh = field; try { const f = this._recCardFields(rec).find((x) => x.name === field.name); if (f) fresh = f; } catch (e) {}
       this._applyRowValue(rec, lineGuid, fresh, rowEl);
       this._consumeNavResume(lineGuid);
       this._flushDeferredDiscover();
+      this._refocusEditor();
     };
     // Track the open editor so teardown paths (collapse, navigation) can close it —
     // removing a focused <input> fires NO blur in Chromium, which would leave
@@ -1991,64 +2343,136 @@ class Plugin extends AppPlugin {
   // Lead→People, Area→Areas, Goal→Goals), the popup opens with that collection's
   // records listed so ↑/↓ + Enter work immediately; typing filters the list. Fields
   // without a target collection keep workspace-wide search-on-type.
+  // Relation picker with native anatomy (verified against the real one):
+  //   "Search option ..." field · CURRENT values first with an accent check
+  //   (click = remove) · then suggestions with their icons (the target collection
+  //   when the field declares one, else recently-edited records workspace-wide) ·
+  //   multi-value fields (schema `many`) stay open and toggle; single-value picks
+  //   replace and close · "(None)" only for single-value (multi clears by
+  //   unchecking).
   _editRelation(rec, lineGuid, field, valEl, rowEl) {
+    const meta = this._fieldMeta && field.id ? this._fieldMeta[field.id] : null;
+    if (meta && meta.read_only) return this._toast("That property is read-only.");
+    const many = !!(meta && meta.many);
     const pop = this._el("div", "refalias-pop refx-cardpop refx-relpop");
     const input = this._el("input", "refalias-input");
-    input.placeholder = "Search records… (Esc to cancel)";
+    input.placeholder = "Search option ...";
     const list = this._el("div", "refalias-results");
     pop.append(input, list);
-    let token = 0;
-    let browse = null; // [{r, name, lower}] of the target collection, when filter_colguid is set
-    const render = (entries) => {
-      // Never touch a popup that's no longer ours (closed, or a NEW popup opened) —
-      // a late async render used to poke the wrong popup's resync.
-      if (!this._cardPopup || this._cardPopup.pop !== pop) return;
+    let browse = null;   // [{r, name, lower, icon, guid}] target collection (filter_colguid)
+    let recent = null;   // same shape, recently-edited workspace-wide (no filter_colguid)
+    let closed = false;
+
+    const currentLinks = () => {
+      try {
+        return ((rec.prop(field.name).linkedRecords && rec.prop(field.name).linkedRecords()) || []).map((r) => {
+          let g = null; try { g = r._getRow && r._getRow().guid; } catch (e) {}
+          return { r, guid: g, name: (r.getName && r.getName()) || "Untitled", icon: this._iconForRecord(r) };
+        }).filter((x) => x.guid);
+      } catch (e) { return []; }
+    };
+    const writeGuids = (guids) => {
+      this._commitClaim(lineGuid);
+      let p = null; try { p = rec.prop(field.name); } catch (e) {}
+      if (!p) return;
+      try { p.set(many ? guids : (guids[0] || "")); } catch (e) { try { p.set(guids); } catch (e2) {} }
+    };
+    const refreshRow = (display) => { this._commitRefreshRow(rec, lineGuid, field, field.value, rowEl, display); };
+
+    const render = (q) => {
+      if (closed || !this._cardPopup || this._cardPopup.pop !== pop) return;
       list.innerHTML = "";
-      const clr = this._el("div", "refalias-result refx-cardpop-clear");
-      clr.append(this._el("span", "refalias-result-text", "— (clear)"));
-      clr.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); this._commitClaim(lineGuid); this._closeCardPopup(); this._clearRelation(rec, field); this._commitRefreshRow(rec, lineGuid, field, field.value, rowEl, ""); });
-      list.append(clr);
-      for (const ent of entries) {
-        const r = ent.r, name = ent.name;
-        const row = this._el("div", "refalias-result" + (name === field.value ? " refalias-result-sel" : ""));
-        row.append(this._el("span", "refalias-result-text", name));
-        row.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); this._commitClaim(lineGuid); this._closeCardPopup(); this._setRelation(rec, field, r); this._commitRefreshRow(rec, lineGuid, field, field.value, rowEl, name); });
+      const ql = (q || "").trim().toLowerCase();
+      const cur = currentLinks();
+      const curGuids = new Set(cur.map((c) => c.guid));
+      // 1) current values, accent-checked; click removes (multi) / clears (single)
+      for (const c of cur) {
+        if (ql && !c.name.toLowerCase().includes(ql)) continue;
+        const row = this._el("div", "refalias-result refx-opt-checked");
+        const chk = this._el("span", "refx-opt-chkbadge"); chk.append(this._el("span", "ti ti-check")); row.append(chk);
+        if (c.icon) row.append(this._el("span", "refx-opt-ico ti " + c.icon));
+        row.append(this._el("span", "refalias-result-text", c.name));
+        row.addEventListener("mousedown", (e) => {
+          e.preventDefault(); e.stopPropagation();
+          const left = currentLinks().filter((x) => x.guid !== c.guid);
+          writeGuids(left.map((x) => x.guid));
+          refreshRow(left.map((x) => x.name).join(", "));
+          if (many) render(input.value); else { closed = true; this._closeCardPopup(); }
+        });
         list.append(row);
+      }
+      // 2) suggestions (minus already-picked), each with its record icon
+      const src = browse || recent || [];
+      const matches = src.filter((ent) => !curGuids.has(ent.guid) && (!ql || ent.lower.includes(ql))).slice(0, 40);
+      for (const ent of matches) {
+        const row = this._el("div", "refalias-result");
+        if (ent.icon) row.append(this._el("span", "refx-opt-ico ti " + ent.icon));
+        row.append(this._el("span", "refalias-result-text", ent.name));
+        row.addEventListener("mousedown", (e) => {
+          e.preventDefault(); e.stopPropagation();
+          if (many) {
+            const now = currentLinks();
+            writeGuids(now.map((x) => x.guid).concat([ent.guid]));
+            refreshRow(now.map((x) => x.name).concat([ent.name]).join(", "));
+            input.value = ""; render("");
+          } else {
+            closed = true; this._closeCardPopup();
+            writeGuids([ent.guid]);
+            refreshRow(ent.name);
+          }
+        });
+        list.append(row);
+      }
+      if (!cur.length && !matches.length) list.append(this._el("div", "refx-cardpop-empty", "No matches"));
+      // 3) "(None)" clears — single-value only (multi clears by unchecking)
+      if (!many) {
+        const clr = this._el("div", "refalias-result refx-cardpop-clear");
+        clr.append(this._el("span", "refalias-result-text", "(None)"));
+        clr.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); closed = true; this._commitClaim(lineGuid); this._closeCardPopup(); this._clearRelation(rec, field); refreshRow(""); });
+        list.append(clr);
       }
       if (this._cardPopup && this._cardPopup.resync) this._cardPopup.resync(false);
     };
-    const showBrowse = (q) => {
-      const ql = (q || "").toLowerCase();
-      render(browse.filter((ent) => !ql || ent.lower.includes(ql)).slice(0, 50));
-    };
-    let t = 0;
-    const search = async (q) => {
-      if (browse) return; // the collection-scoped list owns the popup — never replace it with workspace-wide results
-      const my = ++token; let res = null; try { res = await this.data.searchByQuery(q, 20); } catch (e) {}
-      if (my !== token || browse) return;
-      render((((res && res.records) || []).slice(0, 12)).map((r) => { const name = (r.getName && r.getName()) || "Untitled"; return { r, name }; }));
-    };
+
     input.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Escape") { e.preventDefault(); this._closeCardPopup(); } });
-    input.addEventListener("input", () => {
-      if (t) clearTimeout(t);
-      const q = input.value.trim();
-      if (browse) { showBrowse(q); return; }        // instant client-side filter
-      t = setTimeout(() => { if (q) search(q); else render([]); }, 160);
-    });
+    input.addEventListener("input", () => render(input.value));
     this._openCardPopup(pop, valEl);
     setTimeout(() => { try { input.focus(); } catch (e) {} }, 0);
-    // Seed the browse list from the field's declared target collection. Names are
-    // computed ONCE here (getName per record per keystroke was the hot path).
-    const meta = this._fieldMeta && field.id ? this._fieldMeta[field.id] : null;
+    render("");
+
+    const entify = (r) => {
+      // Per-record armour: ONE record with a throwing getName()/prop() must not
+      // kill the whole list (it silently did — the "empty suggestions" bug).
+      try {
+        const name = (r.getName && r.getName()) || "Untitled";
+        let g = null; try { g = r._getRow && r._getRow().guid; } catch (e) {}
+        let ic = null; try { ic = this._iconForRecord(r); } catch (e) {}
+        return { r, name, lower: name.toLowerCase(), icon: ic, guid: g };
+      } catch (e) { return { r, name: "", lower: "", icon: null, guid: null }; }
+    };
     const col = meta && meta.filter_colguid && this._colByGuid ? this._colByGuid[meta.filter_colguid] : null;
     if (col && col.getAllRecords) {
+      // Declared target collection → its records, alphabetical.
       col.getAllRecords().then((recs) => {
-        if (!this._cardPopup || this._cardPopup.pop !== pop) return; // popup already closed
-        if (t) { clearTimeout(t); t = 0; } // kill any pending workspace-wide search
-        browse = (recs || []).map((r) => { const name = (r.getName && r.getName()) || "Untitled"; return { r, name, lower: name.toLowerCase() }; })
-          .sort((a, b) => a.name.localeCompare(b.name));
-        showBrowse(input.value.trim());
+        if (closed || !this._cardPopup || this._cardPopup.pop !== pop) return;
+        browse = (recs || []).map(entify).filter((x) => x.guid).sort((a, b) => a.name.localeCompare(b.name));
+        render(input.value);
       }).catch(() => {});
+    } else {
+      // No declared collection → recently edited records workspace-wide (what
+      // native suggests). u_at lives on the raw row — cheap to sort; only the
+      // top slice pays getName/icon resolution.
+      setTimeout(() => {
+        if (closed || !this._cardPopup || this._cardPopup.pop !== pop) return;
+        try {
+          const all = (this.data.getAllRecords && this.data.getAllRecords()) || [];
+          const rows = [];
+          for (const r of all) { try { const row = r._getRow && r._getRow(); if (row && row.guid) rows.push({ r, u: row.u_at || 0 }); } catch (e) {} }
+          rows.sort((a, b) => b.u - a.u);
+          recent = rows.slice(0, 300).map((x) => entify(x.r)).filter((x) => x.guid); // x.r, NOT x — the wrapper has no record API
+          render(input.value);
+        } catch (e) {}
+      }, 0);
     }
   }
 
@@ -2181,7 +2605,22 @@ class Plugin extends AppPlugin {
       // the top of _openCardPopup (before the popup exists) doesn't consume it.
       this._consumeNavResume();
       this._flushDeferredDiscover();
+      this._refocusEditor();
     }
+  }
+
+  // The popup's <input> takes DOM focus; when it closes, activeElement falls back
+  // to <body> and Thymer's editor stops receiving keys (the ↓-into-card nav and
+  // plain typing both die until you click). Thymer captures keys through a virtual
+  // textarea — focusing it re-engages the editor at the current caret.
+  _refocusEditor() {
+    setTimeout(() => {
+      // preventScroll is ESSENTIAL: the virtual input sits at the CARET's position,
+      // which can be anywhere on the page — a plain focus() scrolls it into view
+      // and "jumps" the page (the view-change jump bug).
+      try { const vi = window.g_virtual_input; if (vi && vi.$textarea && vi.$textarea.focus) { vi.$textarea.focus({ preventScroll: true }); return; } } catch (e) {}
+      try { const ta = document.getElementById("virtualinput"); if (ta && ta.focus) ta.focus({ preventScroll: true }); } catch (e) {}
+    }, 0);
   }
 
   // ------------------------------------------------- inline [[ text references
@@ -2624,19 +3063,24 @@ class Plugin extends AppPlugin {
     return parts.join("+");
   }
 
-  async _saveShortcut(str) {
-    const parsed = this._parseShortcut(str);
-    if (!parsed) return this._toast("That shortcut needs Cmd/Ctrl or Alt plus a key.");
+  // Persist both shortcuts at once and rebind them live (the listeners read
+  // this._hotkey / this._convertHotkey). NOTE: saveConfiguration triggers a plugin
+  // reload — acceptable here (rare, explicit action), NOT for view prefs.
+  async _saveShortcuts(aliasStr, convertStr) {
+    const a = this._parseShortcut(aliasStr), c = this._parseShortcut(convertStr);
+    if (!a || !c) return this._toast("Each shortcut needs Cmd/Ctrl or Alt plus a key.");
     try {
       const conf = this.getConfiguration();
       conf.custom = conf.custom || {};
-      conf.custom.shortcut = str;
+      conf.custom.shortcut = aliasStr;
+      conf.custom.convertShortcut = convertStr;
       const all = await this.data.getAllGlobalPlugins();
       const me = all.find((g) => g.getGuid && g.getGuid() === this.getGuid());
       if (me && me.saveConfiguration) me.saveConfiguration(conf);
     } catch (e) {}
-    this._hotkey = parsed; // rebind live — the listener reads this._hotkey
-    this._toast("Shortcut set to " + this._prettyShortcut(str));
+    this._hotkey = a;
+    this._convertHotkey = c;
+    this._toast("Shortcuts saved");
   }
 
   // ------------------------------------------------------------------- modals
@@ -2731,7 +3175,7 @@ class Plugin extends AppPlugin {
     document.body.append(catcher);
     this._modal = { backdrop: catcher };
 
-    const close = () => this._closeModal();
+    const close = () => { this._closeModal(); this._refocusEditor(); };
     const doSave = () => { close(); this._writeAlias(r, input.value); };
     save.addEventListener("click", doSave);
     catcher.addEventListener("mousedown", (e) => { if (e.target === catcher) close(); });
@@ -2794,42 +3238,57 @@ class Plugin extends AppPlugin {
     pop.style.top = Math.round(top) + "px";
   }
 
+  // One dialog with both shortcuts (alias + convert). One row is always the
+  // "active" one (highlighted); the next combo captures into it. Click a row (or
+  // Tab) to switch. Does NOT rely on DOM focus — focusable divs don't focus
+  // reliably inside this modal.
   _openShortcutModal() {
-    const currentStr = ((this.getConfiguration() || {}).custom || {}).shortcut || "Mod+Shift+A";
-    let captured = null;
-    let fieldRef = null;
-    const ctl = this._openModal({
-      title: "Alias keyboard shortcut",
-      saveLabel: "Save shortcut",
-      onSave: () => { if (captured) this._saveShortcut(captured); },
+    const cust = ((this.getConfiguration() || {}).custom) || {};
+    const val = { alias: cust.shortcut || "Mod+Shift+A", convert: cust.convertShortcut || "Mod+Ctrl+R" };
+    const order = ["alias", "convert"];
+    const fields = {};
+    let active = "alias";
+
+    const setActive = (key) => { active = key; order.forEach((k) => fields[k].classList.toggle("refalias-capturing", k === key)); };
+
+    const addRow = (body, key, label) => {
+      const row = this._el("div", "refalias-scrow");
+      row.append(this._el("div", "refalias-sclabel", label));
+      const field = this._el("div", "refalias-capture", this._prettyShortcut(val[key]));
+      row.append(field);
+      row.addEventListener("mousedown", (e) => { e.preventDefault(); setActive(key); });
+      fields[key] = field;
+      body.append(row);
+    };
+
+    this._openModal({
+      title: "Reference Extravaganza shortcuts",
+      saveLabel: "Save",
+      onSave: () => { this._saveShortcuts(val.alias, val.convert); },
       render: (body) => {
-        const sub = this._el("div", "refalias-sub");
-        sub.innerHTML = "Current: <b></b>";
-        sub.querySelector("b").textContent = this._prettyShortcut(currentStr);
-        fieldRef = this._el("div", "refalias-capture refalias-capture-empty", "Press your shortcut…");
-        fieldRef.tabIndex = 0;
-        const hint = this._el("div", "refalias-hint", "Hold ⌘/Ctrl (or ⌥/Alt), optionally ⇧, then a key. Esc to cancel.");
-        body.append(sub, fieldRef, hint);
-        return { value: () => captured, canSave: () => !!captured, focusEl: fieldRef };
+        addRow(body, "alias", "Set alias for reference");
+        addRow(body, "convert", "Convert reference ↔ embedded line");
+        body.append(this._el("div", "refalias-hint", "Click a row to pick it (or Tab), then press the keys: hold ⌘/Ctrl (or ⌥/Alt), optionally ⇧, then a key."));
+        setActive("alias");
+        return { value: () => val };
       },
     });
 
-    // Capture at the window CAPTURE phase (the same level the main shortcut
-    // uses), so the combo is intercepted before Thymer's own shortcut handling.
-    // A field/target-level listener silently loses any combo Thymer claims.
+    // Window CAPTURE phase (same level the shortcuts fire) so the combo is caught
+    // before Thymer's own handling. The dialog owns every keystroke while open.
     const cap = (e) => {
       if (e.key === "Escape") { e.preventDefault(); this._closeModal(); return; }
       e.preventDefault();
       e.stopImmediatePropagation();
+      if (e.key === "Tab") { setActive(active === "alias" ? "convert" : "alias"); return; }
       if (e.key === "Shift" || e.key === "Control" || e.key === "Alt" || e.key === "Meta") return;
-      const s = this._eventToShortcut(e);
-      fieldRef.classList.remove("refalias-capture-empty");
-      if (!s) { fieldRef.textContent = "Add ⌘/Ctrl or ⌥/Alt…"; captured = null; }
-      else { fieldRef.textContent = this._prettyShortcut(s); captured = s; }
-      if (ctl && ctl._refreshSave) ctl._refreshSave();
+      const s2 = this._eventToShortcut(e);
+      const field = fields[active];
+      if (!s2) field.textContent = "Add ⌘/Ctrl or ⌥/Alt…";
+      else { val[active] = s2; field.textContent = this._prettyShortcut(s2); }
     };
     window.addEventListener("keydown", cap, true);
-    window.__refxShortcutCap = cap; // hot-reload stash (this capture swallows EVERY key)
+    window.__refxShortcutCap = cap; // hot-reload stash
     if (this._modal) this._modal.cleanup = () => { window.removeEventListener("keydown", cap, true); window.__refxShortcutCap = null; };
   }
 
@@ -2943,13 +3402,15 @@ class Plugin extends AppPlugin {
 .refx-propcard {
   margin: 2px 0 0; padding: 8px 10px;
   border-radius: 9px 9px 0 0;
-  /* One subtle luminance step above the body surface (neutral hue → works on
-     light and dark themes): the card reads as the "header" of the fused box. */
-  background: rgba(127,127,127,.11);
+  /* Background/border colours are copied from the transclusion body container at
+     render (see _alignCardToBody) so card + body read as ONE box in any theme. */
+  background: transparent;
   border: 1px solid rgba(127,127,127,.18);
   border-bottom: none;
   color: var(--text-color, #555958);
-  font-size: 12px; line-height: 1.45;
+  /* NO font-size/line-height here: rows and pills inherit through the native
+     .page-props-editor scope, so they match the real property pane exactly and
+     track the user's theme/typography settings. */
   /* The card is injected as the first child of .listitem-transclusion (a flex row);
      take the full width on its own line above the body (see _renderCardInto). */
   order: -1; flex: 0 0 100%; box-sizing: border-box;
@@ -2965,17 +3426,39 @@ class Plugin extends AppPlugin {
   border-top-right-radius: 0 !important;
   border-top: 1px solid rgba(127,127,127,.14) !important;
 }
-.refx-propcard-title { font-weight: 600; font-size: 12.5px; margin-bottom: 5px; opacity: .92; }
-.refx-propcard-row { display: flex; gap: 8px; padding: 1.5px 0; align-items: baseline; }
-.refx-propcard-label { flex: 0 0 34%; max-width: 34%; opacity: .55; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.refx-propcard-value {
-  flex: 1 1 auto; min-width: 0; cursor: text; border-radius: 4px; padding: 0 2px;
-  overflow: hidden; text-overflow: ellipsis;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+.refx-propcard-title { font-weight: 600; font-size: 13px; margin-bottom: 2px; opacity: .92; }
+/* Rows render through Thymer's own .page-props-row/.page-props-cell CSS (native
+   look, theme-following). Only additions on top of native: */
+.refx-native-props { pointer-events: auto; }
+.refx-native-props .page-props-row { cursor: default; }
+/* native puts this gap via its container scope; replicate inside the card */
+.refx-native-props .page-prop-type { display: flex; align-items: center; gap: 9px; }
+.refx-native-props .page-prop-type .ti { opacity: .55; font-size: 13px; }
+.refx-native-props .page-prop-val { display: flex; align-items: center; }
+.refx-native-props .page-prop-val { cursor: pointer; min-height: 20px; }
+.refx-propcard-value { min-width: 24px; min-height: 16px; display: inline-flex; align-items: center; border-radius: 4px; }
+.refx-propcard-value.refx-propcard-empty { min-width: 0; } /* empty renders blank → pencil sits at the column start, like native */
+.refx-propcard-value .prop-multi-values { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; }
+/* native hover pencil as the edit affordance */
+.refx-propcard-pencil { margin-left: 4px; font-size: 12px; opacity: 0; transition: opacity .12s; }
+.refx-native-props .page-props-row:hover .refx-propcard-pencil { opacity: .45; }
+.refx-propcard-empty { opacity: .45; }
+/* "Properties · All ⌄" header + chooser popup (structured like native's) */
+.refalias-capturing { border-color: var(--input-border-focus, rgba(127,127,127,.6)) !important; box-shadow: 0 0 0 2px rgba(127,127,127,.18); }
+.refalias-scrow { display: flex; align-items: center; gap: 12px; }
+.refalias-sclabel { flex: 1; font-size: 12.5px; }
+.refalias-scrow .refalias-capture { width: 150px; flex: none; text-align: center; padding: 8px 10px; }
+.refx-props-header { display: flex; align-items: center; gap: 6px; font-size: 12.5px; opacity: .55; margin: 8px 0 5px; }
+.refx-props-mode {
+  cursor: pointer; display: inline-flex; align-items: center; gap: 3px;
+  background: rgba(127,127,127,.14); border-radius: 5px; padding: 1px 4px 1px 7px;
 }
-.refx-propcard-value:hover { background: rgba(127,127,127,.12); }
-.refx-propcard-value.refx-propcard-empty { opacity: .4; }
-.refx-propcard-empty { opacity: .45; font-style: italic; }
+.refx-props-mode:hover { background: rgba(127,127,127,.22); }
+.refx-props-mode .ti-selector { font-size: 11px; opacity: .8; }
+.refx-propchooser { width: 250px; }
+.refx-chk { width: 16px; display: inline-flex; justify-content: center; opacity: .9; font-size: 12px; }
+.refx-chooser-lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.refx-chooser-sep { height: 1px; background: rgba(127,127,127,.16); margin: 5px 4px; }
 .refx-propcard-loading { opacity: .55; }
 .refx-propcard-input { padding: 4px 6px !important; font-size: 12px !important; }
 /* keyboard nav cursor (class-based, like Thymer's native property nav) */
@@ -2992,13 +3475,52 @@ class Plugin extends AppPlugin {
   background: rgba(127,127,127,.14); opacity: 1; border-style: solid;
 }
 
-/* inline edit popups (choice / relation) reuse the .refalias-pop shell */
+/* inline edit popups (choice / relation) — styled like Thymer's native inline
+   palette: flat search field with a divider, compact rows, accent selection */
 .refx-pop-backdrop { position: fixed; inset: 0; z-index: 2147483000; background: transparent; }
-.refx-cardpop { width: 320px; max-width: calc(100vw - 24px); padding: 6px; gap: 6px; }
-.refx-cardpop .refalias-results { max-height: 260px; }
-.refx-cardpop-clear { opacity: .6; font-style: italic; }
-.refx-cardpop-empty { opacity: .5; font-style: italic; padding: 5px 8px; font-size: 12px; }
-.refx-relpop .refalias-input, .refx-choicepop .refalias-input, .refx-datepop .refalias-input { margin-bottom: 6px; }
+.refx-cardpop {
+  width: 320px; max-width: calc(100vw - 24px); padding: 0; gap: 0;
+  background: var(--cmdpal-bg-color, #232327);
+  border: 1px solid rgba(127,127,127,.22);
+  border-radius: 8px; overflow: hidden; /* native palette radius, not the rounder refalias default */
+}
+/* the ↗ on record chips (native: padded, slightly raised, opens the record) */
+.refx-chip-arrow { padding: 3px; margin-left: 2px; cursor: pointer; opacity: .85; }
+.refx-chip-arrow:hover { opacity: 1; }
+.refx-cardpop .refalias-input {
+  background: transparent !important; border: none !important;
+  border-bottom: 1px solid rgba(127,127,127,.16) !important;
+  border-radius: 0 !important; padding: 10px 12px !important;
+  margin-bottom: 0 !important; font-size: 13px !important;
+}
+.refx-cardpop .refalias-results { max-height: 280px; padding: 5px; }
+/* the base .refalias-result is a COLUMN flex (from the [[ picker's two-line rows);
+   option rows here are native-style single lines → force row + left alignment */
+.refx-cardpop .refalias-result {
+  display: flex; flex-direction: row; align-items: center; justify-content: flex-start;
+  text-align: left; gap: 7px; padding: 6px 9px; border-radius: 7px; font-size: 13px;
+}
+.refx-cardpop .refalias-result-sel { background: var(--ed-button-primary-bg, #479797); color: #fff; }
+/* inline text/number editor inside a card row: flat + native-like, not a pill */
+.refx-propcard .refalias-input.refx-propcard-input {
+  border-radius: 4px !important; background: transparent !important;
+  border: 1px solid var(--input-border-focus, var(--ed-button-primary-bg, #479797)) !important;
+  padding: 1px 6px !important; font-size: inherit !important; line-height: inherit !important;
+  flex: 1 1 auto; min-width: 0; width: auto;
+}
+.refx-cardpop-clear { opacity: .6; }
+.refx-opt-ico { width: 17px; flex: none; display: inline-flex; justify-content: center; font-size: 13px; opacity: .85; }
+/* current values in the relation picker: green round check badge (built, not a
+   font glyph — ti-circle-check-filled is MISSING from this icon-font build) */
+.refx-opt-checked .refalias-result-text { opacity: .75; }
+.refx-opt-chkbadge {
+  width: 17px; height: 17px; flex: none; border-radius: 50%;
+  background: var(--ed-button-primary-bg, #479797); color: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.refx-opt-chkbadge .ti { font-size: 11px; }
+.refx-cardpop-empty { opacity: .5; font-style: italic; padding: 7px 10px; font-size: 12px; }
+.refx-datepop { padding: 8px; }
 /* keyboard-first date picker — replicates the native Thymer picker's anatomy:
    NL input, month header with ‹ ○ › nav, weekday row, 6-week grid with muted
    adjacent-month days, blue focused day, bottom confirm bar with the date. */
