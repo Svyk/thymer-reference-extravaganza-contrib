@@ -20,15 +20,64 @@ class Plugin extends AppPlugin {
   // whose onLoad never ran — never rely on onLoad to initialise these).
   _cmd = null;
   _shortcutCmd = null;
+  _collapseAllCmd = null;
+  _editRecordCmd = null;
   _modal = null;
   _link = null;
-  _expand = null;
   _lastBracketTs = 0;
   _hotkey = null;
+  // Multiple embeds are real document lines (the source of truth); we keep no
+  // single-slot state. _expandInFlight only debounces double-creates from fast
+  // keypresses. _cards indexes THIS page's plugin-created record embeds
+  // (lineGuid -> {recordGuid, line}) so the property-card observer can re-inject.
+  _expandInFlight = new Set();
+  _cards = new Map();
+  _cardObs = null;
+  _cardObsTarget = null;
+  _cardEditing = false;
+  _cardRaf = 0;
+  _cardPopup = null;
+  _navHandler = null;
+  _recUpdHandler = null;
+  _discoverT = 0; // debounce timer for re-discovering embeds (focus / remote edits)
+  _discoverRefresh = false; // latched: the pending discovery should also refresh present cards
+  _discoverPending = null; // discovery deferred while an editor is open (flushed on close, no timer loop)
+  _fieldTypes = null; // lazy {fieldId -> PROP_TYPE} from all collections' config fields (schema-based kind detection)
+  _fieldMeta = null;  // fieldId -> {type, filter_colguid} (relation target collection)
+  _colByGuid = null;  // collection guid -> PluginCollectionAPI
+  _fieldTypesRebuildT = 0; // debounced schema-map self-heal when an unknown declared field is seen
+  // lineGuid -> refcount of in-flight commit polls that own that card's refresh
+  // (a COUNTING map, not a Set: overlapping commits on two fields of one card must
+  // not release ownership when the first poll completes).
+  _commitInFlight = new Map();
+  _activeEdit = null; // {lineGuid, cancel} of the open inline text/number editor (so teardown paths can close it — removing a focused <input> fires no blur in Chromium)
+  _rowRefreshT = new Map(); // lineGuid -> timer: coalesces record.updated bursts into one in-place refresh
+  _rehydrateT = 0; // the load-time retry timer (cleared on unload so a late retry can't resurrect a dead instance)
+  _unloaded = false;
+  // Keyboard nav of the property card: a CLASS-based cursor (refx-nav-focus) over
+  // the card's value cells, driven by a window-capture handler — mirrors Thymer's
+  // native title→properties arrow-nav (injected DOM can't hold real focus, but a
+  // class cursor + our own keydown handler can). _cardNav = {lineGuid, recordGuid,
+  // index}; the DOM class is the source of truth for WHICH cell, so it survives a
+  // card re-injection (never store element refs).
+  _cardNav = null;
+  // When an edit is opened from nav, we stash {lineGuid, recordGuid, index} so the
+  // cursor is re-established on the same cell after the edit's card re-render (the
+  // edit swaps the value cell for an input / rebuilds the card, which would drop
+  // the class cursor). Robust to _cardNav being cleared mid-edit by DOM churn.
+  _cardNavResume = null;
   _isMac = /Mac|iPhone|iPad/.test((typeof navigator !== "undefined" && (navigator.platform || navigator.userAgent)) || "");
   _STYLE_ID = "refalias-style";
+  _CARD_CLASS = "refx-propcard";
+  _CARD_SKIP = new Set(["Created", "Modified", "Banner", "Icon", "Scene", "Canvas Text", "Assets", "Assets 2", "Assets 3", "Assets 4", "Scene Rev", "Scene Schema", "Source Note", "Chunks", "Manifest"]);
 
   // The one always-on listener (capture phase). Cheap-first guards reject the
+  // Commit-ownership refcounting (see _commitInFlight): claim before a write,
+  // release when its poll settles; owned() gates every competing refresh path.
+  _commitClaim(g) { this._commitInFlight.set(g, (this._commitInFlight.get(g) || 0) + 1); }
+  _commitRelease(g) { const n = (this._commitInFlight.get(g) || 0) - 1; if (n > 0) this._commitInFlight.set(g, n); else this._commitInFlight.delete(g); }
+  _commitOwned(g) { return (this._commitInFlight.get(g) || 0) > 0; }
+
   // vast majority of keystrokes (plain typing) before doing anything else.
   _handleKeydown = (e) => {
     if (this._modal) return;            // a dialog is open — don't re-trigger
@@ -94,36 +143,70 @@ class Plugin extends AppPlugin {
     this._exitLinkMode();
   };
 
-  // Expand/collapse a selected reference (Tana-style). Cmd/Ctrl+Down expands the
-  // selected reference inline as a native transclusion (the target with its
-  // children, editable); Cmd/Ctrl+Up collapses it. Cheap-first guards: only acts
-  // on the exact chord, and only when a reference is actually selected (expand) or
-  // something is open (collapse), so the keystroke otherwise falls through to
-  // Thymer's native behaviour untouched.
+  // Expand/collapse references (Tana-style), now MANY at once. Cmd/Ctrl+Down
+  // expands the selected reference inline as a native transclusion (the target +
+  // its children, editable); for a record reference an editable property card is
+  // added above the body. Cmd/Ctrl+Up collapses the embed for the ref under the
+  // caret (or the embed the caret sits inside). Embeds are real document lines,
+  // so several coexist and they persist across reload. Cheap-first guards keep
+  // ordinary typing/arrowing untouched: we only intercept the exact chord, and
+  // Cmd+Up only when a reference is selected or the caret is plausibly in an embed.
   _handleExpandKey = (e) => {
     const primary = this._isMac ? e.metaKey : e.ctrlKey;
     if (!primary || e.shiftKey || e.altKey) return;
     const isDown = e.key === "ArrowDown", isUp = e.key === "ArrowUp";
     if (!isDown && !isUp) return;
     if (this._modal || this._link) return;
+    if (this._cardEditing) return; // never collapse/expand under an open editor
+    const hit = this._detect();
+    if (!hit) return;
     if (isUp) {
-      if (!this._expand) return; // nothing open → let native Cmd+Up through
+      // Only swallow Cmd+Up when it can plausibly collapse something, so a plain
+      // Cmd+Up still moves the caret natively.
+      const onRef = this._selectedRef(hit);
+      if (!onRef && !this._mightBeInEmbed(hit)) return;
       e.preventDefault(); e.stopImmediatePropagation();
-      this._collapseRef();
+      this._collapseAtCaret(hit);
       return;
     }
     // Cmd+Down: expand, but only if a reference is selected.
-    const hit = this._detect();
-    if (!hit) return;
     const ref = this._selectedRef(hit);
     if (!ref) return; // not on a reference → let native Cmd+Down through
-    if (this._expand && this._expand.targetGuid === ref.targetGuid) { e.preventDefault(); e.stopImmediatePropagation(); return; }
     e.preventDefault(); e.stopImmediatePropagation();
     this._expandRef(hit, ref);
   };
 
+  // Plain ArrowDown on a record reference whose embed is open steps the keyboard
+  // "nav cursor" into that embed's property card (like native title→properties).
+  // Cheap-first guards keep ordinary arrowing untouched — we only intercept when a
+  // record reference is selected AND it has an open card with at least one cell.
+  _handleCardNavTrigger = (e) => {
+    if (e.key !== "ArrowDown") return;
+    if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+    if (this._cardNav || this._cardEditing || this._modal || this._link) return;
+    if (!this._cards.size) return;
+    const hit = this._detect();
+    if (!hit) return;
+    const ref = this._selectedRef(hit);
+    if (!ref || ref.isText) return;              // only record refs have a card
+    const lineGuid = this._openEmbedForRef(hit, ref.targetGuid);
+    if (!lineGuid) return;                        // no open embed under this ref
+    if (!this._cardNavItems(lineGuid).length) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    this._enterCardNav(lineGuid, ref.targetGuid, 0);
+  };
+
+  // The property card is decorator DOM (not part of the synced document), so it
+  // only exists on clients that have DISCOVERED the embed. Switching to an already-
+  // open client, or a multiplayer edit, doesn't fire panel.navigated — so re-run
+  // discovery when the tab regains focus/visibility (and on record.updated below).
+  _discoverTrigger = () => { if (!document.hidden) this._scheduleDiscover(true); };
+
   onLoad() {
+    try { window.__REFX_VERSION = "2.10.3"; } catch (e) {} // live-version tell for debugging
+    this._killStaleObservers(); // clear any observer/cards leaked by a hot-reload
     this._injectStyle();
+    this._buildFieldTypes(); // async; schema-based property typing (empty fields)
 
     this._cmd = this.ui.addCommandPaletteCommand({
       label: "Set alias for reference",
@@ -135,6 +218,18 @@ class Plugin extends AppPlugin {
       icon: "ti-keyboard",
       onSelected: () => { this._openShortcutModal(); },
     });
+    this._collapseAllCmd = this.ui.addCommandPaletteCommand({
+      label: "Collapse all embeds (this page)",
+      icon: "ti-arrows-minimize",
+      onSelected: () => { this._collapseAllOnPage(); },
+    });
+    // Fully keyboard path: cursor on a record reference (or inside a record
+    // embed), run this, edit the record's properties in a normal modal.
+    this._editRecordCmd = this.ui.addCommandPaletteCommand({
+      label: "Edit embedded record (properties)",
+      icon: "ti-pencil",
+      onSelected: () => { this._onEditEmbedCommand(); },
+    });
 
     const cfg = (this.getConfiguration && this.getConfiguration()) || {};
     const shortcutStr = (cfg.custom && cfg.custom.shortcut) || "Mod+Shift+A";
@@ -142,18 +237,106 @@ class Plugin extends AppPlugin {
     window.addEventListener("keydown", this._handleKeydown, true);
     window.addEventListener("keydown", this._handleBracketKey, true);
     window.addEventListener("keydown", this._handleExpandKey, true);
+    window.addEventListener("keydown", this._handleCardNavTrigger, true);
+    // Window-singleton stash of the always-on handlers: a hot-reload re-runs onLoad
+    // on the SAME document without disposing the prior instance, so without this
+    // every update stacks another copy of all four capture listeners (and the old
+    // ones' stopImmediatePropagation can starve the live instance).
+    window.__refxKeyHandlers = [this._handleKeydown, this._handleBracketKey, this._handleExpandKey, this._handleCardNavTrigger];
+
+    // Embeds persist across reload, so re-discover the record embeds on the
+    // active page and (re)attach their property cards; repeat on navigation.
+    try { this._navHandler = this.events.on("panel.navigated", () => this._onNavigated()); } catch (e) {}
+    // Keep cards current when the embedded record changes elsewhere (e.g. you
+    // rename it, or edit its properties on another page).
+    try { this._recUpdHandler = this.events.on("record.updated", (ev) => this._onRecordUpdated(ev)); } catch (e) {}
+    // Re-discover embeds when this client regains focus/visibility (switching back
+    // from the desktop app or another tab doesn't fire panel.navigated).
+    document.addEventListener("visibilitychange", this._discoverTrigger, false);
+    window.addEventListener("focus", this._discoverTrigger, false);
+    window.__refxDiscoverTrigger = this._discoverTrigger;
+    this._rehydrate(0);
+  }
+
+  _onRecordUpdated(ev) {
+    let g = null; try { g = ev && ev.recordGuid; } catch (e) {}
+    // Refresh any open cards for the changed record IN PLACE (its title/props
+    // changed) — no teardown, so a local edit (which fires record.updated too) or a
+    // remote change doesn't flicker the card. COALESCED per lineGuid: typing in an
+    // embed body streams record.updated per keystroke, and an undebounced refresh
+    // would re-read all properties every keypress.
+    let tracked = false;
+    if (g && this._cards.size) {
+      for (const [lineGuid, e] of this._cards) {
+        if (e.recordGuid !== g) continue;
+        tracked = true;
+        if (this._rowRefreshT.has(lineGuid)) continue;
+        this._rowRefreshT.set(lineGuid, setTimeout(() => {
+          this._rowRefreshT.delete(lineGuid);
+          if (this._cards.has(lineGuid)) this._refreshCardInPlace(lineGuid, g);
+        }, 150));
+      }
+    }
+    // A remote/multiplayer edit may have ADDED or removed an embed on the page
+    // we're viewing — re-discover (debounced) so its card appears/clears without a
+    // navigation. Skip when the update is for a record we already track (the
+    // targeted refresh above handled it — no structural change implied).
+    if (!tracked) this._scheduleDiscover(false);
+  }
+
+  // Coalesce bursts of triggers (focus, a stream of record.updated during a remote
+  // edit) into a single additive discovery pass. TRAILING debounce — each trigger
+  // re-arms the timer, so a sustained typing/edit burst runs discovery ONCE at the
+  // end instead of every 400ms mid-burst. refreshPresent latches ON across the
+  // window so a focus event isn't downgraded by a concurrent edit burst.
+  _scheduleDiscover(refreshPresent) {
+    if (refreshPresent) this._discoverRefresh = true;
+    if (this._discoverT) { try { clearTimeout(this._discoverT); } catch (e) {} }
+    this._discoverT = setTimeout(() => { this._discoverT = 0; const rp = this._discoverRefresh; this._discoverRefresh = false; this._discover(rp); }, 400);
+  }
+
+  // Discovery deferred while an editor was open gets flushed by the editor's own
+  // close paths (no self-rescheduling timer loop while a popup sits open).
+  _flushDeferredDiscover() {
+    if (this._discoverPending == null) return;
+    const rp = !!this._discoverPending;
+    this._discoverPending = null;
+    this._scheduleDiscover(rp);
   }
 
   onUnload() {
+    // Mark dead FIRST: in-flight async continuations (_discover awaits, the
+    // _rehydrate retry, _attachPropCard record polls) all bail on this flag /
+    // on the emptied _cards, so a disabled instance can't resurrect itself or
+    // clobber a newer instance's state.
+    this._unloaded = true;
+    if (this._rehydrateT) { try { clearTimeout(this._rehydrateT); } catch (e) {} this._rehydrateT = 0; }
+    if (this._activeEdit) { try { this._activeEdit.cancel(); } catch (e) {} this._activeEdit = null; }
+    for (const t of this._rowRefreshT.values()) { try { clearTimeout(t); } catch (e) {} }
+    this._rowRefreshT.clear();
+    this._cards.clear();
     window.removeEventListener("keydown", this._handleKeydown, true);
     window.removeEventListener("keydown", this._handleBracketKey, true);
     window.removeEventListener("keydown", this._handleExpandKey, true);
-    this._collapseRef();
+    window.removeEventListener("keydown", this._handleCardNavTrigger, true);
+    window.__refxKeyHandlers = null;
+    this._exitCardNav();
+    try { document.removeEventListener("visibilitychange", this._discoverTrigger, false); } catch (e) {}
+    try { window.removeEventListener("focus", this._discoverTrigger, false); } catch (e) {}
+    window.__refxDiscoverTrigger = null;
+    if (this._discoverT) { try { clearTimeout(this._discoverT); } catch (e) {} this._discoverT = 0; }
+    // Embeds are real document lines and intentionally PERSIST — only tear down
+    // the plugin's own UI (observer + injected cards), never the embeds.
+    this._teardownCardObserver();
+    if (this._navHandler) { try { this.events.off(this._navHandler); } catch (e) {} this._navHandler = null; }
+    if (this._recUpdHandler) { try { this.events.off(this._recUpdHandler); } catch (e) {} this._recUpdHandler = null; }
     this._exitLinkMode();
     this._hotkey = null;
     if (this._cmd && this._cmd.remove) this._cmd.remove();
     if (this._shortcutCmd && this._shortcutCmd.remove) this._shortcutCmd.remove();
-    this._cmd = this._shortcutCmd = null;
+    if (this._collapseAllCmd && this._collapseAllCmd.remove) this._collapseAllCmd.remove();
+    if (this._editRecordCmd && this._editRecordCmd.remove) this._editRecordCmd.remove();
+    this._cmd = this._shortcutCmd = this._collapseAllCmd = this._editRecordCmd = null;
     this._closeModal();
     const st = document.getElementById(this._STYLE_ID);
     if (st) st.remove();
@@ -327,31 +510,1678 @@ class Plugin extends AppPlugin {
   // Expand: insert a native transclusion of the reference's target as a child of
   // the block the reference sits in — for line AND page references. Thymer renders
   // it inline (target as a heading with its children, or a page's body), editable
-  // and native-styled, exactly like its built-in transclusions. One at a time.
-  // NOTE: this adds a real line to the document (synced + undoable); _collapseRef
-  // deletes it. A transclusion is `type:"transclusion"` with `props.itemref` = the
-  // target guid (the same model as Thymer's own block references).
+  // and native-styled, exactly like its built-in transclusions. MANY can be open
+  // at once; each is a real, synced, undoable line tagged `refx_embed` so we can
+  // find/collapse our own without touching Thymer's native transclusions. A
+  // transclusion is `type:"transclusion"` with `props.itemref` = the target guid.
+  // For a RECORD reference we also attach an editable property card (see below).
   async _expandRef(hit, ref) {
-    await this._collapseRef();
-    const rec = this.data.getRecord(hit.pageGuid);
-    if (!rec) return this._toast("Couldn't find the current page.");
-    let items; try { items = await rec.getLineItems(); } catch (e) { items = []; }
-    const block = items.find((x) => x.guid === hit.lineGuid);
-    if (!block) return this._toast("Couldn't find the line you're on.");
-    const kids = block.children || [];
-    const after = kids.length ? kids[kids.length - 1] : null; // append at the bottom of the block
-    let line = null;
-    try { line = await rec.createLineItem(block, after, "transclusion"); } catch (e) {}
-    if (!line) return this._toast("Couldn't expand the reference.");
-    try { line.setMetaProperty("itemref", ref.targetGuid); } catch (e) {}
-    this._expand = { line, targetGuid: ref.targetGuid };
+    const key = hit.lineGuid + "›" + ref.targetGuid;
+    if (this._expandInFlight.has(key)) return; // debounce double-create on fast keys
+    this._expandInFlight.add(key);
+    try {
+      const rec = this.data.getRecord(hit.pageGuid);
+      if (!rec) return this._toast("Couldn't find the current page.");
+      let items; try { items = await rec.getLineItems(); } catch (e) { items = []; }
+      const block = items.find((x) => x.guid === hit.lineGuid);
+      if (!block) return this._toast("Couldn't find the line you're on.");
+      if (this._findEmbeds(block, ref.targetGuid).length) return; // already open → no-op (toggle)
+      if (await this._wouldCycle(block, hit.pageGuid, ref.targetGuid)) return this._toast("Can't embed a block inside itself.");
+      const kids = block.children || [];
+      const after = kids.length ? kids[kids.length - 1] : null; // append at the bottom of the block
+      let line = null;
+      try { line = await rec.createLineItem(block, after, "transclusion", null, { itemref: ref.targetGuid, refx_embed: 1 }); } catch (e) {}
+      if (!line) return this._toast("Couldn't expand the reference.");
+      // Defensive: ensure itemref applied even if the create-props path didn't.
+      try { if (!(line.props && line.props.itemref)) line.setMetaProperty("itemref", ref.targetGuid); } catch (e) {}
+      // Record (page) reference → show its properties as an editable card.
+      if (!ref.isText) {
+        this._cards.set(line.guid, { recordGuid: ref.targetGuid, line });
+        this._ensureCardObserver();
+        this._attachPropCard(line.guid, ref.targetGuid);
+      }
+    } finally {
+      this._expandInFlight.delete(key);
+    }
   }
 
-  async _collapseRef() {
-    const ex = this._expand;
-    if (!ex) return;
-    this._expand = null;
-    try { if (ex.line && ex.line.delete) await ex.line.delete(); } catch (e) {}
+  // Collapse the embed associated with the caret. Stateless — reads the real
+  // document, so it works after a reload when no in-memory state survives:
+  //   (a) caret on a ref → delete that ref's transclusion child of the line;
+  //   (b) caret IS our transclusion line → delete it;
+  //   (c) caret inside the rendered embed (DOM) → delete the owning embed line.
+  async _collapseAtCaret(hit) {
+    const rec = this.data.getRecord(hit.pageGuid);
+    let items = null;
+    if (rec) { try { items = await rec.getLineItems(); } catch (e) {} }
+    const ref = this._selectedRef(hit);
+    if (ref && items) {
+      const block = items.find((x) => x.guid === hit.lineGuid);
+      const found = this._findEmbeds(block, ref.targetGuid);
+      if (found.length) { for (const l of found) await this._deleteEmbedLine(l); return; }
+    }
+    if (items) {
+      const encl = this._enclosingEmbed(items, hit.lineGuid);
+      if (encl) { await this._deleteEmbedLine(encl); return; }
+    }
+    const g = this._enclosingEmbedGuidFromDom(hit);
+    if (g) { const e = this._cards.get(g); if (e && e.line) await this._deleteEmbedLine(e.line); }
+  }
+
+  // Our transclusion children of `block` that target `targetGuid`.
+  _findEmbeds(block, targetGuid) {
+    const kids = (block && block.children) || [];
+    return kids.filter((c) => c && c.type === "transclusion" && c.props && c.props.itemref === targetGuid);
+  }
+
+  // Walk up parent_guid from the caret line to the first of OUR transclusion
+  // ancestors (or the line itself).
+  _enclosingEmbed(items, lineGuid) {
+    const byGuid = {};
+    const index = (arr) => { for (const it of arr || []) { if (!it) continue; byGuid[it.guid] = it; if (it.children) index(it.children); } };
+    index(items);
+    let cur = byGuid[lineGuid], guard = 0;
+    while (cur && guard++ < 300) {
+      if (cur.type === "transclusion" && cur.props && cur.props.refx_embed) return cur;
+      cur = cur.parent_guid ? byGuid[cur.parent_guid] : null;
+    }
+    return null;
+  }
+
+  // DOM fallback: climb from the caret node to the nearest element whose
+  // data-guid is one of our tracked embeds (caret inside the rendered target).
+  _enclosingEmbedGuidFromDom(hit) {
+    try {
+      let n = hit.lineNode || hit.anchorNode;
+      while (n && n !== document.body) {
+        const g = n.getAttribute && n.getAttribute("data-guid");
+        if (g && this._cards.has(g)) return g;
+        n = n.parentElement;
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  // The lineGuid of an OPEN card-bearing embed for `targetGuid` under the caret's
+  // block. DOM-synchronous (the keydown handler must decide instantly). The embed
+  // line is a child of the ref's block, so it's a descendant of the caret line's
+  // node; fall back to any tracked embed for the record with a live rendered node.
+  _openEmbedForRef(hit, targetGuid) {
+    const scope = hit && hit.lineNode;
+    if (scope && scope.querySelectorAll) {
+      let nodes = [];
+      try { nodes = [...scope.querySelectorAll(".listitem-transclusion[data-guid]")]; } catch (e) {}
+      for (const n of nodes) {
+        const g = n.getAttribute && n.getAttribute("data-guid");
+        const entry = g && this._cards.get(g);
+        if (entry && entry.recordGuid === targetGuid) return g;
+      }
+    }
+    for (const [g, entry] of this._cards) if (entry.recordGuid === targetGuid && this._transclusionNode(g)) return g;
+    return null;
+  }
+
+  // Cheap synchronous test: could Cmd+Up here collapse an embed? (caret on/under
+  // one of our embed lines, inside our card, or inside any transclusion render).
+  _mightBeInEmbed(hit) {
+    try {
+      const n = hit.lineNode || hit.anchorNode;
+      if (!n || !n.closest) return false;
+      if (n.closest("." + this._CARD_CLASS)) return true;
+      const li = n.closest(".listitem");
+      if (li) { const g = li.getAttribute && li.getAttribute("data-guid"); if (g && this._cards.has(g)) return true; }
+      return !!n.closest(".listitem-transclusion, .lineitem-transcludes, [data-itemref]");
+    } catch (e) { return false; }
+  }
+
+  // Refuse to embed a block into itself, an ancestor, OR a target whose own
+  // subtree already embeds us (a mutual A⇄B embed is durable synced state that
+  // recurses on render — the same "would loop forever" class as the linear case).
+  async _wouldCycle(block, pageGuid, targetGuid) {
+    if (!targetGuid) return false;
+    if (targetGuid === (block && block.guid) || targetGuid === pageGuid) return true;
+    const ours = new Set([pageGuid, block && block.guid].filter(Boolean));
+    try {
+      const ctx = await block.getTreeContext();
+      for (const a of (ctx && ctx.ancestors) || []) { if (a && a.guid) { if (a.guid === targetGuid) return true; ours.add(a.guid); } }
+    } catch (e) {}
+    // Bounded walk of the TARGET's tree for one of OUR embeds pointing back at us.
+    try {
+      const trec = this.data.getRecord(targetGuid);
+      if (trec && trec.getLineItems) {
+        const items = await trec.getLineItems();
+        let hit = false;
+        const walk = (arr, depth) => {
+          if (hit || depth > 5) return;
+          for (const it of arr || []) {
+            if (!it) continue;
+            if (it.type === "transclusion" && it.props && it.props.refx_embed && ours.has(it.props.itemref)) { hit = true; return; }
+            if (it.children) walk(it.children, depth + 1);
+          }
+        };
+        walk(items, 0);
+        if (hit) return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  // Safe delete of an embed line (backend rejects delete if it has children).
+  async _deleteEmbedLine(line) {
+    if (!line) return;
+    const g = line.guid;
+    // Close any editor tied to this card first — removing a focused <input> fires
+    // no blur in Chromium, which would leave _cardEditing wedged true.
+    if (this._activeEdit && this._activeEdit.lineGuid === g) { try { this._activeEdit.cancel(); } catch (e) {} this._activeEdit = null; }
+    const savedEntry = this._cards.get(g) || null;
+    this._cards.delete(g);
+    if (this._cardNav && this._cardNav.lineGuid === g) this._exitCardNav();
+    this._removeCardEl(g);
+    try {
+      let ok = await line.delete();
+      if (ok === false) {
+        // delete() returns false when the line has CHILDREN. The plugin never
+        // creates children under its embed line, so any children are the USER's
+        // own lines Tab-indented under it — never delete those silently. Refuse,
+        // restore the card, and tell them.
+        if (savedEntry) { this._cards.set(g, savedEntry); this._attachPropCard(g, savedEntry.recordGuid, true); }
+        this._toast("Embed has your own lines nested under it — move them out first.");
+        return;
+      }
+    } catch (e) {}
+    if (!this._cards.size) this._teardownCardObserver();
+  }
+
+  async _collapseAllOnPage() {
+    const rec = this._activeRecord();
+    if (!rec) return this._toast("Open a page first.");
+    let items; try { items = await rec.getLineItems(); } catch (e) { return; }
+    const all = [];
+    const walk = (arr) => { for (const it of arr || []) { if (!it) continue; if (it.type === "transclusion" && it.props && it.props.refx_embed) all.push(it); if (it.children) walk(it.children); } };
+    walk(items);
+    if (!all.length) return this._toast("No embeds on this page.");
+    for (const l of all) await this._deleteEmbedLine(l);
+    this._toast("Collapsed " + all.length + " embed" + (all.length === 1 ? "" : "s") + ".");
+  }
+
+  _activeRecord() {
+    try { const p = this.ui.getActivePanel && this.ui.getActivePanel(); return (p && p.getActiveRecord && p.getActiveRecord()) || null; } catch (e) { return null; }
+  }
+
+  // Keyboard-first property editing. Injected card values can't hold focus inside
+  // Thymer's editor, so this opens a normal (focus-owning) modal instead.
+  _onEditEmbedCommand() {
+    const hit = this._detect();
+    if (!hit) return this._toast("Put the cursor on a record reference or inside a record embed.");
+    let recordGuid = null;
+    const ref = this._selectedRef(hit);
+    if (ref && !ref.isText) recordGuid = ref.targetGuid;
+    if (!recordGuid && this._mightBeInEmbed(hit) && hit.pageGuid && this.data.getRecord(hit.pageGuid)) recordGuid = hit.pageGuid;
+    if (!recordGuid) return this._toast("Put the cursor on a record reference or inside a record embed.");
+    const rec = this.data.getRecord(recordGuid);
+    if (!rec) return this._toast("Couldn't load that record.");
+    this._openRecordEditorModal(rec, recordGuid);
+  }
+
+  async _openRecordEditorModal(rec, recordGuid) {
+    const fields = this._recCardFields(rec);
+    let bodyEmpty = false;
+    try { const items = await rec.getLineItems(); bodyEmpty = !items || items.length === 0; } catch (e) {}
+    const controls = [];
+    this._openModal({
+      title: "Edit " + ((rec.getName && rec.getName()) || "record"),
+      saveLabel: "Save",
+      // _openModal removes the modal DOM before calling onSave, so read the
+      // values in value() (called first) and apply them from that snapshot.
+      onSave: (vals) => {
+        for (const item of (vals || [])) {
+          if (!item || item.v === null || item.v === undefined) continue;
+          if (String(item.v) !== String(item.field.value == null ? "" : item.field.value)) this._writeCardProp(rec, item.field, item.v);
+        }
+        for (const [lg, e] of this._cards) if (e.recordGuid === recordGuid) this._renderFreshCard(lg, recordGuid, true);
+      },
+      render: (body) => {
+        if (!fields.length) body.append(this._el("div", "refalias-sub", "This record has no editable properties."));
+        for (const f of fields) {
+          const row = this._el("div", "refx-modal-row");
+          row.append(this._el("div", "refx-modal-label", f.name));
+          let ctl, read = null;
+          if (f.kind === "relation") {
+            ctl = this._el("input", "refalias-input"); ctl.type = "text";
+            ctl.value = f.value == null ? "" : String(f.value); ctl.disabled = true;
+            ctl.title = "Edit relations by clicking the value in the card";
+          } else if (f.kind === "choice") {
+            ctl = this._el("select", "refalias-input");
+            const blank = this._el("option", null, "—"); blank.value = ""; ctl.append(blank);
+            for (const c of (f.choices || [])) { const o = this._el("option", null, c.label); o.value = c.label; if (c.label === f.value) o.selected = true; ctl.append(o); }
+            read = () => ctl.value;
+          } else if (f.kind === "date") {
+            // <input type=date> SANITIZES any non-conforming value to "" — a stored
+            // "YYYY-MM-DD HH:MM" would seed as blank and a no-op Save would then
+            // silently CLEAR the property. Seed the date part only, carry the time
+            // suffix through, and compare against the date-only seed on save.
+            ctl = this._el("input", "refalias-input");
+            ctl.type = "date";
+            const raw = f.value == null ? "" : String(f.value);
+            const dateOnly = raw.slice(0, 10);
+            const timeSuffix = (/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2})/.exec(raw) || [])[1] || "";
+            ctl.value = /^\d{4}-\d{2}-\d{2}$/.test(dateOnly) ? dateOnly : "";
+            read = () => (ctl.value ? ctl.value + timeSuffix : "");
+            controls.push({ field: Object.assign({}, f, { value: raw }), read });
+            row.append(ctl);
+            body.append(row);
+            continue;
+          } else {
+            ctl = this._el("input", "refalias-input");
+            ctl.type = f.kind === "number" ? "number" : "text";
+            ctl.value = f.value == null ? "" : String(f.value);
+            read = () => ctl.value;
+          }
+          controls.push({ field: f, read });
+          row.append(ctl);
+          body.append(row);
+        }
+        if (bodyEmpty) {
+          const addRow = this._el("div", "refx-modal-row");
+          const btn = this._el("button", "refalias-btn", "＋ Add a body line");
+          btn.type = "button";
+          btn.addEventListener("click", async () => {
+            btn.disabled = true; btn.textContent = "Added — close and edit it inline";
+            try { await rec.createLineItem(null, null, "text"); } catch (e) {}
+            for (const [lg, e] of this._cards) if (e.recordGuid === recordGuid) this._renderFreshCard(lg, recordGuid, true);
+          });
+          addRow.append(btn);
+          body.append(addRow);
+        }
+        return { value: () => controls.map((c) => ({ field: c.field, v: c.read ? c.read() : null })), focusEl: body.querySelector("input:not([disabled]), select, button") };
+      },
+    });
+  }
+
+  // ------------------------------------------------ record property cards (editable)
+  //
+  // Native transclusions are body-only — they never show a record's properties.
+  // For each of OUR record embeds we inject a small editable card above the body
+  // (record title + property name/value rows). Cards are a decorator: rebuilt on
+  // load/navigation (embeds persist across reload) and re-injected by a lazily
+  // created, panel-scoped, hot-reload-guarded MutationObserver when a native
+  // re-render wipes them. Zero cost when no embeds are open.
+
+  async _onNavigated() {
+    if (this._unloaded) return;
+    // Close any UI tied to the page we just left — UNCONDITIONALLY (previously only
+    // the zero-embed branch cleaned up, so programmatic navigation to a page that
+    // also had embeds left the nav key-handler armed for a gone card, and an open
+    // popup floating over the new page, still writing on Enter).
+    if (this._activeEdit) { try { this._activeEdit.cancel(); } catch (e) {} this._activeEdit = null; }
+    this._exitCardNav();
+    this._closeCardPopup();
+    this._removeAllCardEls();
+    this._cards.clear();
+    await this._indexEmbeds();
+    if (this._unloaded) return;
+    if (this._cards.size) { this._ensureCardObserver(); this._reattachAllCards(); }
+    else this._teardownCardObserver();
+  }
+
+  // ADDITIVE discovery (for focus/visibility + remote record.updated): find the
+  // refx_embed transclusions across open panels and ensure each has a card WITHOUT
+  // the clear-and-reattach flicker of _onNavigated. Adds cards for embeds a remote
+  // client created; drops entries whose embed line is gone everywhere. This is why
+  // a card appears on a second client / after switching tabs, not just on nav.
+  // refreshPresent=true (focus/switch): also silent-refresh cards already showing,
+  // so switching back shows current values even if the card wasn't wiped. false
+  // (a remote record.updated burst): only discover NEW/missing embeds — value
+  // changes are handled by _onRecordUpdated's targeted refresh, so we avoid
+  // re-rendering every open card on each keystroke a remote edit streams.
+  async _discover(refreshPresent) {
+    if (this._unloaded) return;
+    // Never re-render mid-edit (would wipe an open inline input / picker). LATCH the
+    // request — the editor's close paths flush it. (A self-rescheduling timer here
+    // sustained a 2.5Hz loop for as long as a popup sat open.)
+    if (this._cardEditing) { this._discoverPending = refreshPresent || this._discoverPending || false; return; }
+    // Cheap empty-case gate: with no tracked cards AND no transclusion rendered
+    // anywhere, there is nothing to discover — skip the per-panel getLineItems +
+    // full tree walk entirely (this is what keeps the plugin idle-cheap while
+    // typing on pages that never use embeds). getElementsByClassName is a live
+    // collection — O(1). A remote-added embed renders a transclusion node, so the
+    // gate passes exactly when there could be work.
+    if (!this._cards.size && !document.getElementsByClassName("listitem-transclusion").length) return;
+    let panels = [];
+    try { panels = (this.ui.getPanels && this.ui.getPanels()) || []; } catch (e) {}
+    const recs = [];
+    for (const p of panels) { let r = null; try { r = p.getActiveRecord && p.getActiveRecord(); } catch (e) {} if (r) recs.push(r); }
+    if (!recs.length) { const r = this._activeRecord(); if (r) recs.push(r); }
+    const found = new Map();
+    const walk = (arr) => {
+      for (const it of arr || []) {
+        if (!it) continue;
+        // Keep the walked ITEM (not just the target guid): _collapseAtCaret's DOM
+        // fallback needs entry.line, and entries created here without it made
+        // Cmd+Up from inside a discover-adopted embed a swallowed dead key.
+        if (it.type === "transclusion" && it.props && it.props.refx_embed && it.props.itemref && this.data.getRecord(it.props.itemref)) found.set(it.guid, { ref: it.props.itemref, line: it });
+        if (it.children) walk(it.children);
+      }
+    };
+    const seen = new Set();
+    for (const rec of recs) {
+      let rg = null; try { rg = rec.getGuid && rec.getGuid(); } catch (e) {}
+      if (rg) { if (seen.has(rg)) continue; seen.add(rg); }
+      let items; try { items = await rec.getLineItems(); } catch (e) { continue; }
+      walk(items);
+    }
+    if (this._unloaded) return;
+    // Add cards for newly-seen embeds, and SILENT-refresh existing ones so that
+    // switching back to this client (or a remote property change) shows current
+    // values even when the card wasn't wiped (a prop change doesn't re-render the
+    // transclusion body). Silent = no loading flash; nav cursor re-lands via the
+    // _renderCardInto resume/paint path.
+    for (const [lineGuid, f] of found) {
+      if (this._commitOwned(lineGuid)) continue; // its commit poll owns this card
+      const entry = this._cards.get(lineGuid);
+      if (!entry) { this._cards.set(lineGuid, { recordGuid: f.ref, line: f.line }); this._attachPropCard(lineGuid, f.ref); }
+      else {
+        if (!entry.line) entry.line = f.line; // backfill for collapse support
+        if (refreshPresent) this._refreshCardInPlace(lineGuid, entry.recordGuid);
+        else if (!(entry.cardEl && entry.cardEl.isConnected)) {
+          const esc = (window.CSS && CSS.escape) ? CSS.escape(lineGuid) : lineGuid;
+          if (!document.querySelector("." + this._CARD_CLASS + '[data-refx-for="' + esc + '"]')) this._attachPropCard(lineGuid, entry.recordGuid, true);
+        }
+      }
+    }
+    // Drop entries whose embed line no longer exists anywhere (collapsed elsewhere).
+    for (const lineGuid of [...this._cards.keys()]) {
+      if (!found.has(lineGuid) && !this._transclusionNode(lineGuid)) { this._cards.delete(lineGuid); this._removeCardEl(lineGuid); }
+    }
+    if (this._cards.size) this._ensureCardObserver(); else this._teardownCardObserver();
+  }
+
+  async _indexEmbeds() {
+    // Index across ALL open panels (not just the active one) so cards rehydrate
+    // regardless of which panel currently has focus after a reload.
+    let panels = [];
+    try { panels = (this.ui.getPanels && this.ui.getPanels()) || []; } catch (e) {}
+    const recs = [];
+    for (const p of panels) { let r = null; try { r = p.getActiveRecord && p.getActiveRecord(); } catch (e) {} if (r) recs.push(r); }
+    if (!recs.length) { const r = this._activeRecord(); if (r) recs.push(r); }
+    const seen = new Set();
+    const walk = (arr) => {
+      for (const it of arr || []) {
+        if (!it) continue;
+        if (it.type === "transclusion" && it.props && it.props.refx_embed && it.props.itemref && this.data.getRecord(it.props.itemref)) {
+          this._cards.set(it.guid, { recordGuid: it.props.itemref, line: it });
+        }
+        if (it.children) walk(it.children);
+      }
+    };
+    for (const rec of recs) {
+      let rg = null; try { rg = rec.getGuid && rec.getGuid(); } catch (e) {}
+      if (rg) { if (seen.has(rg)) continue; seen.add(rg); }
+      let items; try { items = await rec.getLineItems(); } catch (e) { continue; }
+      walk(items);
+    }
+  }
+
+  // On initial load the panels' records may not be ready yet — retry the reindex
+  // a few times (backing off) until cards attach or there's nothing to attach.
+  _rehydrate(attempt) {
+    if (this._unloaded) return;
+    this._onNavigated().then(() => {
+      if (this._unloaded) return;
+      if (this._cards.size === 0 && attempt < 6 && document.querySelector(".listitem-transclusion")) {
+        // Tracked so onUnload can cancel it — a late untracked retry used to
+        // resurrect the dead instance (clobbering window.__refxCardObs and deleting
+        // a NEW instance's cards).
+        this._rehydrateT = setTimeout(() => this._rehydrate(attempt + 1), 350 + attempt * 350);
+      }
+    }).catch(() => {});
+  }
+
+  _reattachAllCards() {
+    for (const [lineGuid, e] of this._cards) this._attachPropCard(lineGuid, e.recordGuid);
+  }
+
+  // Build {fieldId -> PROP_TYPE} from every collection's config schema. ASYNC —
+  // data.getAllCollections() returns a Promise (a sync call silently yields nothing;
+  // that's why empty dates kept opening a text editor). Kicked off in onLoad, ready
+  // long before any card is edited. Also indexes by label as a fallback, but only
+  // labels whose type is unambiguous across all collections.
+  async _buildFieldTypes() {
+    const map = {}, byLabel = {}, conflicted = new Set();
+    const meta = {}, colByGuid = {};
+    try {
+      const cols = await (this.data.getAllCollections && this.data.getAllCollections());
+      for (const col of cols || []) {
+        let cfg = null; try { cfg = col.getConfiguration && col.getConfiguration(); } catch (e) {}
+        try { const g = col.getGuid && col.getGuid(); if (g) colByGuid[g] = col; } catch (e) {}
+        for (const f of (cfg && cfg.fields) || []) {
+          if (!f) continue;
+          if (f.id != null) { map[f.id] = f.type; meta[f.id] = { type: f.type, filter_colguid: f.filter_colguid || null }; }
+          if (f.label) {
+            const lk = "label:" + String(f.label).toLowerCase();
+            if (lk in byLabel && byLabel[lk] !== f.type) conflicted.add(lk);
+            else byLabel[lk] = f.type;
+          }
+        }
+      }
+    } catch (e) {}
+    for (const lk of conflicted) delete byLabel[lk];
+    Object.assign(map, byLabel);
+    this._fieldTypes = map;
+    this._fieldMeta = meta;      // fieldId -> {type, filter_colguid} (relation browse list)
+    this._colByGuid = colByGuid; // collection guid -> PluginCollectionAPI handle
+  }
+
+  // The declared type of a property, from the schema map (see _buildFieldTypes).
+  // Works for EMPTY fields, which value-probing can't type. PluginProperty.guid is
+  // the field id; falls back to the (unambiguous) label. Null → caller probes.
+  _fieldTypeFor(p) {
+    const m = this._fieldTypes;
+    if (!m || !p) return null;
+    if (p.guid != null && m[p.guid]) return m[p.guid];
+    // Unknown-but-declared field (has a guid the map doesn't know) → a collection
+    // or field was created after load. Self-heal with a debounced background
+    // rebuild so it types correctly one interaction later; probe fallback covers
+    // this one.
+    if (p.guid != null && String(p.guid).length > 10 && !this._fieldTypesRebuildT) {
+      this._fieldTypesRebuildT = setTimeout(() => { this._fieldTypesRebuildT = 0; if (!this._unloaded) this._buildFieldTypes(); }, 2000);
+    }
+    if (p.name) return m["label:" + String(p.name).toLowerCase()] || null;
+    return null;
+  }
+
+  // Read a record's editable properties (ported from the canvas note-card
+  // extractor): schema-typed when the field is declared (works for EMPTY fields),
+  // value-probing as fallback; format for display, cap at 8. Each probe is
+  // isolated — property reads throw on unresolved records.
+  _recCardFields(rec) {
+    const out = [];
+    let props = [];
+    try { props = (rec.getAllProperties && rec.getAllProperties()) || []; } catch (e) {}
+    for (const p of props) {
+      const name = p && p.name;
+      if (!name || this._CARD_SKIP.has(name)) continue;
+      let kind = "text", choices = null, value = "", display = "";
+      const ft = this._fieldTypeFor(p);
+      if (ft === "choice") { kind = "choice"; try { choices = ((p.choices && p.choices()) || []).map((c) => ({ id: c.id, label: c.label })); } catch (e) { choices = []; } }
+      else if (ft === "datetime") kind = "date";
+      else if (ft === "record") kind = "relation";
+      else if (ft === "number") kind = "number";
+      else if (ft === "text" || ft === "url") kind = "text";
+      else {
+        // Unknown/undeclared (system props) → probe by value, as before.
+        try { const ch = p.choices && p.choices(); if (ch && ch.length) { kind = "choice"; choices = ch.map((c) => ({ id: c.id, label: c.label })); } } catch (e) {}
+        if (kind === "text") { try { const d = p.date && p.date(); if (d instanceof Date) kind = "date"; } catch (e) {} }
+        if (kind === "text") { try { const lr = p.linkedRecords && p.linkedRecords(); if (lr && lr.length) kind = "relation"; } catch (e) {} }
+        if (kind === "text") {
+          // p.number() COERCES a leading-digit text value ("26-002-BHP" → 26), which
+          // wrongly types a text field (a code/ID/title) as a number and shows the
+          // truncated digits. Only treat as a number when the text form is empty or
+          // a clean numeric string. (Confirmed: Title "26-002-BHP" displayed as 26.)
+          try {
+            const n = p.number && p.number();
+            if (typeof n === "number") {
+              let tv = null; try { tv = p.text && p.text(); } catch (e) {}
+              if (tv == null || tv === "" || (typeof tv === "string" && /^\s*-?\d+(?:\.\d+)?\s*$/.test(tv))) kind = "number";
+            }
+          } catch (e) {}
+        }
+      }
+      try {
+        if (kind === "choice") value = (p.choiceLabel && p.choiceLabel()) || "";
+        else if (kind === "date") {
+          const d = p.date();
+          if (d) {
+            value = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+            // Read the RAW stored value for the pill text — p.datetime().value()
+            // RECONSTRUCTS the value and drops `formatted`, which is exactly where
+            // granular pills ("Week 28", "Q3 2026") live. p.values()[0] is the
+            // stored object verbatim: {d, r?, t?, formatted?}.
+            let fmt = "", hasTime = false, rawv = null;
+            try { const vs = p.values && p.values(); rawv = vs && vs[0]; } catch (e) {}
+            if (rawv && typeof rawv === "object") {
+              fmt = rawv.formatted || "";
+              hasTime = !!(rawv.t && rawv.t.t);
+              // Granular/ranged value without a stored label → synthesize native text.
+              if (!fmt && rawv.r && rawv.r.d) fmt = this._synthDateLabel(rawv.d, rawv.r.d, null) || "";
+            }
+            if (hasTime) value += " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+            display = fmt || this._fmtDateDisplay(value) || value;
+          } else value = "";
+        }
+        else if (kind === "number") { const n = p.number && p.number(); value = (n == null ? "" : n); }
+        else if (kind === "relation") {
+          value = ((p.linkedRecords && p.linkedRecords()) || []).map((r) => (r && r.getName && r.getName()) || "").filter(Boolean).join(", ");
+          // linkedRecords() returns [] for stored-but-unresolved relations AND for
+          // legacy plain-text values in a record prop (e.g. Lead = "Svy"). Fall back
+          // to the RAW values() and normalize: guid → record name, text → as-is.
+          if (!value) {
+            let raw = null; try { raw = p.values && p.values(); } catch (e2) {}
+            const parts = [];
+            for (let v of raw || []) {
+              if (typeof v === "string" && v.trim().charAt(0) === "[") { try { v = JSON.parse(v); } catch (e2) {} }
+              for (const x of (Array.isArray(v) ? v : [v])) {
+                if (typeof x === "string" && x) {
+                  const r2 = /^[0-9A-Z]{20,}$/.test(x) ? this.data.getRecord(x) : null;
+                  parts.push((r2 && r2.getName && r2.getName()) || x);
+                } else if (x && typeof x === "object") {
+                  const g = x.guid || (x.getGuid && x.getGuid());
+                  const r2 = g ? this.data.getRecord(g) : null;
+                  parts.push((r2 && r2.getName && r2.getName()) || "");
+                }
+              }
+            }
+            value = parts.filter(Boolean).join(", ");
+          }
+        }
+        else value = (p.text && p.text()) || "";
+      } catch (e) {}
+      out.push({ name, id: p.guid || null, kind, value, display: display || "", choices });
+      if (out.length >= 8) break; // display cap — stop PROBING too, not just slicing
+    }
+    return out.filter((p) => p && p.name).slice(0, 8);
+  }
+
+  _buildPropCard(rec, fields, lineGuid, bodyEmpty) {
+    const card = this._el("div", this._CARD_CLASS);
+    card.append(this._el("div", "refx-propcard-title", (rec.getName && rec.getName()) || "Untitled"));
+    if (fields.length) {
+      for (const f of fields) {
+        const row = this._el("div", "refx-propcard-row");
+        this._fillPropRow(rec, lineGuid, f, row);
+        card.append(row);
+      }
+    } else {
+      card.append(this._el("div", "refx-propcard-empty", "No properties"));
+    }
+    if (bodyEmpty) {
+      const add = this._el("div", "refx-propcard-addbody", "＋ Add content");
+      add.title = "Add a body line to this empty record";
+      const doAdd = (e) => { e.preventDefault(); e.stopPropagation(); this._addBodyLine(lineGuid); };
+      add.addEventListener("mousedown", doAdd);
+      add.addEventListener("click", doAdd);
+      card.append(add);
+    }
+    return card;
+  }
+
+  // ---- keyboard nav of the property card (class-based cursor, like native) ----
+
+  // The card's nav cells in DOM order: property values, then the add-body action.
+  _cardNavItems(lineGuid) {
+    const esc = (window.CSS && CSS.escape) ? CSS.escape(lineGuid) : lineGuid;
+    const card = document.querySelector("." + this._CARD_CLASS + '[data-refx-for="' + esc + '"]');
+    if (!card) return [];
+    return [...card.querySelectorAll(".refx-propcard-value, .refx-propcard-addbody")];
+  }
+
+  _enterCardNav(lineGuid, recordGuid, startIndex) {
+    this._exitCardNav(); // idempotent: safe to (re)enter from a resume or fresh trigger
+    this._cardNav = { lineGuid, recordGuid, index: startIndex || 0 };
+    this._paintCardNav();
+    window.addEventListener("keydown", this._onCardNavKey, true);
+    window.addEventListener("mousedown", this._cardNavClickAway, true);
+    window.__refxCardNavKey = this._onCardNavKey;
+    window.__refxCardNavClick = this._cardNavClickAway;
+  }
+
+  // Paint the cursor onto the current cell (the DOM class is the source of truth).
+  // Re-resolves cells live so it survives a card re-injection; clamps the index.
+  // If the card is transiently absent (mid re-render), just skip — DON'T exit nav
+  // (a spurious exit here was dropping the cursor after an inline edit); a later
+  // render repaints, and genuine collapses exit via _deleteEmbedLine.
+  // scroll=true only for explicit arrow navigation; a repaint/resume must NOT
+  // scrollIntoView (that yanked the page around after an edit — the "it moves" bug).
+  _paintCardNav(scroll) {
+    const nav = this._cardNav;
+    if (!nav) return;
+    const items = this._cardNavItems(nav.lineGuid);
+    if (!items.length) return;
+    if (nav.index >= items.length) nav.index = items.length - 1;
+    if (nav.index < 0) nav.index = 0;
+    for (const el of document.querySelectorAll(".refx-nav-focus")) el.classList.remove("refx-nav-focus");
+    const cur = items[nav.index];
+    cur.classList.add("refx-nav-focus");
+    if (scroll) { try { cur.scrollIntoView({ block: "nearest" }); } catch (e) {} }
+  }
+
+  _moveCardNav(dir) {
+    const nav = this._cardNav;
+    if (!nav) return;
+    const items = this._cardNavItems(nav.lineGuid);
+    if (!items.length) { this._exitCardNav(); return; }
+    const next = nav.index + dir;
+    if (next < 0) return this._handleCardNavExitUp();
+    if (next >= items.length) return this._handleCardNavExitDown();
+    nav.index = next;
+    this._paintCardNav(true);
+  }
+
+  _onCardNavKey = (e) => {
+    if (!this._cardNav) return;
+    if (this._cardEditing) return; // an editor/popup owns the keyboard
+    if (e.key === "ArrowDown") { e.preventDefault(); e.stopImmediatePropagation(); this._moveCardNav(1); return; }
+    if (e.key === "ArrowUp") { e.preventDefault(); e.stopImmediatePropagation(); this._moveCardNav(-1); return; }
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopImmediatePropagation(); this._activateCardNav(); return; }
+    if (e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); this._handleCardNavExitUp(); return; }
+    // Any other navigation/typing key releases the cursor and passes through.
+    this._exitCardNav();
+  };
+
+  _cardNavClickAway = (e) => {
+    const nav = this._cardNav;
+    if (!nav) return;
+    const esc = (window.CSS && CSS.escape) ? CSS.escape(nav.lineGuid) : nav.lineGuid;
+    const card = document.querySelector("." + this._CARD_CLASS + '[data-refx-for="' + esc + '"]');
+    if (card && card.contains(e.target)) return; // click within the card keeps nav
+    // A choice/relation popup lives on document.body, outside the card.
+    try { if (e.target && e.target.closest && e.target.closest(".refx-cardpop, .refx-pop-backdrop")) return; } catch (e2) {}
+    this._exitCardNav();
+  };
+
+  _activateCardNav() {
+    const nav = this._cardNav;
+    if (!nav) return;
+    const items = this._cardNavItems(nav.lineGuid);
+    const el = items[nav.index];
+    if (!el) { this._exitCardNav(); return; }
+    if (el.classList.contains("refx-propcard-addbody")) {
+      // Empty record → create the first body line and drop the caret into it.
+      const lineGuid = nav.lineGuid;
+      this._exitCardNav();
+      this._addBodyLine(lineGuid);
+      return;
+    }
+    const field = el.dataset && el.dataset.refxField;
+    const rec = field && this.data.getRecord(nav.recordGuid);
+    if (!field || !rec) { this._exitCardNav(); return; }
+    const f = this._recCardFields(rec).find((x) => x.name === field);
+    const rowEl = el.closest(".refx-propcard-row");
+    if (!f || !rowEl) { this._exitCardNav(); return; }
+    // Remember where we are so nav is re-established on the same cell after the
+    // edit's card re-render (the edit may clear _cardNav via DOM churn).
+    this._cardNavResume = { lineGuid: nav.lineGuid, recordGuid: nav.recordGuid, index: nav.index };
+    // Reuse the existing real-input editor (it DOES hold focus).
+    this._editCardValue(rec, nav.lineGuid, f, el, rowEl);
+  }
+
+  _exitCardNav() {
+    this._cardNavResume = null;
+    if (!this._cardNav) return;
+    this._cardNav = null;
+    try { window.removeEventListener("keydown", this._onCardNavKey, true); } catch (e) {}
+    try { window.removeEventListener("mousedown", this._cardNavClickAway, true); } catch (e) {}
+    window.__refxCardNavKey = null; window.__refxCardNavClick = null;
+    for (const el of document.querySelectorAll(".refx-nav-focus")) el.classList.remove("refx-nav-focus");
+  }
+
+  // Re-establish the nav cursor on the cell that was being edited, once the card is
+  // present again. Robust to _cardNav having been cleared mid-edit — it re-adds the
+  // listeners via _enterCardNav. Keeps the stash pending if the card isn't ready
+  // yet (e.g. a transient "Loading…" render), so the next full render consumes it.
+  _consumeNavResume(lineGuid) {
+    const r = this._cardNavResume;
+    if (!r) return;
+    if (lineGuid && r.lineGuid !== lineGuid) return;
+    if (!this._cardNavItems(r.lineGuid).length) return; // card not ready → stay pending
+    this._cardNavResume = null;
+    this._enterCardNav(r.lineGuid, r.recordGuid, r.index);
+  }
+
+  // Exit UP: back onto the reference line above the embed (ArrowUp-from-first, Esc).
+  _handleCardNavExitUp() {
+    const nav = this._cardNav;
+    this._exitCardNav();
+    if (nav) this._focusRefLineForEmbed(nav.lineGuid);
+  }
+
+  // Exit DOWN past the last value: into the embed's body (mirrors native props→body).
+  async _handleCardNavExitDown() {
+    const nav = this._cardNav;
+    this._exitCardNav();
+    if (!nav) return;
+    const rec = this.data.getRecord(nav.recordGuid);
+    let first = null;
+    if (rec) { try { const items = await rec.getLineItems(); first = items && items[0] && items[0].guid; } catch (e) {} }
+    if (first) this._focusEmbeddedLine(nav.lineGuid, first, 0);
+  }
+
+  // Place the native caret on the reference line owning `embedLineGuid`. The embed
+  // line is a child of the ref's block, so the nearest non-transclusion .listitem
+  // ancestor is that block; hit-test its text span (same mechanism as the embed).
+  _focusRefLineForEmbed(embedLineGuid) {
+    try {
+      const node = this._transclusionNode(embedLineGuid);
+      if (!node) return;
+      let li = node.parentElement;
+      while (li && li !== document.body) {
+        if (li.classList && li.classList.contains("listitem") && !li.classList.contains("listitem-transclusion")) {
+          const t = li.querySelector && li.querySelector(".lineitem-text");
+          if (t) { this._hitTestCaret(t); return; }
+        }
+        li = li.parentElement;
+      }
+    } catch (e) {}
+  }
+
+  // Place Thymer's (model-based, not DOM-selection) caret by hit-testing a click on
+  // a line's text span, exactly as a real click there would. Returns true if fired.
+  _hitTestCaret(t) {
+    if (!t) return false;
+    try { t.scrollIntoView({ block: "nearest" }); } catch (e) {}
+    try {
+      const r = t.getBoundingClientRect();
+      if (!(r.width || r.height)) return false;
+      const x = Math.round(r.left + Math.min(6, r.width || 6)), y = Math.round(r.top + r.height / 2);
+      const down = { bubbles: true, cancelable: true, view: window, clientX: x, clientY: y, button: 0, buttons: 1 };
+      const up = { bubbles: true, cancelable: true, view: window, clientX: x, clientY: y, button: 0, buttons: 0 };
+      try { t.dispatchEvent(new PointerEvent("pointerdown", down)); } catch (e) {}
+      t.dispatchEvent(new MouseEvent("mousedown", down));
+      try { t.dispatchEvent(new PointerEvent("pointerup", up)); } catch (e) {}
+      t.dispatchEvent(new MouseEvent("mouseup", up));
+      t.dispatchEvent(new MouseEvent("click", up));
+      return true;
+    } catch (e) { return false; }
+  }
+
+  // (Re)render a single property row: label + clickable value (— when empty).
+  _fillPropRow(rec, lineGuid, field, rowEl) {
+    rowEl.innerHTML = "";
+    rowEl.dataset.refxRow = field.name; // maps row → field for in-place refresh
+    rowEl.append(this._el("span", "refx-propcard-label", field.name));
+    const empty = field.value === "" || field.value == null;
+    const shown = empty ? "—" : String(field.display || (field.kind === "date" && this._fmtDateDisplay(field.value)) || field.value);
+    const val = this._el("span", "refx-propcard-value" + (empty ? " refx-propcard-empty" : ""), shown);
+    if (!empty) val.title = shown;
+    // Keyed by name so the keyboard-nav cursor + in-place refresh can re-derive
+    // the field (the row itself is keyed via rowEl.dataset.refxRow above).
+    val.dataset.refxField = field.name;
+    // Open the editor on mousedown OR click (whichever the environment delivers
+    // first); _editCardValue no-ops if an editor is already open, so no double.
+    const open = (e) => { e.preventDefault(); e.stopPropagation(); this._editCardValue(rec, lineGuid, field, val, rowEl); };
+    val.addEventListener("mousedown", open);
+    val.addEventListener("click", open);
+    rowEl.append(val);
+  }
+
+
+  // Update ONE row's value IN PLACE — no card teardown/rebuild, so editing a value
+  // doesn't flicker the whole card. Handles the value-span-present case
+  // (choice/relation/number/date) and the input-present case (a text edit just
+  // committed → swap the <input> back to a value span). Preserves the nav cursor
+  // class if it's on the span (we set textContent, we don't replace the node).
+  // Display `field` (with its .value) in the row — caller passes the value to show
+  // (a known optimistic value, or a freshly re-read one). Never re-reads itself.
+  _applyRowValue(rec, lineGuid, field, rowEl) {
+    // Robust to a stale/detached rowEl: re-find the current row for this field.
+    if (!rowEl || !rowEl.isConnected) {
+      const esc = (window.CSS && CSS.escape) ? CSS.escape(lineGuid) : lineGuid;
+      const card = document.querySelector("." + this._CARD_CLASS + '[data-refx-for="' + esc + '"]');
+      rowEl = card ? [...card.querySelectorAll(".refx-propcard-row")].find((r) => r.dataset.refxRow === field.name) : null;
+      if (!rowEl) return;
+    }
+    const empty = field.value === "" || field.value == null;
+    const display = empty ? "—" : String(field.display || (field.kind === "date" && this._fmtDateDisplay(field.value)) || field.value);
+    let val = rowEl.querySelector(".refx-propcard-value");
+    if (val) {
+      // Skip no-op writes: a textContent swap is a mutation the body observer
+      // wakes on — a refresh pass over unchanged rows would otherwise amplify
+      // into observer callbacks for nothing.
+      if (val.textContent !== display) val.textContent = display;
+      if (val.classList.contains("refx-propcard-empty") !== empty) val.classList.toggle("refx-propcard-empty", empty);
+      if (empty) { if (val.hasAttribute("title")) val.removeAttribute("title"); } else if (val.title !== display) val.title = display;
+      if (val.dataset.refxField !== field.name) val.dataset.refxField = field.name;
+    } else {
+      const input = rowEl.querySelector("input");
+      val = this._el("span", "refx-propcard-value" + (empty ? " refx-propcard-empty" : ""), display);
+      val.dataset.refxField = field.name;
+      if (!empty) val.title = display;
+      const open = (e) => { e.preventDefault(); e.stopPropagation(); this._editCardValue(rec, lineGuid, field, val, rowEl); };
+      val.addEventListener("mousedown", open);
+      val.addEventListener("click", open);
+      if (input) input.replaceWith(val); else rowEl.append(val);
+    }
+  }
+
+  // Smoothly reflect a just-written value with NO card teardown:
+  //   1) optimistically show `optimistic` immediately (instant, no flicker/lag), then
+  //   2) poll until the async write propagates and re-apply the confirmed value.
+  // The row is updated in place both times; the nav cursor is re-established after.
+  // NOTE: every caller pre-arms _commitClaim(lineGuid) BEFORE its write (so the
+  // write's synchronous record.updated is already gated); this poll RELEASES that
+  // claim exactly once when it settles. Do not claim again here.
+  _commitRefreshRow(rec, lineGuid, field, prevValue, rowEl, optimistic, optimisticDisplay) {
+    if (arguments.length >= 6) {
+      // Replace `display` — the old one belongs to the PREVIOUS value. Callers that
+      // know the native formatted text (typed granular dates) pass it; otherwise
+      // the date-kind fallback formatter in _applyRowValue keeps it native-looking.
+      this._applyRowValue(rec, lineGuid, Object.assign({}, field, { value: optimistic, display: optimisticDisplay || "" }), rowEl);
+      this._consumeNavResume(lineGuid);
+    }
+    const hasOpt = arguments.length >= 6;
+    let n = 0;
+    const tick = () => {
+      if (!this._cards.has(lineGuid)) { this._commitRelease(lineGuid); return; }
+      // Never repaint while an editor is open — replacing a focused <input> fires
+      // no blur in Chromium, so its commit/cancel would never run and _cardEditing
+      // would wedge true (bricking all card editing). The editor's own close path
+      // repaints; we just hand ownership back.
+      if (this._cardEditing) { this._commitRelease(lineGuid); return; }
+      let fresh = null;
+      try { fresh = this._recCardFields(rec).find((x) => x.name === field.name) || null; } catch (e) {}
+      const cur = fresh ? fresh.value : null;
+      const propagated = String(cur) !== String(prevValue);
+      if (propagated || n >= 8) {
+        // On a slow write that never propagated within the poll window, do NOT
+        // repaint the still-stale read — keep the optimistic (known) value, and
+        // schedule one deferred silent refresh to pick up the confirmed/formatted
+        // value once it lands.
+        const show = (propagated || !hasOpt) ? (fresh || field) : Object.assign({}, field, { value: optimistic, display: "" });
+        this._applyRowValue(rec, lineGuid, show, rowEl);
+        this._consumeNavResume(lineGuid);
+        this._commitRelease(lineGuid);
+        if (!propagated || !(fresh && fresh.display)) {
+          const rg = (this._cards.get(lineGuid) || {}).recordGuid;
+          if (rg) setTimeout(() => { if (this._cards.has(lineGuid)) this._refreshCardInPlace(lineGuid, rg); }, 1200);
+        }
+        return;
+      }
+      n++; setTimeout(tick, 80);
+    };
+    tick();
+  }
+
+  // Refresh a card's values IN PLACE (no teardown → no flicker) when its record
+  // changed. Updates the title + each field's row, matching rows BY NAME. Crucially
+  // it NEVER removes/rebuilds the card node — an earlier "structure mismatch → full
+  // rebuild" fallback was the real flicker source: the rebuild replaced the node,
+  // which then made the keep-alive observer + discovery see a "missing" card and
+  // pile on with loading-flash rebuilds (and the value lagged a step because each
+  // rebuild read pre-propagation data). A genuinely-absent/loading card still gets a
+  // fresh build; a truly changed field SET just won't show the new field until the
+  // next expand (rare). Skipped while editing / during a commit poll.
+  _refreshCardInPlace(lineGuid, recordGuid) {
+    if (this._cardEditing) return;
+    if (this._commitOwned(lineGuid)) return; // its own commit poll owns the refresh
+    const esc = (window.CSS && CSS.escape) ? CSS.escape(lineGuid) : lineGuid;
+    const card = document.querySelector("." + this._CARD_CLASS + '[data-refx-for="' + esc + '"]');
+    if (!card || card.classList.contains("refx-propcard-loading")) { this._renderFreshCard(lineGuid, recordGuid, true); return; }
+    const rec = this.data.getRecord(recordGuid);
+    if (!rec) return;
+    let fields; try { fields = this._recCardFields(rec); } catch (e) { return; }
+    const titleEl = card.querySelector(".refx-propcard-title");
+    if (titleEl) { const nm = (rec.getName && rec.getName()) || "Untitled"; if (titleEl.textContent !== nm) titleEl.textContent = nm; }
+    for (const f of fields) {
+      const row = [...card.querySelectorAll(".refx-propcard-row")].find((r) => r.dataset.refxRow === f.name);
+      if (row) this._applyRowValue(rec, lineGuid, f, row);
+    }
+    if (this._cardNav && this._cardNav.lineGuid === lineGuid) this._paintCardNav();
+  }
+
+  // Give an empty record a first body line to type into, then focus it. The
+  // transclusion mirrors the target's body, so the new line renders in the embed.
+  async _addBodyLine(lineGuid) {
+    const entry = this._cards.get(lineGuid);
+    if (!entry) return;
+    const rec = this.data.getRecord(entry.recordGuid);
+    if (!rec) return;
+    let line = null;
+    try { line = await rec.createLineItem(null, null, "text"); } catch (e) {}
+    if (!line) return;
+    // Re-render the card (body is no longer empty → the affordance drops away),
+    // then focus the freshly-rendered line for immediate keyboard typing.
+    setTimeout(() => { if (this._cards.has(lineGuid)) this._renderFreshCard(lineGuid, entry.recordGuid, true); }, 200);
+    this._focusEmbeddedLine(lineGuid, line.guid, 0);
+  }
+
+  _focusEmbeddedLine(embedGuid, targetLineGuid, attempt) {
+    attempt = attempt || 0;
+    const node = this._transclusionNode(embedGuid);
+    let line = null;
+    if (node && node.querySelector) {
+      const esc = (window.CSS && CSS.escape) ? CSS.escape(targetLineGuid) : targetLineGuid;
+      line = node.querySelector('.listitem[data-guid="' + esc + '"]') || node.querySelector('[data-guid="' + esc + '"]');
+    }
+    if (line) {
+      const t = (line.querySelector && line.querySelector(".lineitem-text")) || line;
+      if (this._hitTestCaret(t)) return;
+    }
+    if (attempt < 14) setTimeout(() => this._focusEmbeddedLine(embedGuid, targetLineGuid, attempt + 1), 90);
+  }
+
+  // Ensure a current card for this embed. If a HEALTHY card already exists, refresh
+  // it IN PLACE (no teardown → no flicker); only build a fresh node when none exists
+  // (or just a loading placeholder does). This is the single entry every keep-alive
+  // caller (observer, discovery, rehydrate) uses, so none of them flicker the card.
+  async _attachPropCard(lineGuid, recordGuid, silent) {
+    if (!this._cards.has(lineGuid)) return;
+    const escId = (window.CSS && CSS.escape) ? CSS.escape(lineGuid) : lineGuid;
+    const existing = document.querySelector("." + this._CARD_CLASS + '[data-refx-for="' + escId + '"]');
+    if (existing && !existing.classList.contains("refx-propcard-loading")) { this._refreshCardInPlace(lineGuid, recordGuid); return; }
+    return this._renderFreshCard(lineGuid, recordGuid, silent, existing);
+  }
+
+  // Build a fresh card NODE: loading state → resolve the record (may not be loaded
+  // yet) → render. The ONLY path that creates/replaces the card node — everything
+  // else refreshes in place. Called for a genuinely-missing card or a structural
+  // change (add-content toggled, field set changed).
+  async _renderFreshCard(lineGuid, recordGuid, silent, existing) {
+    if (!this._cards.has(lineGuid)) return;
+    if (existing === undefined) { const escId = (window.CSS && CSS.escape) ? CSS.escape(lineGuid) : lineGuid; existing = document.querySelector("." + this._CARD_CLASS + '[data-refx-for="' + escId + '"]'); }
+    // On a silent refresh of an already-drawn card, skip the loading flash.
+    if (!silent || !existing) this._renderCardInto(lineGuid, this._el("div", this._CARD_CLASS + " refx-propcard-loading", "Loading…"));
+    let rec = this.data.getRecord(recordGuid);
+    for (let i = 0; i < 8 && !rec; i++) { await new Promise((r) => setTimeout(r, 60)); if (!this._cards.has(lineGuid)) return; rec = this.data.getRecord(recordGuid); }
+    if (!this._cards.has(lineGuid)) return;
+    if (!rec) { this._renderCardInto(lineGuid, this._el("div", this._CARD_CLASS + " refx-propcard-empty", "Record unavailable")); return; }
+    let fields = this._recCardFields(rec);
+    if (!fields.length) { await new Promise((r) => setTimeout(r, 150)); if (!this._cards.has(lineGuid)) return; fields = this._recCardFields(rec); }
+    // An empty record has no body line to type into — the native transclusion
+    // renders nothing editable — so the card offers an "add content" affordance.
+    let bodyEmpty = false;
+    try { const items = await rec.getLineItems(); bodyEmpty = !items || items.length === 0; } catch (e) {}
+    if (!this._cards.has(lineGuid)) return;
+    this._renderCardInto(lineGuid, this._buildPropCard(rec, fields, lineGuid, bodyEmpty));
+  }
+
+  _renderCardInto(lineGuid, cardEl) {
+    const node = this._transclusionNode(lineGuid);
+    if (!node) return false;
+    cardEl.dataset.refxFor = lineGuid;
+    // The card is a plugin UI island injected into the transclusion. Marking it
+    // non-editable stops Thymer's editor from swallowing clicks on it as caret
+    // placement, so its own click handlers (edit a value) fire reliably.
+    cardEl.contentEditable = "false";
+    const esc = (window.CSS && CSS.escape) ? CSS.escape(lineGuid) : lineGuid;
+    const existing = document.querySelector("." + this._CARD_CLASS + '[data-refx-for="' + esc + '"]');
+    const entry = this._cards.get(lineGuid);
+    if (existing && existing !== cardEl && node.contains(existing)) {
+      // MORPH IN PLACE: keep the existing card NODE (preserve its identity) and adopt
+      // the fresh content, instead of remove+insert. Anything holding the card node
+      // survives; only rows/value-cells are swapped, so the resume/paint tail below
+      // re-lands the nav cursor and _applyRowValue re-finds any in-flight rowEl.
+      existing.className = cardEl.className;
+      existing.replaceChildren(...cardEl.childNodes);
+      if (entry) entry.cardEl = existing; // cache for the observer's zero-flash re-insert
+    } else {
+      this._removeCardEl(lineGuid);
+      // ROOT-CAUSE FIX (2026-07-01, live-proven): Thymer REPLACES the inner
+      // `.transclusion-container-div` node on EVERY property write, so a card placed
+      // inside it was destroyed as collateral and re-injected with a loading flash
+      // (the flicker) + a one-step-stale value. The `.listitem-transclusion` node
+      // survives, so inject the card as its FIRST CHILD (a scoped flex-wrap CSS rule
+      // stacks it full-width above the body). Now editing never wipes the card.
+      node.insertBefore(cardEl, node.firstChild);
+      if (entry) entry.cardEl = cardEl; // cache for the observer's zero-flash re-insert
+    }
+    this._alignCardToBody(lineGuid, node);
+    // The card is in the DOM now (paint synchronously). If an edit stashed a resume,
+    // re-establish the cursor on that cell; else if a nav cursor is active, re-land it.
+    if (this._cardNavResume && this._cardNavResume.lineGuid === lineGuid) this._consumeNavResume(lineGuid);
+    else if (this._cardNav && this._cardNav.lineGuid === lineGuid) this._paintCardNav();
+    return true;
+  }
+
+  // Line the card's edges up with the body box: the transclusion body container has
+  // its own left/right margins (e.g. 30px indent / ~10px right, varying per context),
+  // and a full-width card overhangs it. Mirror the container's computed margins onto
+  // the card so the two boxes fuse edge-to-edge (the width calc keeps the card on its
+  // own flex line — outer size still spans the row, so the wrap layout is unchanged).
+  _alignCardToBody(lineGuid, node) {
+    try {
+      node = node || this._transclusionNode(lineGuid);
+      if (!node) return;
+      const card = node.querySelector(":scope > ." + this._CARD_CLASS);
+      const cont = node.querySelector(".transclusion-container-div");
+      if (!card || !cont) return;
+      const cs = getComputedStyle(cont);
+      const ml = cs.marginLeft || "0px", mr = cs.marginRight || "0px";
+      card.style.marginLeft = ml;
+      card.style.marginRight = mr;
+      card.style.width = "calc(100% - " + ml + " - " + mr + ")";
+      card.style.flex = "0 0 auto";
+    } catch (e) {}
+  }
+
+  // The embed's rendered node. Primary = DOM query on the line's data-guid (the
+  // embed line is `.listitem.listitem-transclusion[data-guid=<lineGuid>]`,
+  // confirmed live; works in any execution context). Fallback = the registry's
+  // $node (only reachable from the plugin's own runtime world).
+  _transclusionNode(lineGuid) {
+    try {
+      const esc = (window.CSS && CSS.escape) ? CSS.escape(lineGuid) : lineGuid;
+      const n = document.querySelector('.listitem-transclusion[data-guid="' + esc + '"], .listitem[data-guid="' + esc + '"], [data-guid="' + esc + '"]');
+      if (n) return (n.closest && (n.closest(".listitem-transclusion") || n.closest(".listitem"))) || n;
+    } catch (e) {}
+    try {
+      const lvs = (window.g_universe && window.g_universe.listviews) || [];
+      for (const lv of lvs) {
+        let items; try { items = lv.getItems(); } catch (e) { continue; }
+        for (const it of items || []) { try { if (it && it.state && it.state.guid === lineGuid && it.$node) return it.$node; } catch (e) {} }
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  _removeCardEl(lineGuid) {
+    try {
+      const esc = (window.CSS && CSS.escape) ? CSS.escape(lineGuid) : lineGuid;
+      document.querySelectorAll("." + this._CARD_CLASS + '[data-refx-for="' + esc + '"]').forEach((n) => n.remove());
+    } catch (e) {}
+  }
+
+  _removeAllCardEls() {
+    try { document.querySelectorAll("." + this._CARD_CLASS).forEach((n) => n.remove()); } catch (e) {}
+  }
+
+  // ---- observer (lazy, panel-scoped, hot-reload-guarded) ----
+
+  _ensureCardObserver() {
+    if (this._cardObs || this._unloaded) return;
+    // Observe the whole document, not a single panel: an embed's card can live in
+    // any panel and the active/focused panel isn't necessarily the one holding it
+    // (e.g. after a reload with a search panel focused). Cheap-first guards below
+    // keep this idle-free whenever no embeds are open.
+    const target = document.body;
+    const obs = new MutationObserver(() => {
+      if (!this._cards.size || this._cardEditing) return;
+      // ZERO-FLASH keep-alive: MutationObserver callbacks are microtasks — they run
+      // BEFORE the browser paints the mutation. If a native re-render just dropped a
+      // card, re-inserting the CACHED node here (synchronously) means no painted
+      // frame ever lacks the card → no flicker, and the value it already shows stays
+      // continuously visible (instant). The old rAF-deferred rebuild painted a
+      // card-less frame first — that was the residual flash.
+      // PRESENCE CHECK: cached-node isConnected FIRST — it's O(1), whereas the
+      // compound querySelector walks the document per card per mutation batch
+      // (Thymer mutates line DOM on essentially every keystroke).
+      let needRebuild = false;
+      for (const [lineGuid, e] of this._cards) {
+        if (e.cardEl && e.cardEl.isConnected) continue;
+        if (!e.cardEl) {
+          const esc = (window.CSS && CSS.escape) ? CSS.escape(lineGuid) : lineGuid;
+          if (document.querySelector("." + this._CARD_CLASS + '[data-refx-for="' + esc + '"]')) continue;
+        }
+        const node = e.cardEl ? this._transclusionNode(lineGuid) : null;
+        if (node && e.cardEl) { try { node.insertBefore(e.cardEl, node.firstChild); this._alignCardToBody(lineGuid, node); } catch (err) { needRebuild = true; } }
+        else needRebuild = true;
+      }
+      if (needRebuild && !this._cardRaf) this._cardRaf = requestAnimationFrame(() => { this._cardRaf = 0; this._onCardMutation(); });
+    });
+    try { obs.observe(target, { childList: true, subtree: true }); } catch (e) {}
+    this._cardObs = obs; this._cardObsTarget = target;
+    window.__refxCardObs = obs;
+  }
+
+  _onCardMutation() {
+    if (!this._cards.size || this._cardEditing || this._unloaded) return;
+    for (const [lineGuid, e] of this._cards) {
+      if (e.cardEl && e.cardEl.isConnected) continue; // O(1) fast path
+      const esc = (window.CSS && CSS.escape) ? CSS.escape(lineGuid) : lineGuid;
+      // silent=true: a keep-alive re-inject of a card that already existed must
+      // never show a "Loading…" flash. (Fallback only — the observer's synchronous
+      // cached-node re-insert above handles the common case pre-paint.)
+      if (!document.querySelector("." + this._CARD_CLASS + '[data-refx-for="' + esc + '"]')) this._attachPropCard(lineGuid, e.recordGuid, true);
+    }
+  }
+
+  _teardownCardObserver() {
+    this._exitCardNav();
+    if (this._cardRaf) { try { cancelAnimationFrame(this._cardRaf); } catch (e) {} this._cardRaf = 0; }
+    if (this._cardObs) { try { this._cardObs.disconnect(); } catch (e) {} }
+    this._cardObs = null; this._cardObsTarget = null;
+    if (window.__refxCardObs) { try { window.__refxCardObs.disconnect(); } catch (e) {} window.__refxCardObs = null; }
+    this._closeCardPopup();
+    this._removeAllCardEls();
+  }
+
+  // Disconnect observers + window listeners + remove orphan DOM left by a previous
+  // instance (Thymer hot-reloads by re-running onLoad on the same document WITHOUT
+  // disposing the prior instance — anything not window-stashed leaks).
+  _killStaleObservers() {
+    try { if (window.__refxCardObs && window.__refxCardObs.disconnect) window.__refxCardObs.disconnect(); } catch (e) {}
+    window.__refxCardObs = null;
+    // The prior instance's ALWAYS-ON capture listeners (its arrow-field refs are
+    // unreachable — only the window stash can remove them).
+    try { for (const h of window.__refxKeyHandlers || []) window.removeEventListener("keydown", h, true); } catch (e) {}
+    window.__refxKeyHandlers = null;
+    // Session listeners a prior instance may have left mid-interaction.
+    try { if (window.__refxCardNavKey) window.removeEventListener("keydown", window.__refxCardNavKey, true); } catch (e) {}
+    try { if (window.__refxCardNavClick) window.removeEventListener("mousedown", window.__refxCardNavClick, true); } catch (e) {}
+    window.__refxCardNavKey = null; window.__refxCardNavClick = null;
+    try { if (window.__refxPopupKey) window.removeEventListener("keydown", window.__refxPopupKey, true); } catch (e) {}
+    window.__refxPopupKey = null;
+    try { if (window.__refxLinkKey) window.removeEventListener("keydown", window.__refxLinkKey, true); } catch (e) {}
+    try { if (window.__refxLinkClick) document.removeEventListener("mousedown", window.__refxLinkClick, true); } catch (e) {}
+    window.__refxLinkKey = null; window.__refxLinkClick = null;
+    try { if (window.__refxShortcutCap) window.removeEventListener("keydown", window.__refxShortcutCap, true); } catch (e) {}
+    window.__refxShortcutCap = null;
+    try { if (window.__refxDiscoverTrigger) { document.removeEventListener("visibilitychange", window.__refxDiscoverTrigger, false); window.removeEventListener("focus", window.__refxDiscoverTrigger, false); } } catch (e) {}
+    window.__refxDiscoverTrigger = null;
+    try { document.querySelectorAll(".refx-nav-focus").forEach((el) => el.classList.remove("refx-nav-focus")); } catch (e) {}
+    // Orphan popup/backdrop DOM from a prior instance's open interaction.
+    try { document.querySelectorAll(".refx-cardpop, .refx-pop-backdrop, .refalias-pop, .refalias-backdrop, .refalias-catch").forEach((n) => n.remove()); } catch (e) {}
+    this._removeAllCardEls();
+  }
+
+  // ---- inline property editing ----
+
+  _editCardValue(rec, lineGuid, field, valEl, rowEl) {
+    if (this._cardEditing) return; // an editor is already open (or a dup event)
+    // Re-resolve the field FRESH at open: the click handlers bound in _fillPropRow
+    // capture a build-time snapshot, so after an earlier edit (or a remote change)
+    // the closure's `field.value` is stale — a blur-commit of the seeded input
+    // would silently revert a newer value, and pickers would mark the wrong
+    // current option.
+    try { const f = this._recCardFields(rec).find((x) => x.name === field.name); if (f) field = f; } catch (e) {}
+    if (field.kind === "choice") return this._editChoice(rec, lineGuid, field, valEl, rowEl);
+    if (field.kind === "relation") return this._editRelation(rec, lineGuid, field, valEl, rowEl);
+    if (field.kind === "date") return this._editDate(rec, lineGuid, field, valEl, rowEl);
+    this._cardEditing = true;
+    let done = false;
+    const input = this._el("input", "refalias-input refx-propcard-input");
+    input.type = field.kind === "number" ? "number" : "text";
+    input.value = (field.value == null ? "" : String(field.value));
+    valEl.replaceWith(input);
+    setTimeout(() => { try { input.focus(); if (input.select) input.select(); } catch (e) {} }, 0);
+    // commit: write + optimistic in-place row update + poll-confirm (no teardown).
+    // cancel: swap the <input> back to a value span showing the original value, in
+    // place (no innerHTML clear). Both re-establish the nav cursor.
+    const commit = (raw) => { if (done) return; done = true; this._activeEdit = null; this._commitClaim(lineGuid); this._cardEditing = false; this._writeCardProp(rec, field, raw); this._commitRefreshRow(rec, lineGuid, field, field.value, rowEl, raw); this._flushDeferredDiscover(); };
+    const cancel = () => {
+      if (done) return; done = true; this._activeEdit = null; this._cardEditing = false;
+      let fresh = field; try { const f = this._recCardFields(rec).find((x) => x.name === field.name); if (f) fresh = f; } catch (e) {}
+      this._applyRowValue(rec, lineGuid, fresh, rowEl);
+      this._consumeNavResume(lineGuid);
+      this._flushDeferredDiscover();
+    };
+    // Track the open editor so teardown paths (collapse, navigation) can close it —
+    // removing a focused <input> fires NO blur in Chromium, which would leave
+    // _cardEditing wedged true and brick all card editing.
+    this._activeEdit = { lineGuid, cancel };
+    input.addEventListener("keydown", (e) => {
+      e.stopPropagation();
+      if (e.key === "Enter") { e.preventDefault(); commit(input.value); }
+      else if (e.key === "Escape") { e.preventDefault(); cancel(); }
+    });
+    input.addEventListener("blur", () => commit(input.value));
+  }
+
+  // Keyboard-first date editor REPLICATING Thymer's native date picker (studied live
+  // on a native record: same placeholder, month header with ‹ ○ › nav, weekday row,
+  // 6-week grid including prev/next-month days, and a bottom confirm bar showing the
+  // focused date). Type a natural-language date ("next friday", "aug 1", "monday")
+  // parsed by Thymer's own DateTime.parseDateTimeString, and/or arrow the grid. Works
+  // when the field is EMPTY (seeds to today). Commits via the same pick-ordering as
+  // the choice editor (pre-arm _commitInFlight → close → write → in-place refresh).
+  _editDate(rec, lineGuid, field, valEl, rowEl) {
+    const DT = (typeof DateTime !== "undefined" && DateTime && DateTime.parseDateTimeString) ? DateTime : null;
+    const pop = this._el("div", "refalias-pop refx-cardpop refx-datepop");
+    const input = this._el("input", "refalias-input");
+    input.placeholder = DT ? "Try: today, Aug 1, monday" : "YYYY-MM-DD";
+    input.value = field.value && /^\d{4}-\d{2}-\d{2}/.test(field.value) ? field.value : "";
+    // Header: month label + ‹ ○ › (prev / today / next), like the native picker.
+    const header = this._el("div", "refx-datepop-header");
+    const monthLabel = this._el("span", "refx-datepop-month");
+    const navBox = this._el("span", "refx-datepop-nav");
+    const mkNav = (icon, title, fn) => { const b = this._el("button", "refx-datepop-navbtn"); b.type = "button"; b.title = title; b.append(this._el("span", "ti " + icon)); b.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); fn(); }); return b; };
+    const weekdays = this._el("div", "refx-datepop-weekdays");
+    ["S","M","T","W","T","F","S"].forEach((w) => weekdays.append(this._el("div", "refx-datepop-dow", w)));
+    const grid = this._el("div", "refx-datepop-grid");
+    // Bottom confirm bar (native: the selected autocomplete row "📅 Wed Jul 1").
+    const confirm = this._el("div", "refx-datepop-confirm");
+    pop.append(input, header, weekdays, grid, confirm);
+
+    const iso = (y, m0, d) => y + "-" + String(m0 + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0");
+    const today = this._todayParts();
+    // field.value is "YYYY-MM-DD" or "YYYY-MM-DD HH:MM" (time preserved when stored).
+    let seed = (field.value && /^(\d{4})-(\d{2})-(\d{2})(?: (\d{2}:\d{2}))?/.exec(field.value));
+    let viewY = seed ? +seed[1] : today.y, viewM = seed ? (+seed[2] - 1) : today.m;
+    let cur = { y: viewY, m: viewM, d: seed ? +seed[3] : today.d }; // focused date (can be outside viewM)
+    let curTime = seed && seed[4] ? seed[4] : null; // "HH:MM" — typed or pre-existing time
+    const curIso = seed ? iso(+seed[1], +seed[2] - 1, +seed[3]) : null;
+
+    // typedDtv: the LAST successful parse of the input text, kept as the raw
+    // DateTimeValue. Committing it AS-IS is what preserves Thymer's granular date
+    // values — "week 28", "Q3 2026", "july 2025", "2027", "last year" all store
+    // and render exactly like native pills instead of collapsing to one day.
+    // Cleared whenever the user drives the GRID (that's an explicit day choice).
+    let typedDtv = null; // { v: DateTimeValue, formatted, machine: "YYYY-MM-DD[ HH:MM]" }
+    const pick = (isoStr) => {
+      typedDtv = null; // day-granularity commit (grid/clear)
+      const raw = isoStr ? (isoStr + (curTime ? " " + curTime : "")) : "";
+      this._commitClaim(lineGuid);
+      this._closeCardPopup();
+      this._writeCardProp(rec, field, raw);
+      this._commitRefreshRow(rec, lineGuid, field, field.value, rowEl, raw);
+    };
+    const pickTyped = (td) => {
+      this._commitClaim(lineGuid);
+      this._closeCardPopup();
+      this._writeCardProp(rec, field, { dtv: td.v });
+      this._commitRefreshRow(rec, lineGuid, field, field.value, rowEl, td.machine, td.formatted);
+    };
+    const MONTHS_FULL = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+    const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const DOWS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+    const fmt = (y, m0, d) => { const dt = new Date(y, m0, d); return DOWS[dt.getDay()] + " " + MONTHS[m0] + " " + d + (y !== today.y ? " " + y : ""); };
+    header.append(monthLabel, navBox);
+    navBox.append(
+      mkNav("ti-chevron-left", "Previous month", () => { viewM--; if (viewM < 0) { viewM = 11; viewY--; } render(); }),
+      mkNav("ti-point", "Go to today", () => { viewY = today.y; viewM = today.m; cur = { ...today }; render(); }),
+      mkNav("ti-chevron-right", "Next month", () => { viewM++; if (viewM > 11) { viewM = 0; viewY++; } render(); })
+    );
+    const render = () => {
+      monthLabel.textContent = MONTHS_FULL[viewM] + " " + viewY;
+      grid.innerHTML = "";
+      // 6 fixed weeks incl. prev/next-month days, exactly like native.
+      const firstDow = new Date(viewY, viewM, 1).getDay();
+      const start = new Date(viewY, viewM, 1 - firstDow);
+      for (let i = 0; i < 42; i++) {
+        const dt = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+        const y = dt.getFullYear(), m0 = dt.getMonth(), d = dt.getDate();
+        const di = iso(y, m0, d);
+        let cls = "refx-datepop-day " + (m0 === viewM ? "cur-month" : "adj-month");
+        if (y === cur.y && m0 === cur.m && d === cur.d) cls += " refx-datepop-focus";
+        if (di === curIso) cls += " refx-datepop-sel";
+        if (y === today.y && m0 === today.m && d === today.d) cls += " refx-datepop-today";
+        const cell = this._el("div", cls);
+        cell.append(this._el("span", "refx-datepop-day-inner", String(d)));
+        cell.dataset.iso = di;
+        cell.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); pick(di); });
+        grid.append(cell);
+      }
+      confirm.innerHTML = "";
+      // Typed granular values show their NATIVE formatted text ("Week 28",
+      // "Q3 2026"); grid-driven focus shows the day form.
+      const label = typedDtv ? typedDtv.formatted : (fmt(cur.y, cur.m, cur.d) + (curTime ? " " + curTime : ""));
+      confirm.append(this._el("span", "ti ti-calendar-event"), this._el("span", "refx-datepop-confirm-label", label));
+    };
+    // Parse the typed text into {year, month, day, time?}. GUARDS (the "17:00" bug):
+    // a TIME-ONLY parse returns a DateTime whose date parts are undefined — feeding
+    // those into the grid rendered "undefined undefined" + NaN cells. Date parts that
+    // aren't finite fall back to toDate(), then to the currently-focused date (so a
+    // bare time means "the focused day at that time", like native). Time is kept as
+    // "HH:MM" — native accepts "17:00 tomorrow", "monday 3pm" etc.
+    const parseTyped = () => {
+      const q = input.value.trim();
+      if (!q) return null;
+      if (!DT) { const m = /^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{1,2}):(\d{2}))?$/.exec(q); return m ? { year: +m[1], month: +m[2] - 1, day: +m[3], time: m[4] ? String(m[4]).padStart(2, "0") + ":" + m[5] : null } : null; }
+      let dt = null; try { dt = DT.parseDateTimeString(q); } catch (e) {}
+      if (!dt) return null;
+      // Capture the RAW DateTimeValue — for granular inputs ("week 28", "Q3 2026",
+      // "july 2025", "2027", "last year") the parser returns a RANGE spanning the
+      // period ({d, r:{d}}); committing THAT value (plus the native pill label) is
+      // what stores exactly what the native picker stores.
+      let dtv = null; try { dtv = dt.value && dt.value(); } catch (e) {}
+      let p = null; try { p = dt.getParts(); } catch (e) {}
+      let time = null;
+      if (p && p.hours != null && isFinite(p.hours)) time = String(p.hours).padStart(2, "0") + ":" + String(p.minutes != null && isFinite(p.minutes) ? p.minutes : 0).padStart(2, "0");
+      const ok = p && isFinite(p.year) && isFinite(p.month) && isFinite(p.day);
+      if (!ok) {
+        let jd = null; try { jd = dt.toDate && dt.toDate(); } catch (e) {}
+        if (jd && !isNaN(jd.getTime())) p = { year: jd.getFullYear(), month: jd.getMonth(), day: jd.getDate() };
+        else if (time) { p = { year: cur.y, month: cur.m, day: cur.d }; dtv = null; } // time-only → keep the focused day (no raw pass-through)
+        else if (dtv && dtv.d && /^\d{8}$/.test(dtv.d)) p = { year: +dtv.d.slice(0, 4), month: +dtv.d.slice(4, 6) - 1, day: +dtv.d.slice(6, 8) }; // granular value: anchor the grid on its start day
+        else return null;
+      }
+      const machine = iso(p.year, p.month, p.day) + (time ? " " + time : "");
+      // Only pass the raw value through for RANGED (granular) parses — plain day
+      // parses commit via the ISO path (identical result, simpler pipeline). The
+      // pill label: the parser leaves `formatted` empty (the native widget fills it
+      // at store time), so synthesize the native text and include it in the value.
+      let formatted = null;
+      if (dtv && dtv.r && dtv.r.d) {
+        formatted = dtv.formatted || this._synthDateLabel(dtv.d, dtv.r.d, time);
+        if (formatted && !dtv.formatted) dtv = Object.assign({}, dtv, { formatted });
+      } else dtv = null;
+      return { year: p.year, month: p.month, day: p.day, time, dtv, formatted, machine };
+    };
+    let t = 0;
+    // Apply the current input text to cur/curTime immediately — Enter or a confirm-
+    // click landing INSIDE the 120ms parse debounce must not commit the pre-typing
+    // date ("aug 1⏎" at normal speed used to write the previously focused day).
+    const applyParse = (p) => {
+      cur = { y: p.year, m: p.month, d: p.day };
+      curTime = p.time || null;
+      typedDtv = (p.dtv && p.formatted) ? { v: p.dtv, formatted: p.formatted, machine: p.machine } : null;
+    };
+    const flushParse = () => {
+      if (t) { clearTimeout(t); t = 0; }
+      if (document.activeElement !== input || !input.value.trim()) return;
+      const p = parseTyped();
+      if (p && isFinite(p.year) && isFinite(p.month) && isFinite(p.day)) applyParse(p);
+    };
+    input.addEventListener("input", () => {
+      if (t) clearTimeout(t);
+      t = setTimeout(() => {
+        t = 0;
+        const p = parseTyped();
+        if (p && isFinite(p.year) && isFinite(p.month) && isFinite(p.day)) {
+          applyParse(p);
+          viewY = p.year; viewM = p.month;
+          render();
+        }
+        else if (!input.value.trim()) { curTime = null; typedDtv = null; render(); }
+        else { typedDtv = null; confirm.querySelector(".refx-datepop-confirm-label").textContent = "…"; }
+      }, 120);
+    });
+    confirm.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); flushParse(); if (typedDtv) pickTyped(typedDtv); else pick(iso(cur.y, cur.m, cur.d)); });
+
+    // One window-capture key handler for the whole popup (text input + grid). Passed
+    // to _openCardPopup as opts.onKey so its built-in row handler isn't installed.
+    const onKey = (e) => {
+      // Only while the popup owns focus (a palette stacked on top must get its own
+      // keys), and never convert MODIFIED chords (Cmd+Up etc.) into grid moves.
+      if (!pop.contains(document.activeElement)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); this._closeCardPopup(); return; }
+      if (e.key === "Enter") {
+        e.preventDefault(); e.stopImmediatePropagation();
+        flushParse();
+        const q = input.value.trim();
+        // Cleared-out input + Enter on a field that HAD a value = clear it;
+        // otherwise Enter commits what the confirm bar shows: the typed value
+        // (raw DateTimeValue, granularity preserved) or the grid-focused day.
+        if (document.activeElement === input && !q && curIso) { pick(""); return; }
+        if (typedDtv) { pickTyped(typedDtv); return; }
+        pick(iso(cur.y, cur.m, cur.d));
+        return;
+      }
+      if (e.key === "Backspace" && document.activeElement === input && !input.value && curIso) { e.preventDefault(); e.stopImmediatePropagation(); pick(""); return; } // clear existing date
+      // Movement keys drive the calendar grid; the view follows the focused date.
+      // Driving the grid is an explicit DAY choice — drop any typed granular value.
+      const step = (dd) => { e.preventDefault(); e.stopImmediatePropagation(); typedDtv = null; const dt = new Date(cur.y, cur.m, cur.d + dd); cur = { y: dt.getFullYear(), m: dt.getMonth(), d: dt.getDate() }; viewY = cur.y; viewM = cur.m; render(); };
+      if (e.key === "ArrowLeft") return step(-1);
+      if (e.key === "ArrowRight") return step(1);
+      if (e.key === "ArrowUp") return step(-7);
+      if (e.key === "ArrowDown") return step(7);
+      if (e.key === "PageUp") { e.preventDefault(); e.stopImmediatePropagation(); viewM--; if (viewM < 0) { viewM = 11; viewY--; } render(); return; }
+      if (e.key === "PageDown") { e.preventDefault(); e.stopImmediatePropagation(); viewM++; if (viewM > 11) { viewM = 0; viewY++; } render(); return; }
+      // other keys (typing) fall through to the focused input
+    };
+
+    render();
+    this._openCardPopup(pop, valEl, { onKey: onKey });
+    setTimeout(() => { try { input.focus(); } catch (e) {} }, 0);
+  }
+
+  _todayParts() { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth(), d: d.getDate() }; }
+
+  // Native-style display for a machine date value "YYYY-MM-DD[ HH:MM]" →
+  // "Sun Jul 12" (+ year when not the current year) (+ " 17:00"). Used as the
+  // fallback whenever a stored `formatted` isn't available yet (optimistic paints,
+  // pre-propagation reads) so the card NEVER shows raw ISO next to native pills.
+  _fmtDateDisplay(v) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}:\d{2}))?$/.exec(String(v == null ? "" : v));
+    if (!m) return null;
+    const dt = new Date(+m[1], +m[2] - 1, +m[3]);
+    if (isNaN(dt.getTime())) return null;
+    const DOWS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"], MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    let s = DOWS[dt.getDay()] + " " + MONTHS[dt.getMonth()] + " " + dt.getDate();
+    if (+m[1] !== new Date().getFullYear()) s += " " + m[1];
+    if (m[4]) s += " " + m[4];
+    return s;
+  }
+
+  // Synthesize the NATIVE pill label for a granular/ranged DateTimeValue when the
+  // parser didn't provide `formatted` (only the native picker widget computes it at
+  // store time). Stored shape (captured live): {d:"YYYYMMDD", r:{d:"YYYYMMDD"},
+  // formatted:"Week 28" | "Q3 2026" | "July 2025" | "Year 2027"}. The label is what
+  // the property pane renders, so committing without one would show a blank pill.
+  _synthDateLabel(startYmd, endYmd, time) {
+    const MF = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+    const parse = (s) => (/^\d{8}$/.test(s || "") ? { y: +s.slice(0, 4), m: +s.slice(4, 6) - 1, d: +s.slice(6, 8) } : null);
+    const a = parse(startYmd);
+    if (!a) return null;
+    const dayLabel = (p) => this._fmtDateDisplay(p.y + "-" + String(p.m + 1).padStart(2, "0") + "-" + String(p.d).padStart(2, "0"));
+    const b = parse(endYmd);
+    if (!b) return dayLabel(a) + (time ? " " + time : "");
+    const thisYear = new Date().getFullYear();
+    const lastDom = (y, m) => new Date(y, m + 1, 0).getDate();
+    if (a.y === b.y && a.m === 0 && a.d === 1 && b.m === 11 && b.d === 31) return "Year " + a.y;
+    if (a.y === b.y && a.d === 1 && a.m % 3 === 0 && b.m === a.m + 2 && b.d === lastDom(b.y, b.m)) return "Q" + (a.m / 3 + 1) + " " + a.y;
+    if (a.y === b.y && a.m === b.m && a.d === 1 && b.d === lastDom(b.y, b.m)) return MF[a.m] + " " + a.y;
+    const da = new Date(a.y, a.m, a.d), db = new Date(b.y, b.m, b.d);
+    if (Math.round((db - da) / 86400000) === 6) {
+      // 7-day span → week number, native scheme: week 1 = the week containing Jan 1
+      // (weeks start Sunday); verified against a live sample (Jul 5 2026 → Week 28).
+      // ROUND the day count before dividing by 7 — a DST transition inside the span
+      // shorts the raw ms difference by an hour, and floor() then drops a whole week.
+      const jan1 = new Date(da.getFullYear(), 0, 1);
+      const firstSunday = new Date(jan1.getFullYear(), 0, 1 - jan1.getDay());
+      const days = Math.round((da - firstSunday) / 86400000);
+      const wk = Math.floor(days / 7) + 1;
+      return "Week " + wk + (da.getFullYear() !== thisYear ? " " + da.getFullYear() : "");
+    }
+    return dayLabel(a) + " – " + dayLabel(b);
+  }
+
+  // Searchable choice picker (mirrors Thymer's native property editor): a "Search
+  // option…" filter box above the options, current value highlighted, ↑/↓ + Enter
+  // to pick. Typing filters the list; (None) clears the value (listed last).
+  _editChoice(rec, lineGuid, field, valEl, rowEl) {
+    const pop = this._el("div", "refalias-pop refx-cardpop refx-choicepop");
+    const input = this._el("input", "refalias-input");
+    input.placeholder = "Search option…";
+    const list = this._el("div", "refalias-results");
+    const options = (field.choices || []).map((c) => ({ label: c.label, cls: "" }));
+    options.push({ label: "", display: "(None)", cls: "refx-cardpop-clear" });
+    const pick = (label) => { this._commitClaim(lineGuid); this._closeCardPopup(); this._writeCardProp(rec, field, label); this._commitRefreshRow(rec, lineGuid, field, field.value, rowEl, label); };
+    const render = (q) => {
+      list.innerHTML = "";
+      const ql = (q || "").trim().toLowerCase();
+      const matches = options.filter((o) => { const d = o.display || o.label; return !ql || (d && d.toLowerCase().includes(ql)); });
+      for (const o of matches) {
+        const row = this._el("div", "refalias-result" + (o.cls ? " " + o.cls : "") + (o.label === field.value ? " refalias-result-sel" : ""));
+        row.append(this._el("span", "refalias-result-text", o.display || o.label));
+        row.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); pick(o.label); });
+        list.append(row);
+      }
+      if (!matches.length) list.append(this._el("div", "refx-cardpop-empty", "No matching options"));
+    };
+    render("");
+    input.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Escape") { e.preventDefault(); this._closeCardPopup(); } });
+    input.addEventListener("input", () => { render(input.value); if (this._cardPopup && this._cardPopup.resync) this._cardPopup.resync(true); });
+    pop.append(input, list);
+    this._openCardPopup(pop, valEl);
+  }
+
+  // Relation picker with a BROWSE list (like Thymer's native record dropdown): when
+  // the field declares a target collection (PropertyField.filter_colguid — e.g.
+  // Lead→People, Area→Areas, Goal→Goals), the popup opens with that collection's
+  // records listed so ↑/↓ + Enter work immediately; typing filters the list. Fields
+  // without a target collection keep workspace-wide search-on-type.
+  _editRelation(rec, lineGuid, field, valEl, rowEl) {
+    const pop = this._el("div", "refalias-pop refx-cardpop refx-relpop");
+    const input = this._el("input", "refalias-input");
+    input.placeholder = "Search records… (Esc to cancel)";
+    const list = this._el("div", "refalias-results");
+    pop.append(input, list);
+    let token = 0;
+    let browse = null; // [{r, name, lower}] of the target collection, when filter_colguid is set
+    const render = (entries) => {
+      // Never touch a popup that's no longer ours (closed, or a NEW popup opened) —
+      // a late async render used to poke the wrong popup's resync.
+      if (!this._cardPopup || this._cardPopup.pop !== pop) return;
+      list.innerHTML = "";
+      const clr = this._el("div", "refalias-result refx-cardpop-clear");
+      clr.append(this._el("span", "refalias-result-text", "— (clear)"));
+      clr.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); this._commitClaim(lineGuid); this._closeCardPopup(); this._clearRelation(rec, field); this._commitRefreshRow(rec, lineGuid, field, field.value, rowEl, ""); });
+      list.append(clr);
+      for (const ent of entries) {
+        const r = ent.r, name = ent.name;
+        const row = this._el("div", "refalias-result" + (name === field.value ? " refalias-result-sel" : ""));
+        row.append(this._el("span", "refalias-result-text", name));
+        row.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); this._commitClaim(lineGuid); this._closeCardPopup(); this._setRelation(rec, field, r); this._commitRefreshRow(rec, lineGuid, field, field.value, rowEl, name); });
+        list.append(row);
+      }
+      if (this._cardPopup && this._cardPopup.resync) this._cardPopup.resync(false);
+    };
+    const showBrowse = (q) => {
+      const ql = (q || "").toLowerCase();
+      render(browse.filter((ent) => !ql || ent.lower.includes(ql)).slice(0, 50));
+    };
+    let t = 0;
+    const search = async (q) => {
+      if (browse) return; // the collection-scoped list owns the popup — never replace it with workspace-wide results
+      const my = ++token; let res = null; try { res = await this.data.searchByQuery(q, 20); } catch (e) {}
+      if (my !== token || browse) return;
+      render((((res && res.records) || []).slice(0, 12)).map((r) => { const name = (r.getName && r.getName()) || "Untitled"; return { r, name }; }));
+    };
+    input.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Escape") { e.preventDefault(); this._closeCardPopup(); } });
+    input.addEventListener("input", () => {
+      if (t) clearTimeout(t);
+      const q = input.value.trim();
+      if (browse) { showBrowse(q); return; }        // instant client-side filter
+      t = setTimeout(() => { if (q) search(q); else render([]); }, 160);
+    });
+    this._openCardPopup(pop, valEl);
+    setTimeout(() => { try { input.focus(); } catch (e) {} }, 0);
+    // Seed the browse list from the field's declared target collection. Names are
+    // computed ONCE here (getName per record per keystroke was the hot path).
+    const meta = this._fieldMeta && field.id ? this._fieldMeta[field.id] : null;
+    const col = meta && meta.filter_colguid && this._colByGuid ? this._colByGuid[meta.filter_colguid] : null;
+    if (col && col.getAllRecords) {
+      col.getAllRecords().then((recs) => {
+        if (!this._cardPopup || this._cardPopup.pop !== pop) return; // popup already closed
+        if (t) { clearTimeout(t); t = 0; } // kill any pending workspace-wide search
+        browse = (recs || []).map((r) => { const name = (r.getName && r.getName()) || "Untitled"; return { r, name, lower: name.toLowerCase() }; })
+          .sort((a, b) => a.name.localeCompare(b.name));
+        showBrowse(input.value.trim());
+      }).catch(() => {});
+    }
+  }
+
+  _writeCardProp(rec, field, raw) {
+    let p = null; try { p = rec.prop(field.name); } catch (e) {}
+    if (!p) return;
+    try {
+      if (field.kind === "choice") {
+        if (raw === "" || raw == null) { try { p.set(""); } catch (e) { try { p.set([]); } catch (e2) {} } }
+        else p.setChoice(raw);
+      } else if (field.kind === "date") {
+        // raw = "YYYY-MM-DD"/"YYYY-MM-DD HH:MM" string, OR {dtv: DateTimeValue} —
+        // the picker passes the PARSED value straight through for typed text so
+        // Thymer's granular dates ("Week 28", "Q3 2026", "July 2025", "Year 2027",
+        // ranges) store exactly as native would. Preferred string write: Thymer's
+        // own DateTime.parseDateTimeString(raw).value() (rule-42 family). Fallback:
+        // a LOCAL Date (noon when no time — never `new Date("YYYY-MM-DD")`, which
+        // is UTC-midnight and lands on the previous day in western timezones).
+        if (raw && typeof raw === "object" && raw.dtv) {
+          try { p.set(raw.dtv); } catch (e) {}
+        } else if (raw) {
+          const s = String(raw);
+          const DT = (typeof DateTime !== "undefined" && DateTime && DateTime.parseDateTimeString) ? DateTime : null;
+          let wrote = false;
+          if (DT) { try { const v = DT.parseDateTimeString(s); if (v && v.value) { p.set(v.value()); wrote = true; } } catch (e) {} }
+          if (!wrote) {
+            let dt = null; const m = /^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{1,2}):(\d{2}))?$/.exec(s);
+            if (m) dt = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), m[4] != null ? Number(m[4]) : 12, m[5] != null ? Number(m[5]) : 0, 0);
+            else dt = new Date(s);
+            try { p.setFromDate(dt); } catch (e) { try { p.set(s); } catch (e2) {} }
+          }
+        } else {
+          // Clearing a datetime is UNRELIABLE via p.set("") alone (verified live:
+          // the write silently no-ops server-side while the local read looks
+          // cleared). Belt-and-suspenders: try all known clear paths — each is a
+          // harmless no-op once the prop is actually empty.
+          try { p.set(""); } catch (e) {}
+          try { p.setFromDate([]); } catch (e) {}
+          try { const n = (p.count && p.count()) || 0; for (let i = n - 1; i >= 0; i--) { try { p.removeValueAt(i); } catch (e2) {} } } catch (e) {}
+        }
+      } else if (field.kind === "number") {
+        p.set(raw === "" || raw == null ? "" : Number(raw));
+      } else {
+        p.set(raw);
+      }
+    } catch (e) {}
+  }
+
+  // Write the GUID STRING, never the PluginRecord/{guid} object: p.set(object)
+  // stores the object, which the plugin's own values() fallback happens to render
+  // but the NATIVE property pane shows as "[object Object]" — silent data
+  // corruption on the record (caught live 2026-07-01 on Area/Goal).
+  _setRelation(rec, field, recObj) {
+    let p = null; try { p = rec.prop(field.name); } catch (e) {}
+    if (!p) return;
+    let guid = null;
+    try { guid = (recObj && recObj.getGuid && recObj.getGuid()) || (recObj && recObj.guid) || null; } catch (e) {}
+    if (!guid || typeof guid !== "string") return;
+    try { p.set(guid); } catch (e) {}
+  }
+
+  _clearRelation(rec, field) {
+    let p = null; try { p = rec.prop(field.name); } catch (e) {}
+    if (!p) return;
+    try { p.set(""); } catch (e) { try { p.set([]); } catch (e2) {} }
+  }
+
+  // opts.onKey: a custom window-capture keydown handler (the date grid supplies its
+  // own). When given, the built-in option-row handler is NOT installed, so the two
+  // never conflict (the built-in used stopImmediatePropagation and would swallow the
+  // grid's keys). opts.focusInput=false skips the auto-focus (grid manages focus).
+  _openCardPopup(pop, anchorEl, opts) {
+    opts = opts || {};
+    this._closeCardPopup();
+    this._cardEditing = true;
+    const backdrop = this._el("div", "refx-pop-backdrop");
+    document.body.append(backdrop, pop);
+    this._positionPopover(pop, [anchorEl]);
+    backdrop.addEventListener("mousedown", (e) => { e.preventDefault(); this._closeCardPopup(); });
+    let onKey, resync = null;
+    if (opts.onKey) {
+      onKey = opts.onKey;
+    } else {
+      // Keyboard nav over the option rows (choice + relation): ↑/↓ move, Enter
+      // picks, Esc cancels. Window-capture so it beats the card's own key handlers.
+      const rowsOf = () => [...pop.querySelectorAll(".refalias-result")];
+      let sel = -1;
+      const paint = () => { rowsOf().forEach((r, i) => r.classList.toggle("refalias-result-sel", i === sel)); };
+      resync = (preferFirst) => {
+        const rs = rowsOf();
+        if (!rs.length) { sel = -1; return; }
+        const cur = rs.findIndex((r) => r.classList.contains("refalias-result-sel"));
+        sel = preferFirst ? 0 : (cur >= 0 ? cur : 0);
+        paint();
+        if (rs[sel]) { try { rs[sel].scrollIntoView({ block: "nearest" }); } catch (e) {} }
+      };
+      onKey = (e) => {
+        // Only handle keys while the popup owns focus — a UI stacked on top (the
+        // command palette) steals focus, and swallowing its Enter/arrows here
+        // would drive OUR list invisibly behind it.
+        if (!pop.contains(document.activeElement)) return;
+        const rs = rowsOf();
+        if (e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); this._closeCardPopup(); return; }
+        // Bail (don't swallow) when there are no option rows, so a co-existing popup
+        // key handler could work — belt-and-suspenders alongside opts.onKey.
+        if (!rs.length) return;
+        if (e.key === "ArrowDown") { e.preventDefault(); e.stopImmediatePropagation(); sel = (sel + 1) % rs.length; paint(); rs[sel].scrollIntoView({ block: "nearest" }); return; }
+        if (e.key === "ArrowUp") { e.preventDefault(); e.stopImmediatePropagation(); sel = (sel - 1 + rs.length) % rs.length; paint(); rs[sel].scrollIntoView({ block: "nearest" }); return; }
+        if (e.key === "Enter") { if (sel >= 0 && rs[sel]) { e.preventDefault(); e.stopImmediatePropagation(); rs[sel].dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true })); } return; }
+      };
+    }
+    window.addEventListener("keydown", onKey, true);
+    window.__refxPopupKey = onKey; // hot-reload stash
+    this._cardPopup = { pop, backdrop, onKey, resync };
+    if (resync) resync(false);
+    if (opts.focusInput !== false) { const input = pop.querySelector("input"); setTimeout(() => { try { if (input) input.focus(); } catch (e) {} }, 0); }
+  }
+
+  _closeCardPopup() {
+    const cp = this._cardPopup;
+    this._cardPopup = null;
+    this._cardEditing = false;
+    if (cp) {
+      if (cp.onKey) { try { window.removeEventListener("keydown", cp.onKey, true); } catch (e) {} }
+      window.__refxPopupKey = null;
+      try { cp.pop.remove(); } catch (e) {}
+      try { cp.backdrop.remove(); } catch (e) {}
+      // A real popup (choice/relation) just closed — re-establish the nav cursor if
+      // an edit stashed one (pick or cancel). Guard on `cp` so the no-op close at
+      // the top of _openCardPopup (before the popup exists) doesn't consume it.
+      this._consumeNavResume();
+      this._flushDeferredDiscover();
+    }
   }
 
   // ------------------------------------------------- inline [[ text references
@@ -445,6 +2275,7 @@ class Plugin extends AppPlugin {
     this._positionPopover(pop, [lineNode, info.caretEl, info.anchorNode]);
     window.addEventListener("keydown", this._linkKey, true);
     document.addEventListener("mousedown", this._linkClickOutside, true);
+    window.__refxLinkKey = this._linkKey; window.__refxLinkClick = this._linkClickOutside; // hot-reload stash
     this._renderLink();
     this._runLinkSearch("");
   }
@@ -454,6 +2285,7 @@ class Plugin extends AppPlugin {
     if (this._link.searchTimer) { try { clearTimeout(this._link.searchTimer); } catch (e) {} }
     window.removeEventListener("keydown", this._linkKey, true);
     document.removeEventListener("mousedown", this._linkClickOutside, true);
+    window.__refxLinkKey = null; window.__refxLinkClick = null;
     try { this._link.pop.remove(); } catch (e) {}
     this._link = null;
   }
@@ -517,25 +2349,34 @@ class Plugin extends AppPlugin {
     const seen = new Set();
     const out = [];
     const curLine = link.lineGuid;
-    const consider = (guid, segments, pageFn) => {
+    // Session-scoped normalized-text cache: the registry scan below runs on every
+    // keystroke pause; recomputing _segmentsFromState + _displayText + toLowerCase
+    // for every loaded line each time was the hot path. A [[ session lasts seconds,
+    // so staleness is a non-issue.
+    if (!link.textCache) link.textCache = new Map();
+    const consider = (guid, segments, pageFn, cacheable) => {
       if (!guid || guid === curLine || seen.has(guid)) return; // never the line you're on
       seen.add(guid);
-      const text = this._displayText(segments).trim();
+      let text, lt;
+      const hit = cacheable ? link.textCache.get(guid) : null;
+      if (hit) { text = hit.text; lt = hit.lt; }
+      else {
+        text = this._displayText(segments).trim();
+        lt = norm(text);
+        if (cacheable) link.textCache.set(guid, { text, lt });
+      }
       if (!text) return;
-      const lt = norm(text);
       if (!parts.every((p) => lt.includes(p))) return; // every "+" part must appear
       let page = "";
       try { page = pageFn() || ""; } catch (e) {}
       out.push({ guid, text, page });
     };
-    const gather = async () => {
-      seen.clear();
-      out.length = 0;
+    const scanRegistry = () => {
       // 1) Scan the loaded lines directly. This gives reliable substring AND
       //    matching and, crucially, sees lines you JUST typed — Thymer's search
       //    index lags behind, so searchByQuery often misses fresh content (the
-      //    main "+ doesn't work" cause). Limited to loaded lines; (2) covers the
-      //    rest of the workspace.
+      //    main "+ doesn't work" cause). Limited to loaded lines; the search
+      //    phase covers the rest of the workspace.
       const byGuid = (window.g_universe && window.g_universe.itemsByGuid) || {};
       for (const guid in byGuid) {
         const it = byGuid[guid];
@@ -544,29 +2385,37 @@ class Plugin extends AppPlugin {
         consider(it.guid || guid, this._segmentsFromState(it), () => {
           const r = it.rguid && this.data.getRecord(it.rguid);
           return r && r.getName && r.getName();
-        });
+        }, true);
         if (out.length >= 40) break;
       }
+    };
+    const searchPhase = async () => {
       // 2) Workspace-wide search for anything not currently loaded.
       for (const sq of terms) {
         let res;
         try { res = await this.data.searchByQuery(sq, 60); } catch (e) { res = { lines: [] }; }
-        if (this._link !== link || my !== link.token) return null;
+        if (this._link !== link || my !== link.token) return false;
         for (const li of res.lines || []) {
           consider(li.guid, li.segments, () => {
             const r = li.getRecord && li.getRecord();
             return r && r.getName && r.getName();
-          });
+          }, false);
         }
       }
-      return out;
+      return true;
     };
-    let results = await gather();
-    if (results && results.length === 0) {
-      await new Promise((r) => setTimeout(r, 170)); // search can return empty transiently; retry once
+    seen.clear(); out.length = 0;
+    scanRegistry();
+    if (!(await searchPhase())) return;
+    let results = out;
+    if (results.length === 0) {
+      // The retry exists for the FLAKY SEARCH INDEX — the local registry cannot
+      // have new matches 170ms later while typing is suspended, so re-run only
+      // the search phase (the registry re-scan was the wasted double cost).
+      await new Promise((r) => setTimeout(r, 170));
       if (this._link !== link || my !== link.token) return;
-      const retry = await gather();
-      if (retry) results = retry;
+      if (!(await searchPhase())) return;
+      results = out;
     }
     if (!results || this._link !== link || my !== link.token) return;
     link.results = results.slice(0, 8);
@@ -980,7 +2829,8 @@ class Plugin extends AppPlugin {
       if (ctl && ctl._refreshSave) ctl._refreshSave();
     };
     window.addEventListener("keydown", cap, true);
-    if (this._modal) this._modal.cleanup = () => window.removeEventListener("keydown", cap, true);
+    window.__refxShortcutCap = cap; // hot-reload stash (this capture swallows EVERY key)
+    if (this._modal) this._modal.cleanup = () => { window.removeEventListener("keydown", cap, true); window.__refxShortcutCap = null; };
   }
 
   _toast(msg) {
@@ -1088,6 +2938,96 @@ class Plugin extends AppPlugin {
   border-color: transparent !important; color: #fff !important; font-weight: 600;
 }
 .refalias-primary:disabled { opacity: .5; cursor: default; }
+
+/* record property card (rendered above the body inside a record embed) */
+.refx-propcard {
+  margin: 2px 0 0; padding: 8px 10px;
+  border-radius: 9px 9px 0 0;
+  /* One subtle luminance step above the body surface (neutral hue → works on
+     light and dark themes): the card reads as the "header" of the fused box. */
+  background: rgba(127,127,127,.11);
+  border: 1px solid rgba(127,127,127,.18);
+  border-bottom: none;
+  color: var(--text-color, #555958);
+  font-size: 12px; line-height: 1.45;
+  /* The card is injected as the first child of .listitem-transclusion (a flex row);
+     take the full width on its own line above the body (see _renderCardInto). */
+  order: -1; flex: 0 0 100%; box-sizing: border-box;
+}
+/* Only transclusions that carry our card wrap, so the card stacks above the body
+   instead of squeezing into the flex row. Scoped via :has() so no other rows change.
+   The body container fuses with the card into ONE box (card = top half): square off
+   its top corners, drop the doubled top edge and any gap between the two. */
+.listitem-transclusion:has(> .refx-propcard) { flex-wrap: wrap; row-gap: 0; }
+.listitem-transclusion:has(> .refx-propcard) > .transclusion-container-div {
+  margin-top: 0 !important;
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+  border-top: 1px solid rgba(127,127,127,.14) !important;
+}
+.refx-propcard-title { font-weight: 600; font-size: 12.5px; margin-bottom: 5px; opacity: .92; }
+.refx-propcard-row { display: flex; gap: 8px; padding: 1.5px 0; align-items: baseline; }
+.refx-propcard-label { flex: 0 0 34%; max-width: 34%; opacity: .55; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.refx-propcard-value {
+  flex: 1 1 auto; min-width: 0; cursor: text; border-radius: 4px; padding: 0 2px;
+  overflow: hidden; text-overflow: ellipsis;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+.refx-propcard-value:hover { background: rgba(127,127,127,.12); }
+.refx-propcard-value.refx-propcard-empty { opacity: .4; }
+.refx-propcard-empty { opacity: .45; font-style: italic; }
+.refx-propcard-loading { opacity: .55; }
+.refx-propcard-input { padding: 4px 6px !important; font-size: 12px !important; }
+/* keyboard nav cursor (class-based, like Thymer's native property nav) */
+.refx-propcard-value.refx-nav-focus, .refx-propcard-addbody.refx-nav-focus {
+  outline: 2px solid var(--ed-button-primary-bg, #479797); outline-offset: 1px;
+  background: rgba(127,127,127,.12); border-radius: 4px;
+}
+.refx-propcard-addbody {
+  margin-top: 7px; font-size: 12px; opacity: .7; cursor: pointer;
+  padding: 3px 5px; border-radius: 6px; display: inline-block;
+  border: 1px dashed rgba(127,127,127,.35);
+}
+.refx-propcard-addbody:hover {
+  background: rgba(127,127,127,.14); opacity: 1; border-style: solid;
+}
+
+/* inline edit popups (choice / relation) reuse the .refalias-pop shell */
+.refx-pop-backdrop { position: fixed; inset: 0; z-index: 2147483000; background: transparent; }
+.refx-cardpop { width: 320px; max-width: calc(100vw - 24px); padding: 6px; gap: 6px; }
+.refx-cardpop .refalias-results { max-height: 260px; }
+.refx-cardpop-clear { opacity: .6; font-style: italic; }
+.refx-cardpop-empty { opacity: .5; font-style: italic; padding: 5px 8px; font-size: 12px; }
+.refx-relpop .refalias-input, .refx-choicepop .refalias-input, .refx-datepop .refalias-input { margin-bottom: 6px; }
+/* keyboard-first date picker — replicates the native Thymer picker's anatomy:
+   NL input, month header with ‹ ○ › nav, weekday row, 6-week grid with muted
+   adjacent-month days, blue focused day, bottom confirm bar with the date. */
+.refx-datepop { width: 264px; }
+.refx-datepop-header { display: flex; align-items: center; justify-content: space-between; margin: 2px 2px 4px; }
+.refx-datepop-month { font-weight: 600; font-size: 13px; }
+.refx-datepop-nav { display: flex; gap: 2px; }
+.refx-datepop-navbtn { background: none; border: none; padding: 1px 4px; border-radius: 4px; cursor: pointer; color: inherit; opacity: .65; font-size: 12px; line-height: 1; }
+.refx-datepop-navbtn:hover { background: rgba(127,127,127,.15); opacity: 1; }
+.refx-datepop-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: 1px; }
+.refx-datepop-dow { text-align: center; font-size: 10.5px; opacity: .45; padding: 2px 0; }
+.refx-datepop-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; }
+.refx-datepop-day { text-align: center; font-size: 12.5px; padding: 3px 0; border-radius: 4px; cursor: pointer; }
+.refx-datepop-day:hover { background: rgba(127,127,127,.14); }
+.refx-datepop-day.adj-month { opacity: .38; }
+.refx-datepop-today .refx-datepop-day-inner { box-shadow: inset 0 0 0 1px var(--button-primary-bg-color, #2d72d2); border-radius: 3px; padding: 1px 4px; }
+.refx-datepop-sel { background: rgba(127,127,127,.18); }
+.refx-datepop-day.refx-datepop-focus { background: var(--button-primary-bg-color, #2d72d2); color: var(--button-primary-fg-color, #fff); font-weight: 700; opacity: 1; }
+.refx-datepop-day.refx-datepop-focus .refx-datepop-day-inner { box-shadow: none; }
+.refx-datepop-confirm {
+  display: flex; align-items: center; gap: 7px; margin-top: 7px; padding: 5px 8px;
+  border-radius: 4px; cursor: pointer; font-size: 12.5px;
+  background: var(--button-primary-bg-color, #2d72d2); color: var(--button-primary-fg-color, #fff);
+}
+.refx-datepop-confirm .ti { font-size: 13px; }
+/* keyboard property-editor modal */
+.refx-modal-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.refx-modal-label { flex: 0 0 34%; max-width: 34%; font-size: 12px; opacity: .7; }
+.refx-modal-row .refalias-input { flex: 1 1 auto; min-width: 0; }
 `;
   }
 }
