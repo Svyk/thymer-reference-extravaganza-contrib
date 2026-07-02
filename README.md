@@ -19,6 +19,8 @@ Thymer references a whole page out of the box; this adds references to an indivi
 
 The box opens at the caret and the editor keeps focus, so it works mid-sentence and with several references in one paragraph.
 
+*Under the hood:* a `[[` line reference targets a line item rather than a page, inserted as the same `ref` segment Thymer uses for page references, with the line's text as the initial title.
+
 ## Alias a reference
 
 Works on both page references and the line references you create with `[[`.
@@ -32,6 +34,8 @@ Works on both page references and the line references you create with `[[`.
    - Save with **Enter**, cancel with **Esc**.
 
 The box opens under the reference, follows your theme (light or dark), and uses Thymer's accent for the Save button.
+
+*Under the hood:* an "alias" in Thymer is just the `title` field on a reference segment (`{type:"ref", text:{guid, title?}}`). The plugin finds the reference from the editor's current selection and writes only that field — nothing else on the line is touched, and the link target never changes.
 
 ### Changing the keyboard shortcuts
 
@@ -60,7 +64,7 @@ See what a reference points to without leaving the page you're on — and open a
 
 **Keyboard navigation of the card.** With the cursor on the record reference, press **↓** to step into the card (just like arrowing from a record's title into its properties in Thymer). **↑/↓** move a highlight through the values; **Enter** edits the highlighted value (an inline field for text/number/date, or the choice/relation picker), and the highlight returns to it once you save. **↑** from the first value, or **Esc**, returns the cursor to the reference line; **↓** past the last value drops into the embed's body. For an empty record, **↓** highlights **＋ Add content** — press **Enter** and you're typing the first line. (A Command-Palette path, **Edit embedded record (properties)**, still opens a normal Tab-through dialog if you prefer it.)
 
-Under the hood this is a native Thymer transclusion, added when you expand. Native transclusions are body-only, so the property card is drawn by the plugin above the body and kept in sync as the embed re-renders.
+*Under the hood:* expanding inserts a native Thymer transclusion as a child of the reference's block, tagged so the plugin only ever finds and collapses its own embeds — never Thymer's native ones. Collapsing is stateless (it locates the matching embed line in the document and deletes it), so it works even after a reload when no in-memory state survives. Native transclusions are body-only, so the property card is drawn by the plugin above the body, kept in sync by a lightweight observer that exists only while at least one embed is open.
 
 ## Notes & limitations
 
@@ -81,14 +85,9 @@ Under the hood this is a native Thymer transclusion, added when you expand. Nati
 
 Don't enable Hot Reload — it's a development feature and can leave the plugin in a state where saved data stops persisting.
 
-## How it works
+## Performance
 
-- An "alias" in Thymer is just the `title` field on a reference segment (`{type:"ref", text:{guid, title?}}`). The plugin reads and writes that field — set it to your alias, or clear it to fall back to the target's name (the page's title for a page reference, the line's current text for a line reference). Nothing else on the line is touched, and the link target never changes.
-- A `[[` line reference targets a line item rather than a page; the plugin inserts it as the same `ref` segment, with the line's text as the initial title.
-- It finds the reference you're on from the editor's current selection when you run the command.
-- **Expanding a reference** inserts a native transclusion of the target as a child of the reference's block, tagged so the plugin can find and collapse its own embeds without touching Thymer's native ones. Because it's a real line, several coexist and they persist across reload. Collapsing is stateless — it finds the matching embed line in the document and deletes it — so it still works after a reload when no in-memory state survives.
-- **Property card:** for a record embed the plugin reads the record's properties and renders an editable card above the body, kept present by a lightweight observer that only runs while at least one embed is open (and is scoped to the panel, torn down when the last embed closes).
-- **Low idle cost:** with no embeds open there is no observer — the only always-on code is a few keydown listeners (the shortcut, the `[[` trigger, the expand chord), each rejecting non-matching keystrokes on its first line, so normal typing pays a couple of cheap comparisons.
+Low idle cost by design: with no embeds open there is no observer running — the only always-on code is a few keydown listeners (the shortcuts, the `[[` trigger, the expand chord), each rejecting non-matching keystrokes on its first line, so normal typing pays a couple of cheap comparisons. No polling, no work on scroll or render.
 
 ## License
 
