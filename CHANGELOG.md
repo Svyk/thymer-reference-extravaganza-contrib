@@ -1,5 +1,36 @@
 # Changelog
 
+## v3.1.0 — 2026-07-04
+
+A big round of polish on the property cards and inline embeds, plus a new way to expand live-search results.
+
+**Live-search embeds (new)**
+- Expand a live-search / query result in place with Cmd/Ctrl+Down: the result LINE opens as an inline embed right under it (its indented content included), and any page references it carries can be expanded nested inside. Cmd/Ctrl+Up collapses it.
+- Empty or childless results open too, with a writing strip at the bottom. Click it to add an indented child line under the result, with no layout jump (the strip reserves exactly the space the new line fills, then collapses as the line appears).
+- A result that is itself a page gets the editable property card like any page embed.
+
+**Editable image / file properties**
+- Image properties (Poster and the like) now show the actual image in the card instead of "[object Object]". Data-URL, URL, and stored-blob images all render; a non-image file shows a paperclip and its filename.
+- Click the image (or the pencil) to replace or add one through a file picker. Right-click for Open image (a full-size viewer), Download, and Delete.
+
+**URL properties**
+- A URL value is clickable now: clicking the link text opens it in the browser, like native. (The oversized ↗ badge is gone.)
+
+**Property-card polish**
+- Each row shows the field's own native type icon (a person for people fields, and so on) in the native colour, instead of one generic icon.
+- Long text values (Synopsis and the like) wrap over several lines like the native pane instead of being clipped to one.
+- Choice values render in their real palette colour instead of always grey.
+- The card's colours and corner radius now follow theme switches live (light and dark), instead of freezing at whatever they were when the card was first drawn.
+
+**Inline embeds**
+- An empty embed is a stable, comfortable click-to-type area: clicking no longer makes the caret jump, and the redundant "+ Add content" button (which itself caused a jump) is gone.
+- Cmd/Ctrl+Up only collapses from the reference's own line or the embed line, so it no longer hijacks the native fold-indent shortcut while your caret is inside an embed's content. Collapsing also no longer leaves "…" fold dots on the line.
+- Expanding a reference on a line that holds two page references now opens the second one instead of doing nothing.
+
+**References**
+- Inserting an inline [[ reference verifies the write landed and retries if the editor's own flush clobbered it, so it can no longer say "Referenced …" while leaving nothing behind.
+- Relation picker: the card stays visible while you pick, removing then re-adding the same value works, current values carry a native remove ×, and you can create a new record inline from the picker.
+
 ## v3.0.0 — 2026-07-02
 
 The property-card release: community PR #1 by **@Svyk** (persistent multi-embeds + editable property cards, v2.3.0–v2.10.3 below) merged, plus a native-look pass and the pending features on top:

@@ -34,6 +34,14 @@ class Plugin extends AppPlugin {
   // (lineGuid -> {recordGuid, line}) so the property-card observer can re-inject.
   _expandInFlight = new Set();
   _cards = new Map();
+  // Embeds spawned from LIVE-SEARCH result rows (embedLineGuid -> {resultRealGuid,
+  // node?, row?, parked?}). The embed LINE lives after the query block (queries
+  // can't render children), but its rendered NODE is parked directly under the
+  // result row; the observer re-parks it when a re-render moves/replaces either.
+  _queryEmbeds = new Map();
+  _queryRaf = 0;
+  _themeObs = null; // re-copies card colours on data-theme change
+  _blobUrls = new Map(); // file-prop blob guid -> {url} (object URLs, revoked on unload)
   _cardObs = null;
   _cardObsTarget = null;
   _cardEditing = false;
@@ -160,11 +168,11 @@ class Plugin extends AppPlugin {
   // Expand/collapse references (Tana-style), now MANY at once. Cmd/Ctrl+Down
   // expands the selected reference inline as a native transclusion (the target +
   // its children, editable); for a record reference an editable property card is
-  // added above the body. Cmd/Ctrl+Up collapses the embed for the ref under the
-  // caret (or the embed the caret sits inside). Embeds are real document lines,
-  // so several coexist and they persist across reload. Cheap-first guards keep
-  // ordinary typing/arrowing untouched: we only intercept the exact chord, and
-  // Cmd+Up only when a reference is selected or the caret is plausibly in an embed.
+  // added above the body. Cmd/Ctrl+Up collapses — but ONLY from the reference's
+  // own line (embed open) or from the embed line itself: everywhere else,
+  // including INSIDE an embed's body, the chord stays native (fold indents).
+  // Embeds are real document lines, so several coexist and they persist across
+  // reload. Cheap-first guards keep ordinary typing/arrowing untouched.
   _handleExpandKey = (e) => {
     const primary = this._isMac ? e.metaKey : e.ctrlKey;
     if (!primary || e.shiftKey || e.altKey) return;
@@ -175,17 +183,25 @@ class Plugin extends AppPlugin {
     const hit = this._detect();
     if (!hit) return;
     if (isUp) {
-      // Only swallow Cmd+Up when it can plausibly collapse something, so a plain
-      // Cmd+Up still moves the caret natively.
-      const onRef = this._selectedRef(hit);
-      if (!onRef && !this._mightBeInEmbed(hit)) return;
+      // Collapse ONLY from the reference's own line (with its embed open) or from
+      // our embed line itself. INSIDE the embed body Cmd+Up must fall through to
+      // Thymer — it's the native fold-indent chord, and swallowing it there made
+      // outlines inside a transclusion impossible to collapse.
+      let can = false;
+      if (hit.queryLineGuid) can = this._queryEmbedOpenSync(hit);
+      else can = this._lineEmbedOpenSync(hit);
+      if (!can) can = this._caretOnEmbedLine(hit);
+      if (!can) return;
       e.preventDefault(); e.stopImmediatePropagation();
       this._collapseAtCaret(hit);
       return;
     }
-    // Cmd+Down: expand, but only if a reference is selected.
+    // Cmd+Down: expand — on a reference, or on any live-search result line
+    // (children can't be known synchronously for a non-open source page; the
+    // async query path decides line-vs-ref. Swallowing is safe there: native
+    // Cmd+Down is a no-op inside query results — children never render).
     const ref = this._selectedRef(hit);
-    if (!ref) return; // not on a reference → let native Cmd+Down through
+    if (!ref && !hit.queryLineGuid) return;
     e.preventDefault(); e.stopImmediatePropagation();
     this._expandRef(hit, ref);
   };
@@ -217,9 +233,10 @@ class Plugin extends AppPlugin {
   _discoverTrigger = () => { if (!document.hidden) this._scheduleDiscover(true); };
 
   onLoad() {
-    try { window.__REFX_VERSION = "3.0.0"; } catch (e) {} // live-version tell for debugging
+    try { window.__REFX_VERSION = "3.1.0"; } catch (e) {} // live-version tell for debugging
     this._killStaleObservers(); // clear any observer/cards leaked by a hot-reload
     this._injectStyle();
+    this._ensureThemeObserver();
     this._buildFieldTypes(); // async; schema-based property typing (empty fields)
 
     this._cmd = this.ui.addCommandPaletteCommand({
@@ -337,6 +354,12 @@ class Plugin extends AppPlugin {
     for (const t of this._rowRefreshT.values()) { try { clearTimeout(t); } catch (e) {} }
     this._rowRefreshT.clear();
     this._cards.clear();
+    this._queryEmbeds.clear();
+    if (this._queryRaf) { try { cancelAnimationFrame(this._queryRaf); } catch (e) {} this._queryRaf = 0; }
+    if (this._themeObs) { try { this._themeObs.disconnect(); } catch (e) {} this._themeObs = null; }
+    for (const b of this._blobUrls.values()) { try { if (b.url) URL.revokeObjectURL(b.url); } catch (e) {} }
+    this._blobUrls.clear();
+    if (window.__refxThemeObs) { try { window.__refxThemeObs.disconnect(); } catch (e) {} window.__refxThemeObs = null; }
     window.removeEventListener("keydown", this._handleKeydown, true);
     window.removeEventListener("keydown", this._handleBracketKey, true);
     window.removeEventListener("keydown", this._handleExpandKey, true);
@@ -386,9 +409,33 @@ class Plugin extends AppPlugin {
     if (!best) return null;
     const st = best.pos.list_item.state;
     const span = best.pos.linespan;
+    // LIVE-SEARCH results are VIRTUAL lines (state.is_virtual, ephemeral V-guid,
+    // rguid null, EMPTY text_segments) whose props.itemref points at the REAL
+    // line. Remap to the real line so every consumer (ref resolution, alias,
+    // convert, expand) reads/writes the true source; keep the query context
+    // (the query block's line + host page) so expand knows where to place the
+    // embed — query results can't render children (verified live).
+    let lineGuid = st.guid, pageGuid = st.rguid, queryLineGuid = null, queryHostGuid = null;
+    if (st.is_virtual && st.props && st.props.itemref) {
+      const realSt = ((window.g_universe && window.g_universe.itemsByGuid) || {})[st.props.itemref];
+      if (realSt) {
+        lineGuid = st.props.itemref;
+        pageGuid = realSt.rguid || pageGuid;
+        try {
+          const node = best.pos.list_item.$node;
+          const qc = node && node.closest && node.closest(".query-container-div");
+          const qli = qc && qc.closest(".listitem:not(.listitem-transclusion)");
+          const qg = qli && qli.getAttribute && qli.getAttribute("data-guid");
+          const qst = qg && window.g_universe.itemsByGuid[qg];
+          if (qst && qst.type === "query") { queryLineGuid = qg; queryHostGuid = qst.rguid || null; }
+        } catch (e) {}
+      }
+    }
     return {
-      lineGuid: st.guid,
-      pageGuid: st.rguid,
+      lineGuid,
+      pageGuid,
+      queryLineGuid,
+      queryHostGuid,
       segIndex: span && typeof span.segment_index === "number" ? span.segment_index : null,
       linespanType: span ? span.type : null,
       anchorNode: span ? span.$node : null,
@@ -404,7 +451,7 @@ class Plugin extends AppPlugin {
     const rec = this.data.getRecord(hit.pageGuid);
     if (!rec) return "Couldn't find the current page.";
     const items = await rec.getLineItems();
-    const li = items.find((x) => x.guid === hit.lineGuid);
+    const li = this._findLineDeep(items, hit.lineGuid);
     if (!li) return "Couldn't find the line you're on.";
     const segs = (li.segments || []).map((s) => ({ type: s.type, text: s.text }));
     const segRefs = segs.map((s, i) => (s.type === "ref" ? i : -1)).filter((i) => i >= 0);
@@ -603,6 +650,11 @@ class Plugin extends AppPlugin {
   // transclusion is `type:"transclusion"` with `props.itemref` = the target guid.
   // For a RECORD reference we also attach an editable property card (see below).
   async _expandRef(hit, ref) {
+    // From a LIVE-SEARCH result: query blocks never render children of result
+    // lines (verified live), so a child transclusion of the source line would be
+    // an invisible write. Place the embed on the HOST page instead, as the
+    // sibling right after the query block's line — visible, real, synced.
+    if (hit.queryLineGuid && hit.queryHostGuid) return this._expandRefFromQuery(hit, ref);
     const key = hit.lineGuid + "›" + ref.targetGuid;
     if (this._expandInFlight.has(key)) return; // debounce double-create on fast keys
     this._expandInFlight.add(key);
@@ -610,9 +662,25 @@ class Plugin extends AppPlugin {
       const rec = this.data.getRecord(hit.pageGuid);
       if (!rec) return this._toast("Couldn't find the current page.");
       let items; try { items = await rec.getLineItems(); } catch (e) { items = []; }
-      const block = items.find((x) => x.guid === hit.lineGuid);
+      // DEEP lookup — a plain items.find() only saw top-level lines, so
+      // expanding from an INDENTED ref line failed with this toast.
+      const block = this._findLineDeep(items, hit.lineGuid);
       if (!block) return this._toast("Couldn't find the line you're on.");
-      if (this._findEmbeds(block, ref.targetGuid).length) return; // already open → no-op (toggle)
+      if (this._findEmbeds(block, ref.targetGuid).length) {
+        // Already open. On a multi-ref line the "selected" ref is a nearest-
+        // GUESS (distance ties go to the earlier ref), so a plain toggle-no-op
+        // made Cmd+Down a dead key when that guess was open — expand the
+        // line's next UNOPENED ref instead; only no-op when all are open.
+        let alt = null;
+        try {
+          for (const s of block.segments || []) {
+            const g = s && s.type === "ref" && s.text && s.text.guid;
+            if (g && g !== ref.targetGuid && !this._findEmbeds(block, g).length) { alt = g; break; }
+          }
+        } catch (e) {}
+        if (!alt) return;
+        ref = { targetGuid: alt, isText: !this.data.getRecord(alt) };
+      }
       if (await this._wouldCycle(block, hit.pageGuid, ref.targetGuid)) return this._toast("Can't embed a block inside itself.");
       const kids = block.children || [];
       const after = kids.length ? kids[kids.length - 1] : null; // append at the bottom of the block
@@ -627,9 +695,113 @@ class Plugin extends AppPlugin {
         this._ensureCardObserver();
         this._attachPropCard(line.guid, ref.targetGuid);
       }
+      // If the host line sits FOLDED (native fold state persists per line), the
+      // fresh embed renders hidden behind "…" dots — unfold so it shows.
+      this._unfoldHostLine(hit.lineGuid);
+      setTimeout(() => this._unfoldHostLine(hit.lineGuid), 450);
     } finally {
       this._expandInFlight.delete(key);
     }
+  }
+
+  // Expand from a live-search result. Precedence: a result line WITH children
+  // expands as a LINE transclusion (the line + its children); otherwise the
+  // selected reference's target expands. Queries can't render children of
+  // result lines (verified live), so the embed LINE is created on the host page
+  // right after the query block — and its rendered NODE is then PARKED directly
+  // under the result row inside the query (flat-render makes this a plain
+  // sibling move; the observer keeps it parked across re-renders). Tags:
+  // refx_from = the query line, refx_at = the result's real line (collapse key).
+  async _expandRefFromQuery(hit, ref) {
+    // ALWAYS expand the RESULT LINE itself (line transclusion) — children or
+    // not, ref or not (Parham's spec): an empty line opens so you can add
+    // indented content inside it, and any page refs it holds can be expanded
+    // NESTED inside the opened transclusion. `ref` is unused here on purpose.
+    const targetGuid = hit.lineGuid;
+    const key = hit.queryLineGuid + "›" + targetGuid;
+    if (this._expandInFlight.has(key)) return;
+    this._expandInFlight.add(key);
+    try {
+      if (targetGuid === hit.queryHostGuid) return this._toast("Can't embed a page inside itself.");
+      const host = this.data.getRecord(hit.queryHostGuid);
+      if (!host) return this._toast("Couldn't find the page holding this search.");
+      let items; try { items = await host.getLineItems(); } catch (e) { items = []; }
+      const byGuid = {};
+      const idx = (arr) => { for (const it of arr || []) { if (!it) continue; byGuid[it.guid] = it; if (it.children) idx(it.children); } };
+      idx(items);
+      const qline = byGuid[hit.queryLineGuid];
+      if (!qline) return this._toast("Couldn't find the search block.");
+      const parent = qline.parent_guid ? byGuid[qline.parent_guid] : null;
+      const sibs = parent ? (parent.children || []) : items;
+      const dup = sibs.some((c) => c && c.type === "transclusion" && c.props && c.props.refx_embed && c.props.refx_at === hit.lineGuid && c.props.itemref === targetGuid);
+      if (dup) return; // already open → no-op (toggle)
+      let line = null;
+      try { line = await host.createLineItem(parent, qline, "transclusion", null, { itemref: targetGuid, refx_embed: 1, refx_from: hit.queryLineGuid, refx_at: hit.lineGuid }); } catch (e) {}
+      if (!line) return this._toast("Couldn't expand the reference.");
+      try { if (!(line.props && line.props.itemref)) line.setMetaProperty("itemref", targetGuid); } catch (e) {}
+      // A search can return PAGES too — then the "line" IS a record, and the
+      // embed gets the editable property card like any page embed.
+      if (this.data.getRecord(targetGuid)) {
+        this._cards.set(line.guid, { recordGuid: targetGuid, line });
+        this._attachPropCard(line.guid, targetGuid);
+      }
+      this._queryEmbeds.set(line.guid, { resultRealGuid: hit.lineGuid, queryLineGuid: hit.queryLineGuid });
+      this._ensureCardObserver();
+      this._placeQueryEmbed(line.guid, hit.lineGuid, 0);
+    } finally {
+      this._expandInFlight.delete(key);
+    }
+  }
+
+  // Park a query-spawned embed's rendered node directly under its result row.
+  // Both nodes render async (and the row's V-guid changes every query render),
+  // so resolve fresh each time and retry briefly. On success, cache node+row so
+  // the observer's staleness check is O(1); when the row is gone (result no
+  // longer matches), PARK the entry so the observer doesn't grind retries —
+  // the embed then just shows at its model position below the block.
+  _placeQueryEmbed(embedGuid, resultRealGuid, attempt) {
+    attempt = attempt || 0;
+    if (this._unloaded) return;
+    const qe = this._queryEmbeds.get(embedGuid);
+    if (!qe) return;
+    const emb = this._transclusionNode(embedGuid);
+    const row = this._queryRowNode(resultRealGuid, qe.queryLineGuid);
+    if (emb && row) {
+      if (row.nextElementSibling !== emb) { try { row.insertAdjacentElement("afterend", emb); } catch (e) {} }
+      try { emb.classList.add("refx-qembed"); } catch (e) {}
+      this._wireEmbedBodyClick(emb, embedGuid);
+      qe.node = emb; qe.row = row; qe.parked = false;
+      return;
+    }
+    if (attempt < 15) { setTimeout(() => this._placeQueryEmbed(embedGuid, resultRealGuid, attempt + 1), 120); return; }
+    qe.node = emb || null; qe.row = null; qe.parked = true;
+  }
+
+  // The rendered row node of a live-search result, found by the REAL line it
+  // points at (row guids are ephemeral V-guids — never key on them). Two traps,
+  // both hit live: (1) the page listview's getItems() does NOT include the
+  // query's virtual rows — they live in the query line ITEM's nested
+  // `container` listview; (2) the auxiliary "Upcoming" view keeps a hidden
+  // zero-height virtual copy of the same real line, which is what a naive
+  // cross-view scan finds first (the embed then parked invisibly). So: resolve
+  // the query line item by guid, then search ITS container's rows only.
+  _queryRowNode(resultRealGuid, queryLineGuid) {
+    if (!queryLineGuid) return null;
+    try {
+      for (const lv of (window.g_universe && window.g_universe.listviews) || []) {
+        let items; try { items = lv.getItems(); } catch (e) { continue; }
+        for (const it of items || []) {
+          try {
+            if (!(it && it.state && it.state.guid === queryLineGuid && it.container && it.container.getItems)) continue;
+            for (const r of it.container.getItems() || []) {
+              const st = r.state;
+              if (st && st.props && st.props.itemref === resultRealGuid && r.$node && r.$node.isConnected) return r.$node;
+            }
+          } catch (e) {}
+        }
+      }
+    } catch (e) {}
+    return null;
   }
 
   // Collapse the embed associated with the caret. Stateless — reads the real
@@ -638,14 +810,34 @@ class Plugin extends AppPlugin {
   //   (b) caret IS our transclusion line → delete it;
   //   (c) caret inside the rendered embed (DOM) → delete the owning embed line.
   async _collapseAtCaret(hit) {
+    // Live-search context: collapse the embeds spawned from THIS result row
+    // (refx_at tag) — they live on the host page, not under the result line's
+    // source block.
+    if (hit.queryLineGuid && hit.queryHostGuid) {
+      const host = this.data.getRecord(hit.queryHostGuid);
+      if (host) {
+        let hitems = null; try { hitems = await host.getLineItems(); } catch (e) {}
+        const ours = [];
+        const walk = (arr) => { for (const it of arr || []) { if (!it) continue; if (it.type === "transclusion" && it.props && it.props.refx_embed && it.props.refx_at === hit.lineGuid) ours.push(it); if (it.children) walk(it.children); } };
+        walk(hitems);
+        for (const l of ours) await this._deleteEmbedLine(l);
+      }
+      return;
+    }
     const rec = this.data.getRecord(hit.pageGuid);
     let items = null;
     if (rec) { try { items = await rec.getLineItems(); } catch (e) {} }
     const ref = this._selectedRef(hit);
-    if (ref && items) {
-      const block = items.find((x) => x.guid === hit.lineGuid);
-      const found = this._findEmbeds(block, ref.targetGuid);
-      if (found.length) { for (const l of found) await this._deleteEmbedLine(l); return; }
+    if (items) {
+      const block = this._findLineDeep(items, hit.lineGuid);
+      if (block) {
+        // The selected ref's embeds first; on a multi-ref line the selection is
+        // a nearest-guess, so fall back to ALL our embeds under the line — a
+        // no-op Cmd+Up here would otherwise leave native fold to hide them.
+        let found = ref ? this._findEmbeds(block, ref.targetGuid) : [];
+        if (!found.length) found = ((block.children) || []).filter((c) => c && c.type === "transclusion" && c.props && c.props.refx_embed);
+        if (found.length) { for (const l of found) await this._deleteEmbedLine(l); return; }
+      }
     }
     if (items) {
       const encl = this._enclosingEmbed(items, hit.lineGuid);
@@ -653,6 +845,38 @@ class Plugin extends AppPlugin {
     }
     const g = this._enclosingEmbedGuidFromDom(hit);
     if (g) { const e = this._cards.get(g); if (e && e.line) await this._deleteEmbedLine(e.line); }
+  }
+
+  // Click the native "…" unfold button on a line (Thymer's fold state is
+  // per-line and persistent; its UI button accepts synthetic clicks — verified
+  // live). No-op when the line isn't folded / isn't rendered.
+  _unfoldHostLine(lineGuid) {
+    try {
+      const esc = (window.CSS && CSS.escape) ? CSS.escape(lineGuid) : lineGuid;
+      const li = document.querySelector('.listitem[data-guid="' + esc + '"]');
+      const btn = li && li.querySelector(".lineitem-btn-unfold");
+      if (!btn) return;
+      const r = btn.getBoundingClientRect();
+      if (!(r.width || r.height)) return;
+      const x = Math.round(r.left + r.width / 2), y = Math.round(r.top + r.height / 2);
+      const down = { bubbles: true, cancelable: true, view: window, clientX: x, clientY: y, button: 0, buttons: 1 };
+      const up = { bubbles: true, cancelable: true, view: window, clientX: x, clientY: y, button: 0, buttons: 0 };
+      try { btn.dispatchEvent(new PointerEvent("pointerdown", down)); } catch (e) {}
+      btn.dispatchEvent(new MouseEvent("mousedown", down));
+      try { btn.dispatchEvent(new PointerEvent("pointerup", up)); } catch (e) {}
+      btn.dispatchEvent(new MouseEvent("mouseup", up));
+      btn.dispatchEvent(new MouseEvent("click", up));
+    } catch (e) {}
+  }
+
+  // Find a line ANYWHERE in a getLineItems() tree (items.find is top-level only).
+  _findLineDeep(items, guid) {
+    for (const it of items || []) {
+      if (!it) continue;
+      if (it.guid === guid) return it;
+      if (it.children) { const r = this._findLineDeep(it.children, guid); if (r) return r; }
+    }
+    return null;
   }
 
   // Our transclusion children of `block` that target `targetGuid`.
@@ -706,6 +930,52 @@ class Plugin extends AppPlugin {
     }
     for (const [g, entry] of this._cards) if (entry.recordGuid === targetGuid && this._transclusionNode(g)) return g;
     return null;
+  }
+
+  // Sync (keydown-time) test: does the caret's LINE have any of our embeds
+  // open under it? Line-level on purpose: on a multi-ref line the "selected"
+  // ref is a nearest-guess, and gating per target let Cmd+Up fall through to
+  // NATIVE fold — which hid the embed as a folded child ("…" dots that
+  // re-open it, the indent-lookalike bug). NOTE Thymer renders lines FLAT — a
+  // child's node is a SIBLING in .listview-items, not nested (verified live),
+  // so a DOM scan under the caret line finds nothing; use the model registry:
+  // an open embed = a live refx_embed transclusion whose PARENT is this line.
+  _lineEmbedOpenSync(hit) {
+    try {
+      const m = (window.g_universe && window.g_universe.itemsByGuid) || {};
+      for (const g in m) {
+        const it = m[g];
+        if (!it || it.type !== "transclusion" || it.is_deleted || it.is_trashed) continue;
+        if (!(it.props && it.props.refx_embed)) continue;
+        const pg = (it.parent && it.parent.guid) || it.parent_guid;
+        if (pg === hit.lineGuid) return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  // Sync test for the live-search case: does THIS result row (refx_at tag) have
+  // one of our embeds open?
+  _queryEmbedOpenSync(hit) {
+    try {
+      const m = (window.g_universe && window.g_universe.itemsByGuid) || {};
+      for (const g in m) {
+        const it = m[g];
+        if (it && it.type === "transclusion" && !it.is_deleted && !it.is_trashed &&
+            it.props && it.props.refx_embed && it.props.refx_at === hit.lineGuid) return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
+
+  // Is the caret ON one of our embed transclusion lines itself?
+  _caretOnEmbedLine(hit) {
+    try {
+      const it = ((window.g_universe && window.g_universe.itemsByGuid) || {})[hit.lineGuid];
+      if (it && it.type === "transclusion" && it.props && it.props.refx_embed) return true;
+    } catch (e) {}
+    try { return !!(hit.lineNode && hit.lineNode.classList && hit.lineNode.classList.contains("listitem-transclusion") && this._cards.has(hit.lineGuid)); } catch (e) { return false; }
   }
 
   // Cheap synchronous test: could Cmd+Up here collapse an embed? (caret on/under
@@ -762,6 +1032,7 @@ class Plugin extends AppPlugin {
     if (this._activeEdit && this._activeEdit.lineGuid === g) { try { this._activeEdit.cancel(); } catch (e) {} this._activeEdit = null; }
     const savedEntry = this._cards.get(g) || null;
     this._cards.delete(g);
+    this._queryEmbeds.delete(g);
     if (this._cardNav && this._cardNav.lineGuid === g) this._exitCardNav();
     this._removeCardEl(g);
     try {
@@ -905,10 +1176,14 @@ class Plugin extends AppPlugin {
     this._closeCardPopup();
     this._removeAllCardEls();
     this._cards.clear();
+    this._queryEmbeds.clear();
     await this._indexEmbeds();
     if (this._unloaded) return;
-    if (this._cards.size) { this._ensureCardObserver(); this._reattachAllCards(); }
-    else this._teardownCardObserver();
+    if (this._cards.size || this._queryEmbeds.size) {
+      this._ensureCardObserver();
+      this._reattachAllCards();
+      for (const [g, qe] of this._queryEmbeds) this._placeQueryEmbed(g, qe.resultRealGuid, 0);
+    } else this._teardownCardObserver();
   }
 
   // ADDITIVE discovery (for focus/visibility + remote record.updated): find the
@@ -939,7 +1214,7 @@ class Plugin extends AppPlugin {
     const recs = [];
     for (const p of panels) { let r = null; try { r = p.getActiveRecord && p.getActiveRecord(); } catch (e) {} if (r) recs.push(r); }
     if (!recs.length) { const r = this._activeRecord(); if (r) recs.push(r); }
-    const found = new Map();
+    const found = new Map(), foundQ = new Map();
     const walk = (arr) => {
       for (const it of arr || []) {
         if (!it) continue;
@@ -947,6 +1222,7 @@ class Plugin extends AppPlugin {
         // fallback needs entry.line, and entries created here without it made
         // Cmd+Up from inside a discover-adopted embed a swallowed dead key.
         if (it.type === "transclusion" && it.props && it.props.refx_embed && it.props.itemref && this.data.getRecord(it.props.itemref)) found.set(it.guid, { ref: it.props.itemref, line: it });
+        if (it.type === "transclusion" && it.props && it.props.refx_embed && it.props.refx_at) foundQ.set(it.guid, { at: it.props.refx_at, from: it.props.refx_from || null });
         if (it.children) walk(it.children);
       }
     };
@@ -980,7 +1256,18 @@ class Plugin extends AppPlugin {
     for (const lineGuid of [...this._cards.keys()]) {
       if (!found.has(lineGuid) && !this._transclusionNode(lineGuid)) { this._cards.delete(lineGuid); this._removeCardEl(lineGuid); }
     }
-    if (this._cards.size) this._ensureCardObserver(); else this._teardownCardObserver();
+    // Query-spawned embeds: (re)register + re-park (a parked one gets a fresh
+    // attempt — its result row may have reappeared); drop gone lines.
+    for (const [g, f] of foundQ) {
+      let qe = this._queryEmbeds.get(g);
+      if (!qe) { qe = { resultRealGuid: f.at, queryLineGuid: f.from }; this._queryEmbeds.set(g, qe); }
+      qe.parked = false;
+      this._placeQueryEmbed(g, qe.resultRealGuid, 0);
+    }
+    for (const g of [...this._queryEmbeds.keys()]) {
+      if (!foundQ.has(g) && !this._transclusionNode(g)) this._queryEmbeds.delete(g);
+    }
+    if (this._cards.size || this._queryEmbeds.size) this._ensureCardObserver(); else this._teardownCardObserver();
   }
 
   async _indexEmbeds() {
@@ -997,6 +1284,10 @@ class Plugin extends AppPlugin {
         if (!it) continue;
         if (it.type === "transclusion" && it.props && it.props.refx_embed && it.props.itemref && this.data.getRecord(it.props.itemref)) {
           this._cards.set(it.guid, { recordGuid: it.props.itemref, line: it });
+        }
+        // Query-spawned embeds (line targets included) re-register for parking.
+        if (it.type === "transclusion" && it.props && it.props.refx_embed && it.props.refx_at) {
+          this._queryEmbeds.set(it.guid, { resultRealGuid: it.props.refx_at, queryLineGuid: it.props.refx_from || null });
         }
         if (it.children) walk(it.children);
       }
@@ -1043,7 +1334,7 @@ class Plugin extends AppPlugin {
         try { const g = col.getGuid && col.getGuid(); if (g) colByGuid[g] = col; } catch (e) {}
         for (const f of (cfg && cfg.fields) || []) {
           if (!f) continue;
-          if (f.id != null) { map[f.id] = f.type; meta[f.id] = { type: f.type, filter_colguid: f.filter_colguid || null, many: !!f.many, read_only: !!f.read_only }; }
+          if (f.id != null) { map[f.id] = f.type; meta[f.id] = { type: f.type, filter_colguid: f.filter_colguid || null, many: !!f.many, read_only: !!f.read_only, icon: f.icon || null }; }
           if (f.label) {
             const lk = "label:" + String(f.label).toLowerCase();
             if (lk in byLabel && byLabel[lk] !== f.type) conflicted.add(lk);
@@ -1091,16 +1382,17 @@ class Plugin extends AppPlugin {
       if (!name || this._CARD_SKIP.has(name)) continue;
       if (!this._isUserField(p)) continue; // mirror native: no system/deleted fields
       if (prefs.mode === "custom" && prefs.hidden.has(name)) continue; // checklist applies ONLY in Custom
-      let kind = "text", choices = null, value = "", display = "";
+      let kind = "text", choices = null, value = "", display = "", fileValue = null;
       const ft = this._fieldTypeFor(p);
-      if (ft === "choice") { kind = "choice"; try { choices = ((p.choices && p.choices()) || []).map((c) => ({ id: c.id, label: c.label })); } catch (e) { choices = []; } }
+      if (ft === "choice") { kind = "choice"; try { choices = ((p.choices && p.choices()) || []).map((c) => ({ id: c.id, label: c.label, color: c.color, icon: c.icon || null })); } catch (e) { choices = []; } }
+      else if (ft === "file" || ft === "image" || ft === "banner") kind = "file";
       else if (ft === "datetime") kind = "date";
       else if (ft === "record") kind = "relation";
       else if (ft === "number") kind = "number";
       else if (ft === "text" || ft === "url") kind = "text";
       else {
         // Unknown/undeclared (system props) → probe by value, as before.
-        try { const ch = p.choices && p.choices(); if (ch && ch.length) { kind = "choice"; choices = ch.map((c) => ({ id: c.id, label: c.label })); } } catch (e) {}
+        try { const ch = p.choices && p.choices(); if (ch && ch.length) { kind = "choice"; choices = ch.map((c) => ({ id: c.id, label: c.label, color: c.color, icon: c.icon || null })); } } catch (e) {}
         if (kind === "text") { try { const d = p.date && p.date(); if (d instanceof Date) kind = "date"; } catch (e) {} }
         if (kind === "text") { try { const lr = p.linkedRecords && p.linkedRecords(); if (lr && lr.length) kind = "relation"; } catch (e) {} }
         if (kind === "text") {
@@ -1140,6 +1432,11 @@ class Plugin extends AppPlugin {
           } else value = "";
         }
         else if (kind === "number") { const n = p.number && p.number(); value = (n == null ? "" : n); }
+        else if (kind === "file") {
+          let fv = null; try { const vs = p.values && p.values(); fv = vs && vs[0]; } catch (e2) {}
+          if (fv && typeof fv === "object") { value = fv.name || "file"; fileValue = fv; }
+          else value = "";
+        }
         else if (kind === "relation") {
           var relRecs = (p.linkedRecords && p.linkedRecords()) || [];
           var relParts = relRecs.map((r) => (r && r.getName && r.getName()) || "").filter(Boolean);
@@ -1180,8 +1477,15 @@ class Plugin extends AppPlugin {
       let pills = null;
       if (kind === "relation" && typeof relParts !== "undefined" && relParts && relParts.length) {
         pills = relParts.map((t, i) => ({ t, icon: (typeof relIcons !== "undefined" && relIcons && relIcons[i]) || null, guid: (typeof relGuids !== "undefined" && relGuids && relGuids[i]) || null }));
-      } else if (kind === "choice" && value) pills = [{ t: String(value), icon: null, guid: null }];
-      out.push({ name, id: p.guid || null, kind, value, display: display || "", choices, pills });
+      } else if (kind === "choice" && value) {
+        // Carry the chosen option's palette color + icon so the pill renders like
+        // native (colored enum pill) instead of always-zinc.
+        const co = (choices || []).find((c) => c.label === value) || null;
+        let cic = (co && co.icon) || null;
+        if (cic && String(cic).indexOf("ti-") !== 0) cic = "ti-" + cic;
+        pills = [{ t: String(value), icon: cic, guid: null, color: co ? co.color : null }];
+      }
+      out.push({ name, id: p.guid || null, kind, value, display: display || "", choices, pills, file: fileValue || null });
       if (out.length >= 32) break; // sanity cap — stop PROBING too, not just slicing
     }
     let res = out.filter((p) => p && p.name);
@@ -1315,7 +1619,7 @@ class Plugin extends AppPlugin {
   }
 
 
-  _buildPropCard(rec, fields, lineGuid, bodyEmpty) {
+  _buildPropCard(rec, fields, lineGuid) {
     const card = this._el("div", this._CARD_CLASS);
     card.append(this._el("div", "refx-propcard-title", (rec.getName && rec.getName()) || "Untitled"));
     // "Properties · All ⌄" chooser row, structured like the native pane header
@@ -1347,14 +1651,10 @@ class Plugin extends AppPlugin {
     } else {
       card.append(this._el("div", "refx-propcard-empty", "No properties"));
     }
-    if (bodyEmpty) {
-      const add = this._el("div", "refx-propcard-addbody", "＋ Add content");
-      add.title = "Add a body line to this empty record";
-      const doAdd = (e) => { e.preventDefault(); e.stopPropagation(); this._addBodyLine(lineGuid); };
-      add.addEventListener("mousedown", doAdd);
-      add.addEventListener("click", doAdd);
-      card.append(add);
-    }
+    // (No "+ Add content" affordance for an empty body: the empty box itself is
+    // a stable-height click-to-type target now, and the vanishing button was
+    // its own layout jump. _cardNavItems/keyboard-Enter still handle the class
+    // defensively if an old card lingers through a hot reload.)
     return card;
   }
 
@@ -1550,7 +1850,15 @@ class Plugin extends AppPlugin {
     rowEl.dataset.refxRow = field.name; // maps row → field for in-place refresh
     rowEl.classList.add("page-props-row", "id-prop-row");
     const typeCell = this._el("div", "page-props-cell page-prop-type page-props-cell-fixed-width");
-    typeCell.append(this._el("span", "ti ti-align-left"));
+    // Native shows the FIELD's own schema icon (e.g. ti-user on People fields),
+    // ti-align-left as default, with an inline 8px margin — mirror it exactly
+    // so color/size come from the same native classes.
+    const meta = this._fieldMeta && field.id ? this._fieldMeta[field.id] : null;
+    let tic = (meta && meta.icon) || null;
+    if (tic && String(tic).indexOf("ti-") !== 0) tic = "ti-" + tic;
+    const icEl = this._el("span", "ti " + (tic || "ti-align-left"));
+    icEl.style.marginRight = "8px";
+    typeCell.append(icEl);
     typeCell.append(this._el("span", "prop-label-text refx-propcard-label", field.name));
     rowEl.append(typeCell);
 
@@ -1558,7 +1866,7 @@ class Plugin extends AppPlugin {
     const shown = empty ? "" : String(field.display || (field.kind === "date" && this._fmtDateDisplay(field.value)) || field.value);
     const valCell = this._el("div", "page-props-cell page-prop-val");
     const val = this._el("span", "refx-propcard-value" + (empty ? " refx-propcard-empty" : ""));
-    this._renderValContent(val, field, empty, shown);
+    this._renderValContent(rec, val, field, empty, shown);
     if (!empty) val.title = shown;
     // Keyed by name so the keyboard-nav cursor + in-place refresh can re-derive
     // the field (the row itself is keyed via rowEl.dataset.refxRow above).
@@ -1577,21 +1885,44 @@ class Plugin extends AppPlugin {
   }
 
   // Render a value span's CONTENT the way the native property pane does:
+  // Thymer's own choice palette, extracted verbatim from the app bundle (the
+  // `It` table + `zr()` default): a choice's `color` is an INDEX into this list;
+  // missing/out-of-range → 13 = zinc, the native default gray. NOTE the order is
+  // NOT the CSS var declaration order (that would map 13 to rose — wrong).
+  _ENUM_PALETTE = ["red", "orange", "green", "cyan", "blue", "purple", "pink", "fuchsia", "rose", "stone", "teal", "sky", "indigo", "zinc", "yellow"];
+  _enumClass(color) {
+    const n = Number(color);
+    return (color != null && color !== "" && Number.isFinite(n) && this._ENUM_PALETTE[n]) || "zinc";
+  }
+
   // relation/choice → one pill per value (native .prop-status chip, enum colors,
   // the target's collection icon leading — native markup verbatim);
   // date/text/number → plain text. Empty → blank (native shows nothing).
   // The display string is stashed on the span so refresh can no-op cheaply.
-  _renderValContent(val, field, empty, display) {
+  _renderValContent(rec, val, field, empty, display) {
     val.dataset.refxDisplay = display || "";
     val.innerHTML = "";
     if (empty) return;
+    if (field.kind === "file") return this._renderFileValue(rec, val, field);
     if (field.kind === "relation" || field.kind === "choice") {
-      const parts = (field.pills && field.pills.length) ? field.pills : [{ t: display, icon: null }];
+      let parts = (field.pills && field.pills.length) ? field.pills : null;
+      // An OPTIMISTIC row update clones the field with a NEW value but the OLD
+      // pills (built for the previous value) — the pill then showed the stale
+      // label until the write propagated. For choice, re-derive the pill from
+      // the shown label (color+icon come from field.choices, which is current).
+      if (field.kind === "choice" && (!parts || parts.length !== 1 || String(parts[0].t) !== display)) {
+        const co = (field.choices || []).find((c) => c.label === display) || null;
+        let cic = (co && co.icon) || null;
+        if (cic && String(cic).indexOf("ti-") !== 0) cic = "ti-" + cic;
+        parts = [{ t: display, icon: cic, guid: null, color: co ? co.color : null }];
+      }
+      if (!parts) parts = [{ t: display, icon: null }];
       const host = parts.length > 1 ? this._el("span", "prop-multi-values") : val;
       for (const p of parts) {
         const chip = this._el("span", "prop-status prop-status-record");
-        chip.style.backgroundColor = "var(--enum-zinc-bg)";
-        chip.style.color = "var(--enum-zinc-fg)";
+        const en = this._enumClass(p.color); // relations carry no color → zinc, like native record chips
+        chip.style.backgroundColor = "var(--enum-" + en + "-bg)";
+        chip.style.color = "var(--enum-" + en + "-fg)";
         if (p.icon) { const ic = this._el("span", "ti " + p.icon); ic.style.marginRight = "5px"; chip.append(ic); }
         chip.append(document.createTextNode(p.t != null ? p.t : String(p)));
         // Native record chips end with a clickable ↗ that opens the record (this is
@@ -1616,8 +1947,147 @@ class Plugin extends AppPlugin {
     } else {
       // Plain values (dates, text, numbers) get the native plain-value class so
       // size/typography match the real pane exactly and track the theme.
-      val.append(this._el("span", "prop-status prop-status-0p", display));
+      const span = this._el("span", "prop-status prop-status-0p", display);
+      // A URL opens on CLICK of the text itself, like native — no extra chrome.
+      // Editing stays on the pencil / the rest of the cell. (An earlier ↗ badge
+      // reused link-menu-opener, which dragged in Thymer's big hover menu.)
+      if (/^https?:\/\/\S+$/i.test(display)) {
+        span.classList.add("refx-url-value");
+        span.title = display;
+        span.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); });
+        span.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); try { window.open(display, "_blank"); } catch (err) {} });
+      }
+      val.append(span);
     }
+  }
+
+  // File/image property (native shows the image inline; we showed
+  // "[object Object]"). imgData/imgUrl render at once; a blob GUID resolves
+  // async via prop.fileBlob().download() into a cached object URL — a
+  // paperclip+filename chip shows meanwhile and stays for non-image files.
+  _renderFileValue(rec, val, field) {
+    const fv = field.file;
+    const name = (fv && fv.name) || "file";
+    const chip = () => {
+      val.innerHTML = "";
+      const s = this._el("span", "prop-status prop-status-0p");
+      s.append(this._el("span", "ti ti-paperclip refx-file-ico"));
+      s.append(document.createTextNode(name));
+      val.append(s);
+    };
+    const showImg = (src) => {
+      val.innerHTML = "";
+      const img = this._el("img", "refx-propcard-img");
+      img.alt = name; img.title = name; img.src = src;
+      // Native anatomy: click = edit (file picker); right-click = image menu.
+      img.addEventListener("contextmenu", (e) => {
+        e.preventDefault(); e.stopPropagation();
+        this._openImageMenu(rec, val, field, img, name, src);
+      });
+      val.append(img);
+    };
+    if (!fv) return chip();
+    if (fv.imgData) return showImg(fv.imgData);
+    if (fv.imgUrl) return showImg(fv.imgUrl);
+    if (!fv.guid) return chip();
+    const cached = this._blobUrls.get(fv.guid);
+    if (cached) return cached.url ? showImg(cached.url) : chip();
+    chip(); // instant; upgraded below when the blob resolves as an image
+    (async () => {
+      try {
+        const p = rec.prop(field.name);
+        const blob = p && p.fileBlob && await p.fileBlob();
+        if (!blob) return;
+        const isImage = /^image\//i.test(blob.contentType || "") || /\.(png|jpe?g|gif|webp|avif|svg)$/i.test(blob.fileName || "");
+        if (!isImage) { this._blobUrls.set(fv.guid, { url: null }); return; }
+        const buf = await blob.download();
+        if (!buf) return;
+        const url = URL.createObjectURL(new Blob([buf], { type: blob.contentType || "image/*" }));
+        this._blobUrls.set(fv.guid, { url });
+        if (val.isConnected) showImg(url);
+      } catch (e) {}
+    })();
+  }
+
+  // Replace/add the image on a file property: OS file picker -> uploadBlob ->
+  // setFileFromBlob (the SDK's supported write path), then force-refresh the
+  // row (same filename must still swap the pixels, so bypass the display
+  // dedupe). Native's own "Pick a file" dialog isn't reachable from a plugin.
+  _editFileValue(rec, lineGuid, field, valEl, rowEl) {
+    const input = this._el("input", "");
+    input.type = "file";
+    // image/banner fields want images; a plain file field accepts anything
+    const mt = this._fieldMeta && field.id ? this._fieldMeta[field.id] : null;
+    if (!(mt && mt.type === "file")) input.accept = "image/*";
+    input.style.display = "none";
+    document.body.append(input);
+    input.addEventListener("change", async () => {
+      const file = input.files && input.files[0];
+      input.remove();
+      if (!file) return;
+      try {
+        const blob = await this.data.uploadBlob(file);
+        if (!blob) return this._toast("Upload failed.");
+        const p = rec.prop(field.name);
+        const ok = p && p.setFileFromBlob && p.setFileFromBlob(blob);
+        if (!ok) return this._toast("Couldn't set the file property.");
+        this._commitClaim(lineGuid);
+        setTimeout(() => {
+          this._commitRelease(lineGuid);
+          try {
+            const fresh = this._recCardFields(rec).find((x) => x.name === field.name);
+            const row = rowEl && rowEl.isConnected ? rowEl : null;
+            if (fresh) { if (valEl) valEl.dataset.refxDisplay = "\u0000"; this._applyRowValue(rec, lineGuid, fresh, row); }
+          } catch (e) {}
+        }, 500);
+      } catch (e) { this._toast("Upload failed."); }
+    });
+    input.click();
+  }
+
+  // Right-click menu on a file-property image: Open image (in-app lightbox),
+  // Download, Delete. ("Open to the right" needs Thymer's internal image-panel
+  // routing, which no plugin API reaches — deliberately left out.)
+  _openImageMenu(rec, valEl, field, img, name, src) {
+    const lineGuid = (valEl.closest("." + this._CARD_CLASS) || {}).dataset ? (valEl.closest("." + this._CARD_CLASS).dataset.refxFor || null) : null;
+    const pop = this._el("div", "refalias-pop refx-cardpop refx-imgmenu");
+    const item = (icon, label, fn, cls) => {
+      const r = this._el("div", "refalias-result" + (cls ? " " + cls : ""));
+      r.append(this._el("span", "refx-opt-ico ti " + icon));
+      r.append(this._el("span", "refalias-result-text", label));
+      r.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); this._closeCardPopup(); fn(); });
+      pop.append(r);
+    };
+    item("ti-arrow-up-right", "Open image", () => this._openLightbox(src, name));
+    item("ti-download", "Download", () => {
+      const a = this._el("a", "");
+      a.href = src; a.download = name || "image";
+      document.body.append(a); a.click(); a.remove();
+    });
+    item("ti-trash", "Delete", () => {
+      if (lineGuid) this._commitClaim(lineGuid);
+      let p = null; try { p = rec.prop(field.name); } catch (e) {}
+      if (!p) return;
+      // The ONLY clear that lands on a file property is removeValue(value) —
+      // set("")/set([])/set(null)/setFile(null)/removeValueAt all silently
+      // no-op (verified live against a real Poster).
+      try { const vs = (p.values && p.values()) || []; for (const v of vs) { try { p.removeValue(v); } catch (e2) {} } } catch (e) {}
+      if (lineGuid) this._commitRefreshRow(rec, lineGuid, field, field.value, null, "", "", null);
+    }, "refx-cardpop-clear");
+    this._openCardPopup(pop, img, { focusInput: false });
+  }
+
+  // Minimal in-app lightbox: full image on a dimmed backdrop, click/Esc closes.
+  _openLightbox(src, name) {
+    const wrap = this._el("div", "refx-lightbox");
+    const img = this._el("img", "");
+    img.src = src; img.alt = name || "";
+    wrap.append(img);
+    const close = () => { try { wrap.remove(); } catch (e) {} window.removeEventListener("keydown", onKey, true); };
+    const onKey = (e) => { if (e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); close(); } };
+    wrap.addEventListener("mousedown", (e) => { e.preventDefault(); close(); });
+    window.addEventListener("keydown", onKey, true);
+    document.body.append(wrap);
   }
 
   // Open a record in the active panel (the chip arrow's action, like native).
@@ -1670,14 +2140,14 @@ class Plugin extends AppPlugin {
       // Skip no-op writes: a DOM swap is a mutation the body observer wakes on —
       // a refresh pass over unchanged rows would otherwise amplify into observer
       // callbacks for nothing. The last-rendered display is stashed on the span.
-      if (val.dataset.refxDisplay !== display) this._renderValContent(val, field, empty, display);
+      if (val.dataset.refxDisplay !== display) this._renderValContent(rec, val, field, empty, display);
       if (val.classList.contains("refx-propcard-empty") !== empty) val.classList.toggle("refx-propcard-empty", empty);
       if (empty) { if (val.hasAttribute("title")) val.removeAttribute("title"); } else if (val.title !== display) val.title = display;
       if (val.dataset.refxField !== field.name) val.dataset.refxField = field.name;
     } else {
       const input = rowEl.querySelector("input");
       val = this._el("span", "refx-propcard-value" + (empty ? " refx-propcard-empty" : ""));
-      this._renderValContent(val, field, empty, display);
+      this._renderValContent(rec, val, field, empty, display);
       val.dataset.refxField = field.name;
       if (!empty) val.title = display;
       const open = (e) => { e.preventDefault(); e.stopPropagation(); this._editCardValue(rec, lineGuid, field, val, rowEl); };
@@ -1696,12 +2166,15 @@ class Plugin extends AppPlugin {
   // NOTE: every caller pre-arms _commitClaim(lineGuid) BEFORE its write (so the
   // write's synchronous record.updated is already gated); this poll RELEASES that
   // claim exactly once when it settles. Do not claim again here.
-  _commitRefreshRow(rec, lineGuid, field, prevValue, rowEl, optimistic, optimisticDisplay) {
+  _commitRefreshRow(rec, lineGuid, field, prevValue, rowEl, optimistic, optimisticDisplay, optimisticPills) {
     if (arguments.length >= 6) {
       // Replace `display` — the old one belongs to the PREVIOUS value. Callers that
       // know the native formatted text (typed granular dates) pass it; otherwise
       // the date-kind fallback formatter in _applyRowValue keeps it native-looking.
-      this._applyRowValue(rec, lineGuid, Object.assign({}, field, { value: optimistic, display: optimisticDisplay || "" }), rowEl);
+      // Also replace `pills` (they were built for the previous value): the relation
+      // editor passes fresh ones from its own state; otherwise null lets
+      // _renderValContent re-derive (choice) or fall back to the display text.
+      this._applyRowValue(rec, lineGuid, Object.assign({}, field, { value: optimistic, display: optimisticDisplay || "", pills: optimisticPills || null }), rowEl);
       this._consumeNavResume(lineGuid);
     }
     const hasOpt = arguments.length >= 6;
@@ -1722,7 +2195,7 @@ class Plugin extends AppPlugin {
         // repaint the still-stale read — keep the optimistic (known) value, and
         // schedule one deferred silent refresh to pick up the confirmed/formatted
         // value once it lands.
-        const show = (propagated || !hasOpt) ? (fresh || field) : Object.assign({}, field, { value: optimistic, display: "" });
+        const show = (propagated || !hasOpt) ? (fresh || field) : Object.assign({}, field, { value: optimistic, display: "", pills: optimisticPills || null });
         this._applyRowValue(rec, lineGuid, show, rowEl);
         this._consumeNavResume(lineGuid);
         this._commitRelease(lineGuid);
@@ -1780,6 +2253,73 @@ class Plugin extends AppPlugin {
     this._focusEmbeddedLine(lineGuid, line.guid, 0);
   }
 
+  // A record embed with an empty (or sparse) body gives Thymer nothing to hit:
+  // a click in the box's dead space fell through and the caret landed on the
+  // line AFTER the embed, outside the box. Don't fight the native mousedown —
+  // let it land, then on the click (after native is done) re-place the caret
+  // where the user aimed: the last body line, or a freshly created first line
+  // when the body is empty. Wired once per embed NODE (flagged on the element,
+  // so a native re-render that replaces the node gets re-wired on re-attach).
+  _wireEmbedBodyClick(node, lineGuid) {
+    if (!node || node.__refxBodyClick) return;
+    node.__refxBodyClick = true;
+    // CAPTURE-phase interception of the whole pointer sequence: the earlier
+    // correct-after-the-fact approach let Thymer place the caret on the line
+    // AFTER the embed first, then moved it — a visible caret dance. Now dead-
+    // space presses never reach Thymer; we place the caret ourselves at once.
+    // Our own synthetic hit-test events pass straight through (their target is
+    // a real .listitem line, filtered out below).
+    const deadSpace = (e) => {
+      if (e.button !== 0 || this._unloaded) return false;
+      if (!this._cards.has(lineGuid) && !this._queryEmbeds.has(lineGuid)) return false;
+      const t = e.target;
+      if (!(t instanceof Element)) return false;
+      if (t.closest("." + this._CARD_CLASS)) return false; // the card owns its clicks
+      const li = t.closest(".listitem");
+      if (li && li !== node) return false; // a real body line — native caret placement works
+      if (t !== node && !t.closest(".transclusion-container-div")) return false; // outside the body box
+      return true;
+    };
+    const act = () => {
+      if (this._unloaded) return;
+      // LINE transclusion (live-search embeds): dead space below the line adds
+      // a NEW INDENTED CHILD under the target line and focuses it — that's the
+      // whole point of opening the row (write more under it). Record embeds
+      // keep the old behaviour (focus last body line / create the first one).
+      const st = ((window.g_universe && window.g_universe.itemsByGuid) || {})[lineGuid];
+      const target = st && st.props && st.props.itemref;
+      if (target && !this.data.getRecord(target)) { this._addChildToLineEmbed(lineGuid, target); return; }
+      const n2 = this._transclusionNode(lineGuid);
+      const lines = n2 ? n2.querySelectorAll(".transclusion-container-div .lineitem-text") : [];
+      if (lines.length) this._hitTestCaret(lines[lines.length - 1]);
+      else this._addBodyLine(lineGuid);
+    };
+    for (const type of ["pointerdown", "mousedown", "mouseup", "click"]) {
+      node.addEventListener(type, (e) => {
+        if (!deadSpace(e)) return;
+        e.preventDefault(); e.stopImmediatePropagation(); e.stopPropagation();
+        if (type === "pointerdown") act(); // once per press; the rest are just muted
+      }, true);
+    }
+  }
+
+  // Append a new indented child under a LINE transclusion's target line and
+  // focus it inside the embed (the transclusion renders the target's children).
+  async _addChildToLineEmbed(embedGuid, targetGuid) {
+    try {
+      const st = ((window.g_universe && window.g_universe.itemsByGuid) || {})[targetGuid];
+      const rg = st && st.rguid;
+      const rec = rg && this.data.getRecord(rg);
+      if (!rec) return;
+      const items = await rec.getLineItems();
+      const target = this._findLineDeep(items, targetGuid);
+      if (!target) return;
+      const kids = target.children || [];
+      const line = await rec.createLineItem(target, kids.length ? kids[kids.length - 1] : null, "text");
+      if (line) this._focusEmbeddedLine(embedGuid, line.guid, 0);
+    } catch (e) {}
+  }
+
   _focusEmbeddedLine(embedGuid, targetLineGuid, attempt) {
     attempt = attempt || 0;
     const node = this._transclusionNode(embedGuid);
@@ -1824,10 +2364,8 @@ class Plugin extends AppPlugin {
     if (!fields.length) { await new Promise((r) => setTimeout(r, 150)); if (!this._cards.has(lineGuid)) return; fields = this._recCardFields(rec); }
     // An empty record has no body line to type into — the native transclusion
     // renders nothing editable — so the card offers an "add content" affordance.
-    let bodyEmpty = false;
-    try { const items = await rec.getLineItems(); bodyEmpty = !items || items.length === 0; } catch (e) {}
     if (!this._cards.has(lineGuid)) return;
-    this._renderCardInto(lineGuid, this._buildPropCard(rec, fields, lineGuid, bodyEmpty));
+    this._renderCardInto(lineGuid, this._buildPropCard(rec, fields, lineGuid));
   }
 
   _renderCardInto(lineGuid, cardEl) {
@@ -1861,6 +2399,7 @@ class Plugin extends AppPlugin {
       if (entry) entry.cardEl = cardEl; // cache for the observer's zero-flash re-insert
     }
     this._alignCardToBody(lineGuid, node);
+    this._wireEmbedBodyClick(node, lineGuid);
     // The card is in the DOM now (paint synchronously). If an edit stashed a resume,
     // re-establish the cursor on that cell; else if a nav cursor is active, re-land it.
     if (this._cardNavResume && this._cardNavResume.lineGuid === lineGuid) this._consumeNavResume(lineGuid);
@@ -1886,11 +2425,38 @@ class Plugin extends AppPlugin {
       card.style.marginRight = mr;
       card.style.width = "calc(100% - " + ml + " - " + mr + ")";
       card.style.flex = "0 0 auto";
-      // Fuse the card with the body box: copy the transclusion container's OWN
-      // computed background/border colours (no CSS var exposes them, and hardcoding
-      // a colour would break on theme switch — this follows any theme).
+      // Fuse with the body box: the stylesheet gives the card the same VARS as
+      // .container-border, but custom themes/CSS can restyle the transclusion
+      // container specifically (Parham's does) — so copy its ACTUAL computed
+      // colours on top. Stale-on-theme-switch is handled by the theme observer
+      // (_ensureThemeObserver), which clears + re-copies on data-theme change.
       if (cs.backgroundColor && cs.backgroundColor !== "rgba(0, 0, 0, 0)") card.style.backgroundColor = cs.backgroundColor;
       if (cs.borderTopColor) card.style.borderColor = cs.borderTopColor;
+    } catch (e) {}
+  }
+
+  // Re-copy every card's fused colours when the THEME changes — the inline
+  // copies taken at render time otherwise go stale (light: darker gray card;
+  // switching back to dark: lighter gray card).
+  _ensureThemeObserver() {
+    if (this._themeObs || this._unloaded) return;
+    try {
+      const obs = new MutationObserver(() => {
+        setTimeout(() => {
+          if (this._unloaded) return;
+          for (const [lineGuid] of this._cards) {
+            try {
+              const node = this._transclusionNode(lineGuid);
+              const card = node && node.querySelector(":scope > ." + this._CARD_CLASS);
+              if (card) { card.style.backgroundColor = ""; card.style.borderColor = ""; }
+              this._alignCardToBody(lineGuid, node);
+            } catch (e) {}
+          }
+        }, 50); // let the new theme's styles apply before re-reading computed colours
+      });
+      obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+      this._themeObs = obs;
+      window.__refxThemeObs = obs;
     } catch (e) {}
   }
 
@@ -1935,7 +2501,7 @@ class Plugin extends AppPlugin {
     // keep this idle-free whenever no embeds are open.
     const target = document.body;
     const obs = new MutationObserver(() => {
-      if (!this._cards.size || this._cardEditing) return;
+      if (!this._cards.size && !this._queryEmbeds.size) return;
       // ZERO-FLASH keep-alive: MutationObserver callbacks are microtasks — they run
       // BEFORE the browser paints the mutation. If a native re-render just dropped a
       // card, re-inserting the CACHED node here (synchronously) means no painted
@@ -1945,6 +2511,12 @@ class Plugin extends AppPlugin {
       // PRESENCE CHECK: cached-node isConnected FIRST — it's O(1), whereas the
       // compound querySelector walks the document per card per mutation batch
       // (Thymer mutates line DOM on essentially every keystroke).
+      // The cached-node re-insert runs even while a POPUP editor is open
+      // (_cardEditing): a relation write re-renders the whole transclusion node
+      // and wiped the card behind the still-open picker (only the search box was
+      // left). Re-inserting the SAME node can't disturb the popup (it lives on
+      // document.body) and keeps every rowEl/valEl reference valid. Only the
+      // REBUILD path below must wait for the editor to close.
       let needRebuild = false;
       for (const [lineGuid, e] of this._cards) {
         if (e.cardEl && e.cardEl.isConnected) continue;
@@ -1953,10 +2525,27 @@ class Plugin extends AppPlugin {
           if (document.querySelector("." + this._CARD_CLASS + '[data-refx-for="' + esc + '"]')) continue;
         }
         const node = e.cardEl ? this._transclusionNode(lineGuid) : null;
-        if (node && e.cardEl) { try { node.insertBefore(e.cardEl, node.firstChild); this._alignCardToBody(lineGuid, node); } catch (err) { needRebuild = true; } }
+        if (node && e.cardEl) { try { node.insertBefore(e.cardEl, node.firstChild); this._alignCardToBody(lineGuid, node); this._wireEmbedBodyClick(node, lineGuid); } catch (err) { needRebuild = true; } }
         else needRebuild = true;
       }
-      if (needRebuild && !this._cardRaf) this._cardRaf = requestAnimationFrame(() => { this._cardRaf = 0; this._onCardMutation(); });
+      if (needRebuild) {
+        if (this._cardEditing) { if (this._discoverPending == null) this._discoverPending = false; }
+        else if (!this._cardRaf) this._cardRaf = requestAnimationFrame(() => { this._cardRaf = 0; this._onCardMutation(); });
+      }
+      // Query-spawned embeds: keep each node parked under its result row. The
+      // row node is REPLACED on every query re-render, and a host re-render can
+      // put the embed back at its model position below the block. O(1) checks
+      // per entry; the actual (listview-scanning) re-park runs rAF-debounced.
+      let needPlace = false;
+      for (const qe of this._queryEmbeds.values()) {
+        if (qe.parked) continue; // row gone — resting at model position
+        if (qe.node && qe.node.isConnected && qe.row && qe.row.isConnected && qe.node.previousElementSibling === qe.row) continue;
+        needPlace = true; break;
+      }
+      if (needPlace && !this._queryRaf) this._queryRaf = requestAnimationFrame(() => {
+        this._queryRaf = 0;
+        for (const [g, qe] of this._queryEmbeds) if (!qe.parked) this._placeQueryEmbed(g, qe.resultRealGuid, 0);
+      });
     });
     try { obs.observe(target, { childList: true, subtree: true }); } catch (e) {}
     this._cardObs = obs; this._cardObsTarget = target;
@@ -1978,6 +2567,7 @@ class Plugin extends AppPlugin {
   _teardownCardObserver() {
     this._exitCardNav();
     if (this._cardRaf) { try { cancelAnimationFrame(this._cardRaf); } catch (e) {} this._cardRaf = 0; }
+    if (this._queryRaf) { try { cancelAnimationFrame(this._queryRaf); } catch (e) {} this._queryRaf = 0; }
     if (this._cardObs) { try { this._cardObs.disconnect(); } catch (e) {} }
     this._cardObs = null; this._cardObsTarget = null;
     if (window.__refxCardObs) { try { window.__refxCardObs.disconnect(); } catch (e) {} window.__refxCardObs = null; }
@@ -1991,6 +2581,8 @@ class Plugin extends AppPlugin {
   _killStaleObservers() {
     try { if (window.__refxCardObs && window.__refxCardObs.disconnect) window.__refxCardObs.disconnect(); } catch (e) {}
     window.__refxCardObs = null;
+    try { if (window.__refxThemeObs && window.__refxThemeObs.disconnect) window.__refxThemeObs.disconnect(); } catch (e) {}
+    window.__refxThemeObs = null;
     // The prior instance's ALWAYS-ON capture listeners (its arrow-field refs are
     // unreachable — only the window stash can remove them).
     try { for (const h of window.__refxKeyHandlers || []) window.removeEventListener("keydown", h, true); } catch (e) {}
@@ -2017,6 +2609,7 @@ class Plugin extends AppPlugin {
   // ---- inline property editing ----
 
   _editCardValue(rec, lineGuid, field, valEl, rowEl) {
+    if (field.kind === "file") { this._editFileValue(rec, lineGuid, field, valEl, rowEl); return; }
     if (this._cardEditing) return; // an editor is already open (or a dup event)
     // Re-resolve the field FRESH at open: the click handlers bound in _fillPropRow
     // capture a build-time snapshot, so after an earlier edit (or a remote change)
@@ -2371,32 +2964,44 @@ class Plugin extends AppPlugin {
         }).filter((x) => x.guid);
       } catch (e) { return []; }
     };
+    // Session-local OPTIMISTIC current values. linkedRecords() lags a write:
+    // re-reading it right after prop.set returned the OLD list, so a removed
+    // value stayed "checked" and the next add wrote the stale list back (the
+    // remove-then-can't-re-add / removed-value-comes-back bug). While the popup
+    // is open IT owns the truth: every render and every write derives from
+    // curList, never from a fresh linkedRecords() read.
+    let curList = currentLinks();
     const writeGuids = (guids) => {
       this._commitClaim(lineGuid);
       let p = null; try { p = rec.prop(field.name); } catch (e) {}
       if (!p) return;
       try { p.set(many ? guids : (guids[0] || "")); } catch (e) { try { p.set(guids); } catch (e2) {} }
     };
-    const refreshRow = (display) => { this._commitRefreshRow(rec, lineGuid, field, field.value, rowEl, display); };
+    // Fresh pills for the optimistic row update (stale field.pills would show
+    // the previous chips until the write propagates).
+    const pillsOf = (list) => list.map((x) => ({ t: x.name, icon: x.icon || null, guid: x.guid }));
+    const refreshRow = (display, pillsNow) => { this._commitRefreshRow(rec, lineGuid, field, field.value, rowEl, display, "", pillsNow || null); };
 
     const render = (q) => {
       if (closed || !this._cardPopup || this._cardPopup.pop !== pop) return;
       list.innerHTML = "";
       const ql = (q || "").trim().toLowerCase();
-      const cur = currentLinks();
+      const cur = curList;
       const curGuids = new Set(cur.map((c) => c.guid));
-      // 1) current values, accent-checked; click removes (multi) / clears (single)
+      // 1) current values, accent-checked; click (or the native-style ×) removes
+      // (multi) / clears (single)
       for (const c of cur) {
         if (ql && !c.name.toLowerCase().includes(ql)) continue;
         const row = this._el("div", "refalias-result refx-opt-checked");
         const chk = this._el("span", "refx-opt-chkbadge"); chk.append(this._el("span", "ti ti-check")); row.append(chk);
         if (c.icon) row.append(this._el("span", "refx-opt-ico ti " + c.icon));
         row.append(this._el("span", "refalias-result-text", c.name));
+        row.append(this._el("span", "refx-opt-x ti ti-x"));
         row.addEventListener("mousedown", (e) => {
           e.preventDefault(); e.stopPropagation();
-          const left = currentLinks().filter((x) => x.guid !== c.guid);
-          writeGuids(left.map((x) => x.guid));
-          refreshRow(left.map((x) => x.name).join(", "));
+          curList = curList.filter((x) => x.guid !== c.guid);
+          writeGuids(curList.map((x) => x.guid));
+          refreshRow(curList.map((x) => x.name).join(", "), pillsOf(curList));
           if (many) render(input.value); else { closed = true; this._closeCardPopup(); }
         });
         list.append(row);
@@ -2411,19 +3016,52 @@ class Plugin extends AppPlugin {
         row.addEventListener("mousedown", (e) => {
           e.preventDefault(); e.stopPropagation();
           if (many) {
-            const now = currentLinks();
-            writeGuids(now.map((x) => x.guid).concat([ent.guid]));
-            refreshRow(now.map((x) => x.name).concat([ent.name]).join(", "));
+            curList = curList.concat([{ guid: ent.guid, name: ent.name, icon: ent.icon }]);
+            writeGuids(curList.map((x) => x.guid));
+            refreshRow(curList.map((x) => x.name).join(", "), pillsOf(curList));
             input.value = ""; render("");
           } else {
             closed = true; this._closeCardPopup();
             writeGuids([ent.guid]);
-            refreshRow(ent.name);
+            refreshRow(ent.name, pillsOf([ent]));
           }
         });
         list.append(row);
       }
-      if (!cur.length && !matches.length) list.append(this._el("div", "refx-cardpop-empty", "No matches"));
+      // 2b) "+ Create «query»" (native anatomy: bottom row, target collection name
+      // right-aligned): only when the field declares a target collection (so we
+      // know WHERE to create) and no current value or suggestion already has that
+      // exact name. col.createRecord returns the new guid synchronously.
+      let createRow = null;
+      const qname = (q || "").trim();
+      if (qname && col && col.createRecord && !cur.some((c) => c.name.toLowerCase() === ql) && !src.some((ent) => ent.lower === ql)) {
+        createRow = this._el("div", "refalias-result refx-opt-create");
+        createRow.append(this._el("span", "refalias-result-text", "+ Create “" + qname + "”"));
+        let colName = ""; try { colName = (col.getName && col.getName()) || ""; } catch (e) {}
+        if (colName) createRow.append(this._el("span", "refx-opt-createcol", colName));
+        createRow.addEventListener("mousedown", (e) => {
+          e.preventDefault(); e.stopPropagation();
+          let guid = null;
+          try { guid = col.createRecord(qname); } catch (err) {}
+          if (!guid) { this._toast("Couldn't create “" + qname + "”."); return; }
+          // Make the new record known to this popup's browse list right away
+          // (getAllRecords already resolved; a re-render must see it as current).
+          const ent2 = { r: null, name: qname, lower: qname.toLowerCase(), icon: null, guid };
+          if (browse) { browse.push(ent2); browse.sort((a, b) => a.name.localeCompare(b.name)); }
+          if (many) {
+            curList = curList.concat([{ guid, name: qname, icon: null }]);
+            writeGuids(curList.map((x) => x.guid));
+            refreshRow(curList.map((x) => x.name).join(", "), pillsOf(curList));
+            input.value = ""; render("");
+          } else {
+            closed = true; this._closeCardPopup();
+            writeGuids([guid]);
+            refreshRow(qname, [{ t: qname, icon: null, guid }]);
+          }
+        });
+        list.append(createRow);
+      }
+      if (!cur.length && !matches.length && !createRow) list.append(this._el("div", "refx-cardpop-empty", "No matches"));
       // 3) "(None)" clears — single-value only (multi clears by unchecking)
       if (!many) {
         const clr = this._el("div", "refalias-result refx-cardpop-clear");
@@ -2480,6 +3118,7 @@ class Plugin extends AppPlugin {
     let p = null; try { p = rec.prop(field.name); } catch (e) {}
     if (!p) return;
     try {
+      if (field.kind === "file") return; // never overwrite a file value with text
       if (field.kind === "choice") {
         if (raw === "" || raw == null) { try { p.set(""); } catch (e) { try { p.set([]); } catch (e2) {} } }
         else p.setChoice(raw);
@@ -2748,7 +3387,7 @@ class Plugin extends AppPlugin {
     const rec = this.data.getRecord(pageGuid);
     if (!rec) return;
     const items = await rec.getLineItems();
-    const li = items.find((x) => x.guid === lineGuid);
+    const li = this._findLineDeep(items, lineGuid);
     if (!li) return;
     const liveState = this._liveStateByGuid(lineGuid);
     const source = liveState ? this._segmentsFromState(liveState) : null;
@@ -2929,15 +3568,32 @@ class Plugin extends AppPlugin {
     const rec = this.data.getRecord(pageGuid);
     if (!rec) return;
     const items = await rec.getLineItems();
-    const li = items.find((x) => x.guid === lineGuid);
+    const li = this._findLineDeep(items, lineGuid);
     if (!li) return;
-    const liveState = this._liveStateByGuid(lineGuid);
-    const segs = liveState ? this._segmentsFromState(liveState) : (li.segments || []).map((s) => ({ type: s.type, text: s.text }));
-    const range = this._findBracketRange(segs, query);
-    if (!range) return; // couldn't locate "[[query" — bail rather than corrupt the line
     const ref = { type: "ref", text: { guid: result.guid, title: result.text } };
-    li.setSegments(this._replaceRange(segs, range.start, range.end, ref));
-    this._toast('Referenced "' + String(result.text).slice(0, 40) + '"');
+    // WRITE + VERIFY + RETRY. A single write raced the editor's own flush of
+    // freshly typed text: our splice (derived from a possibly stale read) went
+    // through, the toast fired, and then the editor's state clobbered the line
+    // back — "said it referenced but nothing is there". So: attempt against the
+    // freshest segs, poll the live model for the ref, and re-apply if it isn't
+    // (or no longer is) there. Toast only reports the VERIFIED outcome.
+    let done = false;
+    for (let attempt = 0; attempt < 4 && !done; attempt++) {
+      const liveState = this._liveStateByGuid(lineGuid);
+      const segs = liveState ? this._segmentsFromState(liveState) : (li.segments || []).map((s) => ({ type: s.type, text: s.text }));
+      const hasRef = segs.some((s) => s.type === "ref" && s.text && s.text.guid === result.guid);
+      if (!hasRef) {
+        const range = this._findBracketRange(segs, query);
+        if (!range) { if (attempt === 0) return; break; } // "[[query" gone — nothing to safely replace
+        li.setSegments(this._replaceRange(segs, range.start, range.end, ref));
+      }
+      // settle, then confirm it SURVIVED (not just that our write landed)
+      await new Promise((r) => setTimeout(r, 220));
+      const after = this._liveSegs(lineGuid) || [];
+      done = after.some((s) => s.type === "ref" && s.text && s.text.guid === result.guid);
+    }
+    if (done) this._toast('Referenced "' + String(result.text).slice(0, 40) + '"');
+    else this._toast("Couldn't insert the reference — try [[ again.");
   }
 
   // Locate the "[[query" the user is typing in the live line by searching the
@@ -3401,11 +4057,13 @@ class Plugin extends AppPlugin {
 /* record property card (rendered above the body inside a record embed) */
 .refx-propcard {
   margin: 2px 0 0; padding: 8px 10px;
-  border-radius: 9px 9px 0 0;
-  /* Background/border colours are copied from the transclusion body container at
-     render (see _alignCardToBody) so card + body read as ONE box in any theme. */
-  background: transparent;
-  border: 1px solid rgba(127,127,127,.18);
+  /* Same vars as the native .container-border (bg/border/radius), so the card
+     tracks EVERY theme switch live — copying computed colours at render went
+     stale on theme change (light: darker gray; back to dark: lighter gray).
+     Top corners get the block radius; bottom is square, fused with the body. */
+  border-radius: var(--ed-radius-block, 6px) var(--ed-radius-block, 6px) 0 0;
+  background: var(--ed-container-bg-color, rgba(127,127,127,.08));
+  border: 1px solid var(--ed-container-border-color, rgba(127,127,127,.18));
   border-bottom: none;
   color: var(--text-color, #555958);
   /* NO font-size/line-height here: rows and pills inherit through the native
@@ -3424,7 +4082,7 @@ class Plugin extends AppPlugin {
   margin-top: 0 !important;
   border-top-left-radius: 0 !important;
   border-top-right-radius: 0 !important;
-  border-top: 1px solid rgba(127,127,127,.14) !important;
+  border-top: 1px solid var(--ed-container-border-color, rgba(127,127,127,.14)) !important;
 }
 .refx-propcard-title { font-weight: 600; font-size: 13px; margin-bottom: 2px; opacity: .92; }
 /* Rows render through Thymer's own .page-props-row/.page-props-cell CSS (native
@@ -3433,7 +4091,7 @@ class Plugin extends AppPlugin {
 .refx-native-props .page-props-row { cursor: default; }
 /* native puts this gap via its container scope; replicate inside the card */
 .refx-native-props .page-prop-type { display: flex; align-items: center; gap: 9px; }
-.refx-native-props .page-prop-type .ti { opacity: .55; font-size: 13px; }
+/* type icon: no extra dimming — native color comes via .page-prop-type itself */
 .refx-native-props .page-prop-val { display: flex; align-items: center; }
 .refx-native-props .page-prop-val { cursor: pointer; min-height: 20px; }
 .refx-propcard-value { min-width: 24px; min-height: 16px; display: inline-flex; align-items: center; border-radius: 4px; }
@@ -3482,8 +4140,16 @@ class Plugin extends AppPlugin {
   width: 320px; max-width: calc(100vw - 24px); padding: 0; gap: 0;
   background: var(--cmdpal-bg-color, #232327);
   border: 1px solid rgba(127,127,127,.22);
-  border-radius: 8px; overflow: hidden; /* native palette radius, not the rounder refalias default */
+  /* native picker radius: .cmdpal--inline uses var(--radius-larger) */
+  border-radius: var(--radius-larger, 5px); overflow: hidden;
 }
+/* an empty embed body is a near-zero-height strip that's hard to click into —
+   give OUR embeds (the ones carrying a property card) a comfortable click
+   target; the click handler on the node turns it into caret focus / first line.
+   Height = ONE text line (1lh) + the container's paddings/margins/borders
+   (38px measured live), so creating the first line on click changes NOTHING
+   visually (no jump). */
+.listitem-transclusion:has(> .refx-propcard) .transclusion-container-div { min-height: calc(1lh + 38px); cursor: text; }
 /* the ↗ on record chips (native: padded, slightly raised, opens the record) */
 .refx-chip-arrow { padding: 3px; margin-left: 2px; cursor: pointer; opacity: .85; }
 .refx-chip-arrow:hover { opacity: 1; }
@@ -3498,7 +4164,8 @@ class Plugin extends AppPlugin {
    option rows here are native-style single lines → force row + left alignment */
 .refx-cardpop .refalias-result {
   display: flex; flex-direction: row; align-items: center; justify-content: flex-start;
-  text-align: left; gap: 7px; padding: 6px 9px; border-radius: 7px; font-size: 13px;
+  /* native option-row radius: .autocomplete--option uses var(--radius-normal) */
+  text-align: left; gap: 7px; padding: 6px 9px; border-radius: var(--radius-normal, 4px); font-size: 13px;
 }
 .refx-cardpop .refalias-result-sel { background: var(--ed-button-primary-bg, #479797); color: #fff; }
 /* inline text/number editor inside a card row: flat + native-like, not a pill */
@@ -3520,6 +4187,38 @@ class Plugin extends AppPlugin {
 }
 .refx-opt-chkbadge .ti { font-size: 11px; }
 .refx-cardpop-empty { opacity: .5; font-style: italic; padding: 7px 10px; font-size: 12px; }
+/* long plain-text values (Synopsis etc) wrap over lines like the native pane —
+   they were clipped to one line in the card */
+.refx-propcard .page-prop-val { white-space: normal; }
+.refx-propcard .page-prop-val .prop-status-0p { white-space: pre-wrap; overflow-wrap: anywhere; overflow: visible; text-overflow: clip; }
+.refx-propcard .refx-propcard-value { flex-wrap: wrap; }
+/* live-search embeds keep a writing strip at the bottom: clicking it appends a
+   new indented child under the transcluded line. ZERO-JUMP: the strip reserves
+   exactly one child line's worth of space (1lh + line margins), and the moment
+   the child appears the :has() rule collapses the strip to the container's
+   natural 12px padding — the collapse cancels the added line in the SAME layout
+   pass, so nothing below shifts (verified: box height unchanged across the add).
+   Once a child exists you extend with Enter (native, no strip needed). */
+.listitem-transclusion.refx-qembed .transclusion-container-div { padding-bottom: calc(1lh + 24px); cursor: text; }
+.listitem-transclusion.refx-qembed .transclusion-container-div:has(.listitem ~ .listitem) { padding-bottom: 12px; }
+/* file/image property values */
+.refx-propcard-img { width: 135px; max-width: 100%; height: auto; border-radius: 4px; display: block; cursor: pointer; }
+.refx-file-ico { margin-right: 5px; font-size: 12px; opacity: .8; }
+.refx-imgmenu { width: 200px; }
+.refx-lightbox {
+  position: fixed; inset: 0; z-index: 2147483200; background: rgba(0,0,0,.75);
+  display: flex; align-items: center; justify-content: center; cursor: zoom-out;
+}
+.refx-lightbox img { max-width: 92vw; max-height: 92vh; border-radius: 6px; box-shadow: 0 18px 60px rgba(0,0,0,.5); }
+/* URL values open on click, like native */
+.refx-url-value { cursor: pointer; }
+.refx-url-value:hover { text-decoration: underline; }
+/* "+ Create «query»" row: target collection right-aligned */
+.refx-opt-create .refalias-result-text { flex: 1 1 auto; }
+.refx-opt-createcol { flex: none; margin-left: auto; font-size: 11px; opacity: .55; }
+/* native-style remove affordance on checked rows (whole row still toggles) */
+.refx-opt-x { flex: none; margin-left: auto; font-size: 12px; opacity: 0; }
+.refx-opt-checked:hover .refx-opt-x, .refx-opt-checked.refalias-result-sel .refx-opt-x { opacity: .8; }
 .refx-datepop { padding: 8px; }
 /* keyboard-first date picker — replicates the native Thymer picker's anatomy:
    NL input, month header with ‹ ○ › nav, weekday row, 6-week grid with muted
