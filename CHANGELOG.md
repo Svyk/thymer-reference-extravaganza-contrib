@@ -25,7 +25,7 @@ A big round of polish on the property cards and inline embeds, plus a new way to
 **Inline embeds**
 - An empty embed is a stable, comfortable click-to-type area: clicking no longer makes the caret jump, and the redundant "+ Add content" button (which itself caused a jump) is gone.
 - Cmd/Ctrl+Up only collapses from the reference's own line or the embed line, so it no longer hijacks the native fold-indent shortcut while your caret is inside an embed's content. Collapsing also no longer leaves "…" fold dots on the line.
-- Expanding a reference on a line that holds two page references now opens the second one instead of doing nothing.
+- On a line with several page references, Cmd/Ctrl+Down expands the one nearest your caret; a second press opens the next reference on the line (before, it did nothing once one was open).
 
 **References**
 - Inserting an inline [[ reference verifies the write landed and retries if the editor's own flush clobbered it, so it can no longer say "Referenced …" while leaving nothing behind.
