@@ -243,7 +243,7 @@ class Plugin extends AppPlugin {
   _discoverTrigger = () => { if (!document.hidden) this._scheduleDiscover(true); };
 
   onLoad() {
-    try { window.__REFX_VERSION = "3.2.0"; } catch (e) {} // live-version tell for debugging
+    try { window.__REFX_VERSION = "3.2.1"; } catch (e) {} // live-version tell for debugging
     this._killStaleObservers(); // clear any observer/cards leaked by a hot-reload
     this._injectStyle();
     this._ensureThemeObserver();
@@ -3733,8 +3733,9 @@ class Plugin extends AppPlugin {
     return null;
   }
 
-  // Readable text of a line, rendering references by their alias/target name so
-  // result rows aren't full of blanks where references and dates are.
+  // Readable text of a line, rendering references by their alias/target name and
+  // dates by their native-looking label, so result rows and alias fallbacks
+  // aren't full of blanks where references and dates are.
   _displayText(segments) {
     return (segments || [])
       .map((s) => {
@@ -3745,9 +3746,30 @@ class Plugin extends AppPlugin {
           try { const r = t.guid && this.data.getRecord(t.guid); if (r && r.getName) return r.getName(); } catch (e) {}
           return "↗";
         }
+        if (s.type === "datetime") return this._dateSegmentText(t);
         return t.title || t.text || t.name || "";
       })
       .join("");
+  }
+
+  // Render a datetime SEGMENT's value the way native does ("Thu Jul 16", a time,
+  // or a granular label). The segment stores a compact shape (verified live):
+  // {d:"YYYYMMDD"} for a date, {d:"", t:{t:"HHMMSS"|"HHMM"}} for a journal time,
+  // optionally r:{d} for a range and formatted for granular labels. No `formatted`
+  // on plain dates — Thymer computes the label at render, so we do too, reusing
+  // the card's own formatters. Previously these rendered blank, dropping the date
+  // from search snippets and the alias fallback.
+  _dateSegmentText(t) {
+    if (!t || typeof t !== "object") return "";
+    if (t.formatted) return t.formatted;
+    const timeStr = t.t && t.t.t != null ? String(t.t.t) : null; // "HHMMSS" or "HHMM"
+    const hhmm = timeStr && timeStr.length >= 4 ? timeStr.slice(0, 2) + ":" + timeStr.slice(2, 4) : null;
+    const ymd = /^\d{8}$/.test(t.d || "") ? t.d.slice(0, 4) + "-" + t.d.slice(4, 6) + "-" + t.d.slice(6, 8) : null;
+    if (ymd) {
+      if (t.r && t.r.d) { const lbl = this._synthDateLabel(t.d, t.r.d, hhmm); if (lbl) return lbl; }
+      return this._fmtDateDisplay(hhmm ? ymd + " " + hhmm : ymd) || ymd;
+    }
+    return hhmm || "";
   }
 
   // Remove graphemes [start,end) across segments and insert `ref` at `start`.

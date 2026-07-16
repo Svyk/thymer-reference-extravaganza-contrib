@@ -1,5 +1,9 @@
 # Changelog
 
+## v3.2.1 — 2026-07-16
+
+- **Fixed: dates went missing from a line's text.** In `[[` search results, the hover preview, and the alias box, a date on the line (like "Thu Jul 16") rendered blank, so it dropped out of the displayed text. Dates (and times, and granular labels like "Week 28") now show with their native-looking label.
+
 ## v3.2.0 — 2026-07-16
 
 A polish round on the `[[` picker and property editing, with a new hover preview.
