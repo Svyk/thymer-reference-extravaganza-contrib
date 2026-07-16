@@ -1,5 +1,23 @@
 # Changelog
 
+## v3.2.0 — 2026-07-16
+
+A polish round on the `[[` picker and property editing, with a new hover preview.
+
+**New**
+- **Line preview on hover in the `[[` picker.** Hovering a result shows the full line text in a floating preview just below the row, with the matched words bolded. Handy for long lines and paragraphs where the row only shows a windowed snippet.
+
+**Improvements**
+- The `[[` line-reference picker now uses Thymer's native command-palette look: mono type, the accent selection bar, and bold match highlighting, matching the `@` menu.
+- Text properties edit in a wrapping, auto-growing area, so long or multi-line values (Synopsis and the like) are fully visible and editable instead of clipped to a single line.
+- The plugin description is now a short one-liner instead of a full manual.
+
+**Fixes**
+- You can switch straight from editing one property to another now. The open editor commits first instead of leaving the card stuck.
+- Editing a property can no longer wedge the card so that inline transclusions stop expanding or collapsing. A stuck editing state now self-heals on the next keypress or click.
+- Cmd/Ctrl+Down on a collapsed line that holds a reference now unfolds the block first (like a normal outline), then expands the transclusion on the next press. It no longer does nothing on chevron-folded lines.
+- Relation picker option icons are round again. A collection's built-in dot icon was being stretched into an oval.
+
 ## v3.1.0 — 2026-07-04
 
 A big round of polish on the property cards and inline embeds, plus a new way to expand live-search results.

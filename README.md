@@ -11,9 +11,10 @@ Reference Extravaganza is a [Thymer](https://thymer.com) plugin for references. 
 Thymer references a whole page out of the box; this adds references to an individual line.
 
 1. Type `[[` anywhere in a line. A search box opens right at your cursor.
-2. Keep typing to search. Results show a snippet centred on the match (matched words highlighted) with the source page beneath.
+2. Keep typing to search. Results show a snippet centred on the match (matched words highlighted) with the source page alongside, styled like Thymer's own `@` menu.
    - **Phrase search:** results match the phrase you type.
    - **Multi-term search:** use `+` to require several terms in the same line, in any order (for example `bestäm + leda`).
+   - **Hover a result** to see the whole line in a preview just below the row, matches bolded. Handy for long lines and paragraphs where the row only shows a snippet.
 3. Pick a line with **↑/↓ then Enter**, or click it. A reference to that line is inserted, displaying the line's text.
 4. **Esc** cancels and removes the `[[` you typed.
 
@@ -60,9 +61,18 @@ See what a reference points to without leaving the page you're on — and open a
 
 **Many at once, and they persist.** Expanding a second reference no longer collapses the first — every embed stays open. Because each embed is a real line in your document, it survives a reload; it stays until you collapse it.
 
-**Property card on record embeds.** When you expand a *page* reference, its properties appear as a card above the body — rendered with Thymer's own property-pane styling (row layout, value pills with each record's icon, native-format dates), so it looks and themes exactly like the real page header. Click any value to edit it inline (a text/number field, a date picker replicating the native one, a choice picker, or a record picker that shows your current values with checkmarks and suggests records with their icons — multi-value fields toggle without closing). Changes save straight to the record. A **Properties · All ⌄** chooser on the card switches between **All**, **Filled in**, and a **Custom** selection of properties to show. (Line references have no properties, so they just show the line and its children.)
+**In live searches too.** Press **Cmd/Ctrl+Down** on a result line in a live search / query block to expand it in place, right under the result (a page result gets its property card, and any references it holds can be expanded nested inside). A writing strip at the bottom of the embed lets you add indented content under the result. **Cmd/Ctrl+Up** collapses it.
 
-**Keyboard navigation of the card.** With the cursor on the record reference, press **↓** to step into the card (just like arrowing from a record's title into its properties in Thymer). **↑/↓** move a highlight through the values; **Enter** edits the highlighted value (an inline field for text/number/date, or the choice/relation picker), and the highlight returns to it once you save. **↑** from the first value, or **Esc**, returns the cursor to the reference line; **↓** past the last value drops into the embed's body. For an empty record, **↓** highlights **＋ Add content** — press **Enter** and you're typing the first line. (A Command-Palette path, **Edit embedded record (properties)**, still opens a normal Tab-through dialog if you prefer it.)
+**Property card on record embeds.** When you expand a *page* reference, its properties appear as a card above the body — rendered with Thymer's own property-pane styling (row layout, per-field type icons, value pills with each record's icon and colour, native-format dates), so it looks and themes exactly like the real page header. Click any value to edit it inline:
+
+- **Text** (wraps and grows for long or multi-line values), **number**, and a **date picker** replicating the native one.
+- A **choice picker**, and a **record picker** that lists your current values with checkmarks (click the × to remove), suggests records with their icons, and lets you **create a new record** inline. Multi-value fields toggle without closing.
+- **Image / file** values show the image (or a paperclip and filename); click the image or the pencil to replace or add one via a file picker, and right-click for Open image, Download, or Delete.
+- **URL** values open in the browser when you click the link text.
+
+Changes save straight to the record. A **Properties · All ⌄** chooser on the card switches between **All**, **Filled in**, and a **Custom** selection of properties to show. Its colours and corner radius follow theme switches live. (Line references have no properties, so they just show the line and its children.)
+
+**Keyboard navigation of the card.** With the cursor on the record reference, press **↓** to step into the card (just like arrowing from a record's title into its properties in Thymer). **↑/↓** move a highlight through the values; **Enter** edits the highlighted value (an inline field for text/number/date, or the choice/relation picker), and the highlight returns to it once you save. **↑** from the first value, or **Esc**, returns the cursor to the reference line; **↓** past the last value drops into the embed's body. An empty embed is a stable click-to-type area: click into it (or arrow down past the properties) and start typing the first line. (A Command-Palette path, **Edit embedded record (properties)**, still opens a normal Tab-through dialog if you prefer it.)
 
 *Under the hood:* expanding inserts a native Thymer transclusion as a child of the reference's block, tagged so the plugin only ever finds and collapses its own embeds — never Thymer's native ones. Collapsing is stateless (it locates the matching embed line in the document and deletes it), so it works even after a reload when no in-memory state survives. Native transclusions are body-only, so the property card is drawn by the plugin above the body, kept in sync by a lightweight observer that exists only while at least one embed is open.
 

@@ -24,6 +24,7 @@ class Plugin extends AppPlugin {
   _editRecordCmd = null;
   _modal = null;
   _link = null;
+  _linePreviewEl = null;
   _lastBracketTs = 0;
   _hotkey = null;
   _convertCmd = null;
@@ -179,6 +180,7 @@ class Plugin extends AppPlugin {
     const isDown = e.key === "ArrowDown", isUp = e.key === "ArrowUp";
     if (!isDown && !isUp) return;
     if (this._modal || this._link) return;
+    this._healWedgedEditing(); // an orphaned editor flag would brick all expand/collapse
     if (this._cardEditing) return; // never collapse/expand under an open editor
     const hit = this._detect();
     if (!hit) return;
@@ -201,7 +203,15 @@ class Plugin extends AppPlugin {
     // async query path decides line-vs-ref. Swallowing is safe there: native
     // Cmd+Down is a no-op inside query results — children never render).
     const ref = this._selectedRef(hit);
-    if (!ref && !hit.queryLineGuid) return;
+    if (!ref && !hit.queryLineGuid) return; // native handles (incl. folded no-ref lines)
+    // COLLAPSED line with a reference: let NATIVE Cmd+Down unfold the block first
+    // (exactly as it does for a plain folded block) — only a SECOND Cmd+Down
+    // (line now unfolded) reaches us and opens the transclusion. We must NOT
+    // swallow here: returning lets the native fold shortcut run. (A prior version
+    // drove the unfold ourselves by clicking the "…" control, but a folded line
+    // can instead show a chevron fold toggle, so that click found nothing and
+    // left Cmd+Down dead on those lines.) Live-search rows never fold.
+    if (hit.isFolded && !hit.queryLineGuid) return;
     e.preventDefault(); e.stopImmediatePropagation();
     this._expandRef(hit, ref);
   };
@@ -233,7 +243,7 @@ class Plugin extends AppPlugin {
   _discoverTrigger = () => { if (!document.hidden) this._scheduleDiscover(true); };
 
   onLoad() {
-    try { window.__REFX_VERSION = "3.1.0"; } catch (e) {} // live-version tell for debugging
+    try { window.__REFX_VERSION = "3.2.0"; } catch (e) {} // live-version tell for debugging
     this._killStaleObservers(); // clear any observer/cards leaked by a hot-reload
     this._injectStyle();
     this._ensureThemeObserver();
@@ -442,6 +452,10 @@ class Plugin extends AppPlugin {
       // The line's DOM container (carries the ref chips); used to anchor the
       // alias popover even when the caret isn't on a ref span (linespan null).
       lineNode: best.pos.list_item.$node || null,
+      // Native fold state of the caret's line (children hidden). Cmd+Down on a
+      // folded line unfolds it first (see _handleExpandKey) instead of jumping
+      // straight to expanding a transclusion, so collapsed outlines behave.
+      isFolded: !!(best.pos.list_item && best.pos.list_item.is_folded),
     };
   }
 
@@ -2145,7 +2159,10 @@ class Plugin extends AppPlugin {
       if (empty) { if (val.hasAttribute("title")) val.removeAttribute("title"); } else if (val.title !== display) val.title = display;
       if (val.dataset.refxField !== field.name) val.dataset.refxField = field.name;
     } else {
-      const input = rowEl.querySelector("input");
+      // The open editor is an <input> (number) OR a <textarea> (text) — match
+      // both, else a committed/cancelled text edit left its <textarea> stranded
+      // beside the new value span (and the row looked wedged).
+      const input = rowEl.querySelector("input, textarea");
       val = this._el("span", "refx-propcard-value" + (empty ? " refx-propcard-empty" : ""));
       this._renderValContent(rec, val, field, empty, display);
       val.dataset.refxField = field.name;
@@ -2596,6 +2613,8 @@ class Plugin extends AppPlugin {
     try { if (window.__refxLinkKey) window.removeEventListener("keydown", window.__refxLinkKey, true); } catch (e) {}
     try { if (window.__refxLinkClick) document.removeEventListener("mousedown", window.__refxLinkClick, true); } catch (e) {}
     window.__refxLinkKey = null; window.__refxLinkClick = null;
+    // Orphan a prior instance's hover preview / picker DOM (transient, not stashed).
+    try { document.querySelectorAll(".refalias-linepreview").forEach((n) => n.remove()); } catch (e) {}
     try { if (window.__refxShortcutCap) window.removeEventListener("keydown", window.__refxShortcutCap, true); } catch (e) {}
     window.__refxShortcutCap = null;
     try { if (window.__refxDiscoverTrigger) { document.removeEventListener("visibilitychange", window.__refxDiscoverTrigger, false); window.removeEventListener("focus", window.__refxDiscoverTrigger, false); } } catch (e) {}
@@ -2608,9 +2627,37 @@ class Plugin extends AppPlugin {
 
   // ---- inline property editing ----
 
+  // Self-heal a WEDGED editing flag. Chromium fires NO blur when a focused
+  // <input>/<textarea> is removed by a re-render, so if the card node was
+  // replaced mid-edit (e.g. a record.updated rebuild) the editor's commit never
+  // ran and `_cardEditing` stayed true — which silently BRICKS all card editing
+  // AND every expand/collapse (they gate on this flag). If the flag is set but
+  // no live editor (inline field or popup) exists in the DOM, it's orphaned:
+  // clear it. Cheap: only walks the DOM when the flag is actually set.
+  _healWedgedEditing() {
+    if (!this._cardEditing) return false;
+    try {
+      if (document.querySelector("." + this._CARD_CLASS + " input, ." + this._CARD_CLASS + " textarea, .refx-cardpop")) return false;
+    } catch (e) { return false; }
+    this._cardEditing = false;
+    this._activeEdit = null;
+    return true;
+  }
+
   _editCardValue(rec, lineGuid, field, valEl, rowEl) {
     if (field.kind === "file") { this._editFileValue(rec, lineGuid, field, valEl, rowEl); return; }
-    if (this._cardEditing) return; // an editor is already open (or a dup event)
+    this._healWedgedEditing(); // recover if a prior editor was torn out without committing
+    // SWITCHING to another property while an inline text/number editor is open:
+    // the row's mousedown-preventDefault keeps the open <textarea>/<input> from
+    // blurring, so its blur-commit never fires and _cardEditing would wedge —
+    // you couldn't edit any other property. Commit the in-progress edit first
+    // (without stealing focus back to the line), then open the new one. A
+    // duplicate event for the SAME field (mousedown + click) is a no-op.
+    if (this._activeEdit) {
+      if (this._activeEdit.field === field.name) return;
+      try { this._activeEdit.commit(); } catch (e) {}
+    }
+    if (this._cardEditing) return; // a popup editor (choice/relation/date) is open
     // Re-resolve the field FRESH at open: the click handlers bound in _fillPropRow
     // capture a build-time snapshot, so after an earlier edit (or a remote change)
     // the closure's `field.value` is stale — a blur-commit of the seeded input
@@ -2622,15 +2669,23 @@ class Plugin extends AppPlugin {
     if (field.kind === "date") return this._editDate(rec, lineGuid, field, valEl, rowEl);
     this._cardEditing = true;
     let done = false;
-    const input = this._el("input", "refalias-input refx-propcard-input");
-    input.type = field.kind === "number" ? "number" : "text";
+    const isNum = field.kind === "number";
+    // Text fields edit in a WRAPPING, auto-growing <textarea> so long / multi-
+    // line values (Synopsis and the like) are fully visible and editable — the
+    // old single-line <input> hid everything past the first line. Numbers keep a
+    // numeric input.
+    const input = this._el(isNum ? "input" : "textarea", "refalias-input refx-propcard-input" + (isNum ? "" : " refx-propcard-textarea"));
+    if (isNum) input.type = "number"; else { input.rows = 1; input.wrap = "soft"; }
     input.value = (field.value == null ? "" : String(field.value));
     valEl.replaceWith(input);
-    setTimeout(() => { try { input.focus(); if (input.select) input.select(); } catch (e) {} }, 0);
+    const autosize = () => { if (isNum) return; try { input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, Math.round(window.innerHeight * 0.4)) + "px"; } catch (e) {} };
+    setTimeout(() => { try { input.focus(); if (input.select) input.select(); autosize(); } catch (e) {} }, 0);
     // commit: write + optimistic in-place row update + poll-confirm (no teardown).
-    // cancel: swap the <input> back to a value span showing the original value, in
-    // place (no innerHTML clear). Both re-establish the nav cursor.
-    const commit = (raw) => { if (done) return; done = true; this._activeEdit = null; this._commitClaim(lineGuid); this._cardEditing = false; this._writeCardProp(rec, field, raw); this._commitRefreshRow(rec, lineGuid, field, field.value, rowEl, raw); this._flushDeferredDiscover(); this._refocusEditor(); };
+    // cancel: swap the editor back to a value span showing the original value, in
+    // place (no innerHTML clear). Both re-establish the nav cursor. `refocus`
+    // false skips returning focus to the line (used when we immediately open
+    // another editor — a switch).
+    const commit = (raw, refocus) => { if (done) return; done = true; this._activeEdit = null; this._commitClaim(lineGuid); this._cardEditing = false; this._writeCardProp(rec, field, raw); this._commitRefreshRow(rec, lineGuid, field, field.value, rowEl, raw); this._flushDeferredDiscover(); if (refocus !== false) this._refocusEditor(); };
     const cancel = () => {
       if (done) return; done = true; this._activeEdit = null; this._cardEditing = false;
       let fresh = field; try { const f = this._recCardFields(rec).find((x) => x.name === field.name); if (f) fresh = f; } catch (e) {}
@@ -2639,13 +2694,16 @@ class Plugin extends AppPlugin {
       this._flushDeferredDiscover();
       this._refocusEditor();
     };
-    // Track the open editor so teardown paths (collapse, navigation) can close it —
-    // removing a focused <input> fires NO blur in Chromium, which would leave
-    // _cardEditing wedged true and brick all card editing.
-    this._activeEdit = { lineGuid, cancel };
+    // Track the open editor so teardown paths (collapse, navigation, switching to
+    // another property) can close it — removing a focused input fires NO blur in
+    // Chromium, which would leave _cardEditing wedged true and brick all editing.
+    this._activeEdit = { lineGuid, field: field.name, cancel, commit: () => commit(input.value, false) };
+    input.addEventListener("input", autosize);
     input.addEventListener("keydown", (e) => {
       e.stopPropagation();
-      if (e.key === "Enter") { e.preventDefault(); commit(input.value); }
+      // Enter commits (familiar quick-commit). In a textarea, Shift+Enter inserts
+      // a newline instead, for multi-line text.
+      if (e.key === "Enter" && !(e.shiftKey && !isNum)) { e.preventDefault(); commit(input.value); }
       else if (e.key === "Escape") { e.preventDefault(); cancel(); }
     });
     input.addEventListener("blur", () => commit(input.value));
@@ -3360,6 +3418,7 @@ class Plugin extends AppPlugin {
 
   _exitLinkMode() {
     if (!this._link) return;
+    this._hideLinePreview();
     if (this._link.searchTimer) { try { clearTimeout(this._link.searchTimer); } catch (e) {} }
     window.removeEventListener("keydown", this._linkKey, true);
     document.removeEventListener("mousedown", this._linkClickOutside, true);
@@ -3505,6 +3564,7 @@ class Plugin extends AppPlugin {
     const link = this._link;
     if (!link) return;
     const list = link.list;
+    this._hideLinePreview(); // a re-render replaces the rows the preview anchored to
     list.innerHTML = "";
     if (!link.results.length) {
       list.append(this._el("div", "refalias-result-empty", "Type after [[ to search…"));
@@ -3516,11 +3576,67 @@ class Plugin extends AppPlugin {
       txt.innerHTML = this._snippetHTML(r.text, link.query);
       row.append(txt);
       if (r.page) row.append(this._el("span", "refalias-result-page", r.page));
-      row.title = r.text + (r.page ? " · " + r.page : "");
       row.addEventListener("mousedown", (e) => { e.preventDefault(); this._pickLink(r); });
       row.addEventListener("mousemove", () => { if (link.sel !== i) { link.sel = i; this._renderLink(); } });
+      // Hover shows a floating preview of the FULL line text beside the picker
+      // (rows only show a windowed snippet — the preview is the whole line /
+      // paragraph, matches bolded). Ported from Quick Capture.
+      row.addEventListener("mouseenter", () => this._showLinePreview(row, r, link.query));
       list.append(row);
     });
+    // Leaving the list entirely hides the preview (moving between rows re-shows it).
+    if (!list.__refxHoverWired) { list.__refxHoverWired = true; list.addEventListener("mouseleave", () => this._hideLinePreview()); list.addEventListener("scroll", () => this._hideLinePreview()); }
+  }
+
+  // Floating preview of a result line's FULL text on hover, placed BELOW the
+  // hovered row, left-aligned with it. ALWAYS below (never flipped above like
+  // QC does): the [[ picker opens under the caret line, so a preview above a row
+  // would cover the text you're typing — below keeps it clear.
+  _showLinePreview(rowEl, r, query) {
+    this._hideLinePreview();
+    if (!r || !r.text || !this._link) return;
+    const box = this._el("div", "refalias-linepreview");
+    const t = this._el("div", "refalias-lp-text");
+    t.innerHTML = this._highlightAll(r.text, query);
+    box.append(t);
+    if (r.page) box.append(this._el("div", "refalias-lp-ctx", r.page));
+    document.body.append(box);
+    this._linePreviewEl = box;
+    try {
+      const rect = rowEl.getBoundingClientRect();
+      const vw = window.innerWidth, vh = window.innerHeight;
+      const belowSpace = vh - rect.bottom - 12;
+      // cap height to the space BELOW the row so it fits without needing to flip
+      // above (which would overlap the editor line being typed)
+      box.style.maxHeight = Math.max(80, Math.min(belowSpace, Math.round(vh * 0.6))) + "px";
+      const bw = box.offsetWidth, bh = box.offsetHeight;
+      const left = Math.max(8, Math.min(rect.left, vw - bw - 8));
+      let top = rect.bottom + 4;
+      top = Math.max(8, Math.min(top, vh - bh - 8));
+      box.style.left = Math.round(left) + "px";
+      box.style.top = Math.round(top) + "px";
+    } catch (e) {}
+  }
+
+  _hideLinePreview() {
+    if (this._linePreviewEl) { try { this._linePreviewEl.remove(); } catch (e) {} this._linePreviewEl = null; }
+  }
+
+  // Bold every query match across the FULL text (no windowing) — the preview's
+  // highlight, matching the row snippet's bolding.
+  _highlightAll(text, query) {
+    const esc = (s) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+    const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const full = (text || "").trim();
+    const q = (query || "").trim();
+    if (!q) return esc(full);
+    const words = [...new Set([q].concat(q.split(/\s+/)).filter((w) => w.length >= 2))].sort((a, b) => b.length - a.length);
+    if (!words.length) return esc(full);
+    const re = new RegExp("(" + words.map(escRe).join("|") + ")", "ig");
+    let html = "", last = 0, m;
+    while ((m = re.exec(full)) !== null) { html += esc(full.slice(last, m.index)) + "<b>" + esc(m[0]) + "</b>"; last = m.index + m[0].length; if (m.index === re.lastIndex) re.lastIndex++; }
+    html += esc(full.slice(last));
+    return html;
   }
 
   // A short, single-line snippet centred on the matched query (with the match
@@ -4025,8 +4141,8 @@ class Plugin extends AppPlugin {
 .refalias-foot .refalias-hint { flex: 1; }
 .refalias-save { padding: 6px 16px; }
 
-/* [[ line-reference picker */
-.refalias-linkpop { width: 680px; gap: 8px; }
+/* shared result-list base (the [[ picker overrides most of this to the native
+   command-palette look below; card popups override via .refx-cardpop) */
 .refalias-results { display: flex; flex-direction: column; gap: 3px; max-height: 300px; overflow-y: auto; }
 .refalias-result {
   padding: 8px 11px; border-radius: 7px; cursor: pointer; line-height: 1.3;
@@ -4038,6 +4154,53 @@ class Plugin extends AppPlugin {
 .refalias-result:hover { background: rgba(127,127,127,.10); }
 .refalias-result-sel { background: rgba(127,127,127,.16); }
 .refalias-result-empty { padding: 9px 11px; opacity: .5; font-size: 12px; }
+
+/* [[ line-reference picker — native command-palette look (mirrors Quick Capture
+   and Thymer's own @ menu): flush cmdpal surface, mono type, accent selection,
+   single-line rows with the source page as an inline muted sub, bold hilite. */
+.refalias-pop.refalias-linkpop {
+  width: 640px; max-width: calc(100vw - 24px);
+  padding: 0; gap: 0;
+  background: var(--cmdpal-bg-color, var(--modal-bg, #26262b));
+  color: var(--cmdpal-fg-color, var(--text-color, #ddd));
+  font-family: var(--font-mono, inherit);
+  border: 1px solid var(--cmdpal-border-color, rgba(127,127,127,.30));
+  border-radius: var(--radius-larger, 5px);
+  box-shadow: var(--shadow-dialog, 0 16px 48px rgba(0,0,0,.5));
+}
+.refalias-linkpop .refalias-results { gap: 0; padding: 5px; }
+.refalias-linkpop .refalias-result {
+  flex-direction: row; align-items: center; gap: 8px;
+  padding: 6px 9px; border-radius: var(--radius-normal, 4px);
+  font-size: var(--text-size-small, 13px); line-height: 16px;
+}
+.refalias-linkpop .refalias-result-text { flex: 1 1 auto; min-width: 0; }
+.refalias-linkpop .refalias-result-page { flex: 0 0 auto; margin-left: auto; max-width: 190px; font-size: 11.5px; opacity: .5; }
+.refalias-linkpop .refalias-result:hover:not(.refalias-result-sel) { background: rgba(127,127,127,.12); }
+.refalias-linkpop .refalias-result-sel { background: var(--cmdpal-selected-bg-color, var(--ed-button-primary-bg, #479797)); color: var(--cmdpal-selected-fg-color, #fff); }
+.refalias-linkpop .refalias-result-sel .refalias-result-page { color: var(--cmdpal-selected-fg-color, #fff); opacity: .8; }
+.refalias-linkpop .refalias-result b { color: var(--cmdpal-hilite-color, var(--color-blackwhite-0, #fff)); font-weight: var(--font-weight-bold, 700); }
+.refalias-linkpop .refalias-result-sel b { color: var(--cmdpal-selected-fg-color, #fff); }
+.refalias-linkpop .refalias-result-empty { padding: 9px 11px; opacity: .5; font-size: 12px; }
+
+/* hover preview of a result line's FULL text, beside the [[ picker (mirrors
+   Quick Capture's line preview) */
+.refalias-linepreview {
+  position: fixed; z-index: 2147483002; max-width: 440px; box-sizing: border-box;
+  padding: 10px 12px; border-radius: var(--radius-larger, 6px); pointer-events: none;
+  background: var(--cmdpal-bg-color, var(--modal-bg, #26262b));
+  color: var(--cmdpal-fg-color, var(--text-color, #ddd));
+  border: 1px solid var(--cmdpal-border-color, rgba(127,127,127,.3));
+  box-shadow: var(--shadow-dialog, 0 12px 40px rgba(0,0,0,.5));
+  font-family: var(--font-mono, inherit); font-size: var(--text-size-small, 13px); line-height: 1.5;
+  overflow-y: auto;
+}
+.refalias-lp-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+/* match highlight = Quick Capture's preview accent (primary teal; steps to the
+   darker 700 on light themes where 500 is too pale) */
+.refalias-lp-text b { font-weight: var(--font-weight-bold, 700); color: var(--color-primary-500, #4caea1); }
+html.is-light .refalias-lp-text b { color: var(--color-primary-700, #2f8873); }
+.refalias-lp-ctx { margin-top: 8px; padding-top: 6px; border-top: 1px solid rgba(127,127,127,.2); opacity: .55; font-size: 11.5px; }
 .refalias-footer {
   display: flex; justify-content: flex-end; gap: 10px;
   padding: 13px 18px; border-top: 1px solid rgba(127,127,127,.16);
@@ -4175,8 +4338,16 @@ class Plugin extends AppPlugin {
   padding: 1px 6px !important; font-size: inherit !important; line-height: inherit !important;
   flex: 1 1 auto; min-width: 0; width: auto;
 }
+/* text fields grow with content and wrap, so long/multi-line text is editable */
+.refx-propcard .refalias-input.refx-propcard-textarea {
+  resize: none; overflow-y: auto; white-space: pre-wrap; overflow-wrap: anywhere;
+  font-family: inherit; display: block; width: 100%;
+}
 .refx-cardpop-clear { opacity: .6; }
-.refx-opt-ico { width: 17px; flex: none; display: inline-flex; justify-content: center; font-size: 13px; opacity: .85; }
+/* SQUARE slot (was width-only, rendered 17x13): a fill-the-box icon like
+   Thymer's blinking-dot collection icon stretched into an oval; a fixed square
+   keeps every icon round. align-items/justify centre a normal glyph inside it. */
+.refx-opt-ico { width: 17px; height: 17px; flex: 0 0 17px; align-self: center; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; opacity: .85; }
 /* current values in the relation picker: green round check badge (built, not a
    font glyph — ti-circle-check-filled is MISSING from this icon-font build) */
 .refx-opt-checked .refalias-result-text { opacity: .75; }
