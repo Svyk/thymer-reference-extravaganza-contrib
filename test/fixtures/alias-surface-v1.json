@@ -1,0 +1,134 @@
+{
+  "contract": "ALIAS-SURFACE-V1",
+  "schemaVersion": 1,
+  "normalization": {
+    "unicode": "NFC",
+    "whitespace": "trim-and-collapse",
+    "caseMatching": "insensitive",
+    "storageCase": "preserved"
+  },
+  "cases": [
+    {
+      "id": "single-property-alias",
+      "recordGuid": "REC_SINGLE",
+      "propertyValues": ["Lemuriformes"],
+      "registryAliases": [],
+      "expected": {
+        "aliases": [
+          {"text": "Lemuriformes", "normalized": "lemuriformes", "source": "property", "addedAt": null, "addedBy": null}
+        ]
+      }
+    },
+    {
+      "id": "multiple-property-aliases",
+      "recordGuid": "REC_MULTI",
+      "propertyValues": ["Maki", "Ring-tailed lemur"],
+      "registryAliases": [],
+      "expected": {
+        "aliases": [
+          {"text": "Maki", "normalized": "maki", "source": "property", "addedAt": null, "addedBy": null},
+          {"text": "Ring-tailed lemur", "normalized": "ring-tailed lemur", "source": "property", "addedAt": null, "addedBy": null}
+        ]
+      }
+    },
+    {
+      "id": "registry-tier",
+      "recordGuid": "REC_REGISTRY",
+      "propertyValues": null,
+      "registryAliases": [
+        {"text": "Fallback name", "normalized": "fallback name", "addedAt": "2026-07-13T12:00:00.000Z", "addedBy": "fixture-client"}
+      ],
+      "expected": {
+        "aliases": [
+          {"text": "Fallback name", "normalized": "fallback name", "source": "registry", "addedAt": "2026-07-13T12:00:00.000Z", "addedBy": "fixture-client"}
+        ]
+      }
+    },
+    {
+      "id": "both-tiers-property-precedence",
+      "recordGuid": "REC_BOTH",
+      "propertyValues": ["Primary Spelling", "Property only"],
+      "registryAliases": [
+        {"text": "primary spelling", "normalized": "primary spelling", "addedAt": "2026-07-12T12:00:00.000Z", "addedBy": "fixture-client"},
+        {"text": "Registry only", "normalized": "registry only", "addedAt": "2026-07-12T12:01:00.000Z", "addedBy": "fixture-client"}
+      ],
+      "expected": {
+        "aliases": [
+          {"text": "Primary Spelling", "normalized": "primary spelling", "source": "property", "addedAt": null, "addedBy": null},
+          {"text": "Property only", "normalized": "property only", "source": "property", "addedAt": null, "addedBy": null},
+          {"text": "Registry only", "normalized": "registry only", "source": "registry", "addedAt": "2026-07-12T12:01:00.000Z", "addedBy": "fixture-client"}
+        ],
+        "migration": {
+          "propertyWrite": ["Primary Spelling", "Property only", "Registry only"],
+          "deleteRegistryAfterVerifiedRead": true
+        }
+      }
+    },
+    {
+      "id": "collision-first-record",
+      "recordGuid": "REC_COLLISION_A",
+      "propertyValues": ["Shared Alias"],
+      "registryAliases": [],
+      "expected": {"collisionKey": "shared alias", "collisionRecordGuids": ["REC_COLLISION_A", "REC_COLLISION_B"]}
+    },
+    {
+      "id": "collision-second-record",
+      "recordGuid": "REC_COLLISION_B",
+      "propertyValues": null,
+      "registryAliases": [
+        {"text": "shared alias", "normalized": "shared alias", "addedAt": "2026-07-13T12:02:00.000Z", "addedBy": "fixture-client"}
+      ],
+      "expected": {"collisionKey": "shared alias", "collisionRecordGuids": ["REC_COLLISION_A", "REC_COLLISION_B"]}
+    },
+    {
+      "id": "unicode-nfc-diacritics",
+      "recordGuid": "REC_UNICODE",
+      "propertyValues": ["  Cafe\u0301  Society  ", "CAFÉ SOCIETY"],
+      "registryAliases": [],
+      "expected": {
+        "aliases": [
+          {"text": "Café Society", "normalized": "café society", "source": "property", "addedAt": null, "addedBy": null}
+        ]
+      }
+    },
+    {
+      "id": "whitespace-and-case-variants",
+      "recordGuid": "REC_CASE",
+      "propertyValues": ["  Alpha\t  Beta  ", "alpha beta", "ALPHA BETA"],
+      "registryAliases": [],
+      "expected": {
+        "aliases": [
+          {"text": "Alpha Beta", "normalized": "alpha beta", "source": "property", "addedAt": null, "addedBy": null}
+        ]
+      }
+    },
+    {
+      "id": "identifier-normalization-parity",
+      "recordGuid": "REC_IDENTIFIER",
+      "propertyValues": ["EMP26-002-BHP"],
+      "registryAliases": [],
+      "query": "EMP 26",
+      "expected": {"matches": true, "exact": false, "usesExistingSearchScore": true}
+    },
+    {
+      "id": "migration-idempotence",
+      "recordGuid": "REC_MIGRATE",
+      "propertyValues": ["Native"],
+      "registryAliases": [
+        {"text": "Fallback", "normalized": "fallback", "addedAt": "2026-07-13T12:03:00.000Z", "addedBy": "fixture-client"}
+      ],
+      "expected": {
+        "firstRunPropertyWrite": ["Native", "Fallback"],
+        "secondRunPropertyWrite": null,
+        "registryEntryAfterVerifiedMigration": null
+      }
+    },
+    {
+      "id": "empty-values",
+      "recordGuid": "REC_EMPTY",
+      "propertyValues": ["", "   ", "\n\t"],
+      "registryAliases": [],
+      "expected": {"aliasSet": null}
+    }
+  ]
+}

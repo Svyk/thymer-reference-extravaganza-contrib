@@ -1,0 +1,11 @@
+'use strict';
+const assert = require('assert'), fs = require('fs'), path = require('path');
+const source = fs.readFileSync(path.join(__dirname, '..', 'plugin.js'), 'utf8');
+const start = source.indexOf('_attachAttributesClaims() {'), end = source.indexOf('\n  onUnload() {', start), method = source.slice(start, end);
+assert(start >= 0 && end > start, 'broker adapter must be installed in plugin lifecycle');
+assert(method.includes('__thymerClaimsV1') && method.includes("contract !== 'thymer-claims-v1'") && method.includes('version !== 1'));
+assert(method.includes('broker.subscribe') && method.includes('_attributesClaimsRefreshCount'));
+assert(method.includes('relational.edges') && method.includes("'degraded'") && method.includes("'unavailable'"));
+assert(!/getAllRecords|getAllCollections|getRecord\(|getLineItems|\.body\(/.test(method), 'broker-ready adapter must perform zero independent collection/body scans');
+assert(source.indexOf('this._attachAttributesClaims();') >= 0 && source.indexOf('this._detachAttributesClaims?.();', end) >= 0);
+console.log('PASS Attributes claim broker version/generation, coalesced refresh, degraded state, and zero-scan contract');

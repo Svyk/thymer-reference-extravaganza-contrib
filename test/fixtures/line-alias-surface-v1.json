@@ -1,0 +1,18 @@
+{
+  "contract": "LINE-ALIAS-SURFACE-V1",
+  "schemaVersion": 1,
+  "cases": [
+    {"id":"multiple-aliases-one-line","lineGuid":"LIN_A","recordGuid":"REC_A","currentText":"Sanitize blender after allergen production","aliases":["allergen clean","blender reset"],"status":"active"},
+    {"id":"line-line-collision-a","lineGuid":"LIN_B","recordGuid":"REC_B","currentText":"Prepare EMP sampling kit","aliases":["EMP prep"],"status":"active"},
+    {"id":"line-line-collision-b","lineGuid":"LIN_C","recordGuid":"REC_C","currentText":"Prepare EMP review","aliases":["EMP prep"],"status":"active"},
+    {"id":"record-line-same-text-not-collision","lineGuid":"LIN_D","recordGuid":"REC_D","currentText":"Review program","aliases":["EMP"],"status":"active","recordAliasSameText":true},
+    {"id":"edit-retains-guid","lineGuid":"LIN_E","recordGuid":"REC_E","currentText":"Edited canonical text","aliases":["stable handle"],"status":"active"},
+    {"id":"move-retains-guid","lineGuid":"LIN_F","recordGuid":"REC_NEW","previousRecordGuid":"REC_OLD","currentText":"Moved line","aliases":["move handle"],"status":"active"},
+    {"id":"deleted-tombstone","lineGuid":"LIN_G","recordGuid":"REC_G","currentText":"Deleted source line","aliases":["old handle"],"status":"deleted"},
+    {"id":"undeleted-target","lineGuid":"LIN_H","recordGuid":"REC_H","currentText":"Restored source line","aliases":["restored handle"],"status":"active"},
+    {"id":"unicode-nfc","lineGuid":"LIN_I","recordGuid":"REC_I","currentText":"Café procedure","aliases":["Café clean"],"status":"active"},
+    {"id":"whitespace-case-dedup","lineGuid":"LIN_J","recordGuid":"REC_J","currentText":"Spacing","aliases":["  Line   Handle  ","LINE HANDLE"],"status":"active"},
+    {"id":"unknown-cold-target","lineGuid":"LIN_K","recordGuid":null,"currentText":"","aliases":["cold handle"],"status":"unknown"},
+    {"id":"rich-ref-title-rewrite","lineGuid":"LIN_L","recordGuid":"REC_L","currentText":"Rich target","aliases":["old alias","new alias"],"status":"active"}
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "contract": "thymer-typed-capture-fixtures-v1",
+  "owner": "reference-extravaganza",
+  "cases": [
+    {
+      "id": "native-hashtag-accept",
+      "segments": [
+        {"type": "text", "text": "Review "},
+        {"type": "hashtag", "text": "#movie"}
+      ],
+      "match": {"guid": "TTTTTTTTTTTTTTTTTTTT", "name": "Movie", "score": 0},
+      "expect": ["explicit-offer", "zero-writes-before-accept", "required-hashtag", "receipt-retained"]
+    },
+    {
+      "id": "native-hashtag-decline",
+      "segments": [
+        {"type": "text", "text": "Review "},
+        {"type": "hashtag", "text": "#movie"}
+      ],
+      "expect": ["explicit-offer", "zero-writes"]
+    },
+    {
+      "id": "native-hashtag-already-typed",
+      "segments": [
+        {"type": "text", "text": "Review ++Movie "},
+        {"type": "hashtag", "text": "#movie"}
+      ],
+      "expect": ["no-offer", "zero-writes"]
+    },
+    {
+      "id": "native-hashtag-nonmatch",
+      "segments": [{"type": "hashtag", "text": "#unknown"}],
+      "expect": ["no-offer", "zero-writes"]
+    },
+    {
+      "id": "native-hashtag-remote",
+      "source": {"isLocal": false},
+      "segments": [{"type": "hashtag", "text": "#movie"}],
+      "expect": ["no-offer", "zero-writes"]
+    },
+    {
+      "id": "keyboard-collision",
+      "keys": ["#", "[", "(", "@", "Enter"],
+      "expect": ["not-intercepted"]
+    }
+  ]
+}

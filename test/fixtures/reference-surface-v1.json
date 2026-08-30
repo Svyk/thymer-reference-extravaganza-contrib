@@ -1,0 +1,1408 @@
+{
+  "schemaVersion": "reference-surface-v1",
+  "description": "Canonical shared fixtures for the Reference Surface v1 contract. Covers every edge kind, all live-proven raw input shapes, malformed inputs, cold-handle inputs, and the deterministic edge-ordering rule. All three reference consumers (RefX, Backreferences, Reference Graph) must agree on these expected outputs before production wiring.",
+  "contractRef": "docs/reference-surface-v1.md",
+
+  "constants": {
+    "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+    "collectionGuid": "COL111111111111111111111111",
+    "sourceRecordGuid": "REC111111111111111111111111",
+    "sourceRecordGuid2": "REC222222222222222222222222",
+    "sourceLineGuid": "LIN111111111111111111111111",
+    "sourceLineGuid2": "LIN222222222222222222222222",
+    "targetRecordGuid": "REC333333333333333333333333",
+    "targetLineGuid": "LIN333333333333333333333333",
+    "targetCollectionGuid": "COL222222222222222222222222",
+    "propertyFieldId": "PROPFIELDID0000000000000001",
+    "claimGuid": "CLM111111111111111111111111",
+    "claimKeyGuid": "KEY111111111111111111111111",
+    "_note": "GUIDs are synthetic stable test values. segmentOrdinal is zero-indexed left-to-right in the unpacked segments array."
+  },
+
+  "fixtures": [
+
+    {
+      "id": "ref-object-shape",
+      "kind": "ref",
+      "description": "ref segment with {guid:string} object shape — standard live form per contract Table 1 row 2. Target resolves to a record.",
+      "input": {
+        "sourceLineGuid": "LIN111111111111111111111111",
+        "sourceRecordGuid": "REC111111111111111111111111",
+        "collectionGuid": "COL111111111111111111111111",
+        "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+        "segmentOrdinal": 0,
+        "segment": {
+          "type": "ref",
+          "text": {
+            "guid": "REC333333333333333333333333"
+          }
+        },
+        "targetResolvesAs": "record"
+      },
+      "expected": {
+        "id": "ref:v1:LIN111111111111111111111111:0:REC333333333333333333333333",
+        "kind": "ref",
+        "source": {
+          "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+          "collectionGuid": "COL111111111111111111111111",
+          "recordGuid": "REC111111111111111111111111",
+          "lineGuid": "LIN111111111111111111111111",
+          "propertyId": null,
+          "segmentOrdinal": 0
+        },
+        "target": {
+          "kind": "record",
+          "guid": "REC333333333333333333333333",
+          "link": null
+        },
+        "title": null,
+        "authored": true,
+        "derived": false,
+        "provenance": {
+          "segmentType": "ref"
+        },
+        "_notes": "Standard object shape: segment.text.guid is the target. title is null (no seg.text.title). authored=true (directly stored). derived=false."
+      }
+    },
+
+    {
+      "id": "ref-bare-string-shape",
+      "kind": "ref",
+      "description": "ref segment where data is a bare string GUID — legacy pair-encoded form per contract Table 1 row 1 (refx/plugin.js:14127).",
+      "input": {
+        "sourceLineGuid": "LIN111111111111111111111111",
+        "sourceRecordGuid": "REC111111111111111111111111",
+        "collectionGuid": "COL111111111111111111111111",
+        "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+        "segmentOrdinal": 1,
+        "segment": {
+          "type": "ref",
+          "text": "REC333333333333333333333333"
+        },
+        "targetResolvesAs": "record"
+      },
+      "expected": {
+        "id": "ref:v1:LIN111111111111111111111111:1:REC333333333333333333333333",
+        "kind": "ref",
+        "source": {
+          "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+          "collectionGuid": "COL111111111111111111111111",
+          "recordGuid": "REC111111111111111111111111",
+          "lineGuid": "LIN111111111111111111111111",
+          "propertyId": null,
+          "segmentOrdinal": 1
+        },
+        "target": {
+          "kind": "record",
+          "guid": "REC333333333333333333333333",
+          "link": null
+        },
+        "title": null,
+        "authored": true,
+        "derived": false,
+        "provenance": {
+          "segmentType": "ref"
+        },
+        "_notes": "Bare-string shape: segment.text is itself the GUID string. segmentOrdinal=1 because a text segment at ordinal 0 precedes this ref. Identity uses the unpacked ordinal (1), not the pair index (2)."
+      }
+    },
+
+    {
+      "id": "ref-nested-text-guid-shape",
+      "kind": "ref",
+      "description": "ref segment where data is {text:{guid:string}} — third live-proven shape per contract Table 1 row 3 (engine.src.js:2019).",
+      "input": {
+        "sourceLineGuid": "LIN222222222222222222222222",
+        "sourceRecordGuid": "REC111111111111111111111111",
+        "collectionGuid": "COL111111111111111111111111",
+        "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+        "segmentOrdinal": 0,
+        "segment": {
+          "type": "ref",
+          "text": {
+            "text": {
+              "guid": "REC333333333333333333333333"
+            }
+          }
+        },
+        "targetResolvesAs": "record"
+      },
+      "expected": {
+        "id": "ref:v1:LIN222222222222222222222222:0:REC333333333333333333333333",
+        "kind": "ref",
+        "source": {
+          "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+          "collectionGuid": "COL111111111111111111111111",
+          "recordGuid": "REC111111111111111111111111",
+          "lineGuid": "LIN222222222222222222222222",
+          "propertyId": null,
+          "segmentOrdinal": 0
+        },
+        "target": {
+          "kind": "record",
+          "guid": "REC333333333333333333333333",
+          "link": null
+        },
+        "title": null,
+        "authored": true,
+        "derived": false,
+        "provenance": {
+          "segmentType": "ref"
+        },
+        "_notes": "Nested shape: data.text.guid is the target GUID. This form appears in pair-encoded storage as confirmed in engine.src.js:2019."
+      }
+    },
+
+    {
+      "id": "ref-aliased-title",
+      "kind": "ref",
+      "description": "ref segment with authored alias/title — seg.text.title is populated. title field on edge is non-null.",
+      "input": {
+        "sourceLineGuid": "LIN111111111111111111111111",
+        "sourceRecordGuid": "REC111111111111111111111111",
+        "collectionGuid": "COL111111111111111111111111",
+        "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+        "segmentOrdinal": 0,
+        "segment": {
+          "type": "ref",
+          "text": {
+            "guid": "REC333333333333333333333333",
+            "title": "My custom alias"
+          }
+        },
+        "targetResolvesAs": "record"
+      },
+      "expected": {
+        "id": "ref:v1:LIN111111111111111111111111:0:REC333333333333333333333333",
+        "kind": "ref",
+        "source": {
+          "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+          "collectionGuid": "COL111111111111111111111111",
+          "recordGuid": "REC111111111111111111111111",
+          "lineGuid": "LIN111111111111111111111111",
+          "propertyId": null,
+          "segmentOrdinal": 0
+        },
+        "target": {
+          "kind": "record",
+          "guid": "REC333333333333333333333333",
+          "link": null
+        },
+        "title": "My custom alias",
+        "authored": true,
+        "derived": false,
+        "provenance": {
+          "segmentType": "ref",
+          "title": "My custom alias"
+        },
+        "_notes": "title = seg.text.title when present. The same value appears in provenance.title per the provenance table in the contract."
+      }
+    },
+
+    {
+      "id": "ref-viewid-transclusion",
+      "kind": "ref",
+      "description": "ref segment with viewId — indicates a transclusion rendering (editor class .lineitem-transcludes). viewId preserved in provenance.",
+      "input": {
+        "sourceLineGuid": "LIN111111111111111111111111",
+        "sourceRecordGuid": "REC111111111111111111111111",
+        "collectionGuid": "COL111111111111111111111111",
+        "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+        "segmentOrdinal": 2,
+        "segment": {
+          "type": "ref",
+          "text": {
+            "guid": "REC333333333333333333333333",
+            "viewId": "VIEW11111111111111111111111",
+            "title": "Transcluded Record"
+          }
+        },
+        "targetResolvesAs": "record"
+      },
+      "expected": {
+        "id": "ref:v1:LIN111111111111111111111111:2:REC333333333333333333333333",
+        "kind": "ref",
+        "source": {
+          "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+          "collectionGuid": "COL111111111111111111111111",
+          "recordGuid": "REC111111111111111111111111",
+          "lineGuid": "LIN111111111111111111111111",
+          "propertyId": null,
+          "segmentOrdinal": 2
+        },
+        "target": {
+          "kind": "record",
+          "guid": "REC333333333333333333333333",
+          "link": null
+        },
+        "title": "Transcluded Record",
+        "authored": true,
+        "derived": false,
+        "provenance": {
+          "segmentType": "ref",
+          "viewId": "VIEW11111111111111111111111",
+          "title": "Transcluded Record"
+        },
+        "_notes": "viewId is preserved in provenance. Edge kind remains 'ref'. The transclusion rendering (.lineitem-transclusion CSS class) is a consumer concern, not an edge kind distinction."
+      }
+    },
+
+    {
+      "id": "ref-line-target",
+      "kind": "ref",
+      "description": "ref segment targeting a specific line item (target.kind='line'). The target GUID resolves as a line via _referenceTargetKind checks.",
+      "input": {
+        "sourceLineGuid": "LIN111111111111111111111111",
+        "sourceRecordGuid": "REC111111111111111111111111",
+        "collectionGuid": "COL111111111111111111111111",
+        "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+        "segmentOrdinal": 0,
+        "segment": {
+          "type": "ref",
+          "text": {
+            "guid": "LIN333333333333333333333333"
+          }
+        },
+        "targetResolvesAs": "line"
+      },
+      "expected": {
+        "id": "ref:v1:LIN111111111111111111111111:0:LIN333333333333333333333333",
+        "kind": "ref",
+        "source": {
+          "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+          "collectionGuid": "COL111111111111111111111111",
+          "recordGuid": "REC111111111111111111111111",
+          "lineGuid": "LIN111111111111111111111111",
+          "propertyId": null,
+          "segmentOrdinal": 0
+        },
+        "target": {
+          "kind": "line",
+          "guid": "LIN333333333333333333333333",
+          "link": null
+        },
+        "title": null,
+        "authored": true,
+        "derived": false,
+        "provenance": {
+          "segmentType": "ref"
+        },
+        "_notes": "target.kind='line' because _referenceTargetKind resolved the GUID via g_universe.itemsByGuid or _lineOwnerHints. This contributes an inbound backlink to the LINE (not just the record)."
+      }
+    },
+
+    {
+      "id": "ref-record-target-explicit",
+      "kind": "ref",
+      "description": "ref segment targeting a collection root (target.kind='collection'). The GUID resolves as a collection via _referenceTargetKind.",
+      "input": {
+        "sourceLineGuid": "LIN111111111111111111111111",
+        "sourceRecordGuid": "REC111111111111111111111111",
+        "collectionGuid": "COL111111111111111111111111",
+        "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+        "segmentOrdinal": 0,
+        "segment": {
+          "type": "ref",
+          "text": {
+            "guid": "COL222222222222222222222222"
+          }
+        },
+        "targetResolvesAs": "collection"
+      },
+      "expected": {
+        "id": "ref:v1:LIN111111111111111111111111:0:COL222222222222222222222222",
+        "kind": "ref",
+        "source": {
+          "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+          "collectionGuid": "COL111111111111111111111111",
+          "recordGuid": "REC111111111111111111111111",
+          "lineGuid": "LIN111111111111111111111111",
+          "propertyId": null,
+          "segmentOrdinal": 0
+        },
+        "target": {
+          "kind": "collection",
+          "guid": "COL222222222222222222222222",
+          "link": null
+        },
+        "title": null,
+        "authored": true,
+        "derived": false,
+        "provenance": {
+          "segmentType": "ref"
+        },
+        "_notes": "target.kind='collection' is the fifth possible resolution kind per the contract. Still kind='ref' at edge level."
+      }
+    },
+
+    {
+      "id": "external-link-with-title",
+      "kind": "external-link",
+      "description": "Documented SDK linkobj shape {link, title} — external URL, non-null title. Never contributes an internal backlink.",
+      "input": {
+        "sourceLineGuid": "LIN111111111111111111111111",
+        "sourceRecordGuid": "REC111111111111111111111111",
+        "collectionGuid": "COL111111111111111111111111",
+        "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+        "segmentOrdinal": 1,
+        "segment": {
+          "type": "linkobj",
+          "text": {
+            "link": "https://example.com/page",
+            "title": "Example Page"
+          }
+        }
+      },
+      "expected": {
+        "id": "ext:v1:LIN111111111111111111111111:1:https://example.com/page",
+        "kind": "external-link",
+        "source": {
+          "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+          "collectionGuid": "COL111111111111111111111111",
+          "recordGuid": "REC111111111111111111111111",
+          "lineGuid": "LIN111111111111111111111111",
+          "propertyId": null,
+          "segmentOrdinal": 1
+        },
+        "target": {
+          "kind": "external",
+          "guid": null,
+          "link": "https://example.com/page"
+        },
+        "title": "Example Page",
+        "authored": true,
+        "derived": false,
+        "provenance": {
+          "segmentType": "linkobj",
+          "link": "https://example.com/page",
+          "title": "Example Page"
+        },
+        "_notes": "target.guid is null — external links NEVER populate target.guid and never contribute an internal backlink. Identity uses normalizedLink (scheme lowercased, trailing slash stripped). title comes from seg.text.title."
+      }
+    },
+
+    {
+      "id": "external-link-no-title",
+      "kind": "external-link",
+      "description": "External linkobj with no title — title field on edge is null.",
+      "input": {
+        "sourceLineGuid": "LIN111111111111111111111111",
+        "sourceRecordGuid": "REC111111111111111111111111",
+        "collectionGuid": "COL111111111111111111111111",
+        "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+        "segmentOrdinal": 0,
+        "segment": {
+          "type": "linkobj",
+          "text": {
+            "link": "https://example.com/other"
+          }
+        }
+      },
+      "expected": {
+        "id": "ext:v1:LIN111111111111111111111111:0:https://example.com/other",
+        "kind": "external-link",
+        "source": {
+          "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+          "collectionGuid": "COL111111111111111111111111",
+          "recordGuid": "REC111111111111111111111111",
+          "lineGuid": "LIN111111111111111111111111",
+          "propertyId": null,
+          "segmentOrdinal": 0
+        },
+        "target": {
+          "kind": "external",
+          "guid": null,
+          "link": "https://example.com/other"
+        },
+        "title": null,
+        "authored": true,
+        "derived": false,
+        "provenance": {
+          "segmentType": "linkobj",
+          "link": "https://example.com/other"
+        },
+        "_notes": "When seg.text.title is absent, title=null on the edge and title is omitted from provenance."
+      }
+    },
+
+    {
+      "id": "external-link-trailing-slash-normalized",
+      "kind": "external-link",
+      "description": "External linkobj where link has a trailing slash — normalizedLink strips it for the identity key.",
+      "input": {
+        "sourceLineGuid": "LIN111111111111111111111111",
+        "sourceRecordGuid": "REC111111111111111111111111",
+        "collectionGuid": "COL111111111111111111111111",
+        "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+        "segmentOrdinal": 3,
+        "segment": {
+          "type": "linkobj",
+          "text": {
+            "link": "HTTPS://Example.Com/trailing/",
+            "title": "Trailing slash test"
+          }
+        }
+      },
+      "expected": {
+        "id": "ext:v1:LIN111111111111111111111111:3:https://example.com/trailing",
+        "kind": "external-link",
+        "source": {
+          "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+          "collectionGuid": "COL111111111111111111111111",
+          "recordGuid": "REC111111111111111111111111",
+          "lineGuid": "LIN111111111111111111111111",
+          "propertyId": null,
+          "segmentOrdinal": 3
+        },
+        "target": {
+          "kind": "external",
+          "guid": null,
+          "link": "https://example.com/trailing"
+        },
+        "title": "Trailing slash test",
+        "authored": true,
+        "derived": false,
+        "provenance": {
+          "segmentType": "linkobj",
+          "link": "https://example.com/trailing",
+          "title": "Trailing slash test"
+        },
+        "_notes": "normalizedLink = scheme lowercased + hostname lowercased + trailing slash stripped. The normalized form appears in both the id and target.link."
+      }
+    },
+
+    {
+      "id": "internal-linkobj-resolved",
+      "kind": "ref",
+      "description": "linkobj segment bearing a GUID that positively resolves to a known record — classified as kind='ref' with provenance.segmentType='linkobj'. Not in SDK types.d.ts but live-proven per contract (engine.src.js:2019, refx/plugin.js:19184).",
+      "input": {
+        "sourceLineGuid": "LIN111111111111111111111111",
+        "sourceRecordGuid": "REC111111111111111111111111",
+        "collectionGuid": "COL111111111111111111111111",
+        "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+        "segmentOrdinal": 0,
+        "segment": {
+          "type": "linkobj",
+          "text": {
+            "guid": "REC333333333333333333333333"
+          }
+        },
+        "targetResolvesAs": "record"
+      },
+      "expected": {
+        "id": "ref:v1:LIN111111111111111111111111:0:REC333333333333333333333333",
+        "kind": "ref",
+        "source": {
+          "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+          "collectionGuid": "COL111111111111111111111111",
+          "recordGuid": "REC111111111111111111111111",
+          "lineGuid": "LIN111111111111111111111111",
+          "propertyId": null,
+          "segmentOrdinal": 0
+        },
+        "target": {
+          "kind": "record",
+          "guid": "REC333333333333333333333333",
+          "link": null
+        },
+        "title": null,
+        "authored": true,
+        "derived": false,
+        "provenance": {
+          "segmentType": "linkobj",
+          "resolvedAs": "internal"
+        },
+        "_notes": "After positive target proof, a GUID-bearing linkobj is classified as kind='ref'. Identity is same as a standard ref. provenance.segmentType='linkobj' + resolvedAs='internal' distinguishes it from a native ref segment. Contributes an internal backlink. This is gap refxA-gap-1 territory: extractRefGuidsFromSegments currently skips linkobj; the pair-encoded scanner handles it correctly."
+      }
+    },
+
+    {
+      "id": "internal-linkobj-unresolved",
+      "kind": "external-link",
+      "description": "linkobj segment bearing a GUID that does NOT resolve to any known record/line/collection — classified as kind='external-link' with target.kind='unknown'. No backlink contributed.",
+      "input": {
+        "sourceLineGuid": "LIN111111111111111111111111",
+        "sourceRecordGuid": "REC111111111111111111111111",
+        "collectionGuid": "COL111111111111111111111111",
+        "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+        "segmentOrdinal": 0,
+        "segment": {
+          "type": "linkobj",
+          "text": {
+            "guid": "RECDEADDEADDEADDEADDEADDEAD"
+          }
+        },
+        "targetResolvesAs": null
+      },
+      "expected": {
+        "id": "ext:v1:LIN111111111111111111111111:0:RECDEADDEADDEADDEADDEADDEAD",
+        "kind": "external-link",
+        "source": {
+          "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+          "collectionGuid": "COL111111111111111111111111",
+          "recordGuid": "REC111111111111111111111111",
+          "lineGuid": "LIN111111111111111111111111",
+          "propertyId": null,
+          "segmentOrdinal": 0
+        },
+        "target": {
+          "kind": "unknown",
+          "guid": null,
+          "link": null
+        },
+        "title": null,
+        "authored": true,
+        "derived": false,
+        "provenance": {
+          "segmentType": "linkobj",
+          "rawGuid": "RECDEADDEADDEADDEADDEADDEAD"
+        },
+        "_notes": "When a GUID-bearing linkobj does not positively resolve, it is classified as external-link with target.kind='unknown', target.guid=null. provenance.rawGuid preserves the raw GUID for diagnostics. The id uses the raw GUID as the link-slot value since no normalized URL exists. Does NOT contribute a backlink. Contract: 'If target does not resolve: classified as kind=external-link with target.kind:unknown, target.guid:null, and provenance.rawLinkobj:data.' NOTE: this fixture uses provenance.rawGuid (the guid specifically) rather than rawLinkobj (the whole data object) because the raw data in this case IS just a {guid:string} object; either field name is acceptable as long as the raw guid string is preserved."
+      }
+    },
+
+    {
+      "id": "property-proper-guid-string",
+      "kind": "property",
+      "description": "Record relation property where PluginProperty.values() returns a proper GUID string directly — shape row 1 of the contract's property shapes table.",
+      "input": {
+        "sourceRecordGuid": "REC111111111111111111111111",
+        "collectionGuid": "COL111111111111111111111111",
+        "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+        "propertyFieldId": "PROPFIELDID0000000000000001",
+        "propertyName": "Related Record",
+        "rawValues": ["REC333333333333333333333333"],
+        "valueOrdinal": 0,
+        "targetResolvesAs": "record"
+      },
+      "expected": {
+        "id": "prop:v1:REC111111111111111111111111:PROPFIELDID0000000000000001:0:REC333333333333333333333333",
+        "kind": "property",
+        "source": {
+          "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+          "collectionGuid": "COL111111111111111111111111",
+          "recordGuid": "REC111111111111111111111111",
+          "lineGuid": null,
+          "propertyId": "PROPFIELDID0000000000000001",
+          "segmentOrdinal": null
+        },
+        "target": {
+          "kind": "record",
+          "guid": "REC333333333333333333333333",
+          "link": null
+        },
+        "title": null,
+        "authored": true,
+        "derived": false,
+        "provenance": {
+          "propertyName": "Related Record",
+          "propertyType": "record"
+        },
+        "_notes": "Property edges: source.lineGuid=null, source.segmentOrdinal=null, source.propertyId=fieldId. title=null (property edges have no authored alias). Identity: prop:v1 + sourceRecordGuid + propertyFieldId + valueOrdinal + targetGuid. valueOrdinal=0 = position in normalized values() after expansion."
+      }
+    },
+
+    {
+      "id": "property-json-string-array-shape",
+      "kind": "property",
+      "description": "Record relation property where values() returns a one-element array holding a JSON-string of GUIDs — the MCP write artifact shape documented in GUARDRAILS 2026-06-08.",
+      "input": {
+        "sourceRecordGuid": "REC111111111111111111111111",
+        "collectionGuid": "COL111111111111111111111111",
+        "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+        "propertyFieldId": "PROPFIELDID0000000000000001",
+        "propertyName": "Related Records",
+        "rawValues": ["[\"REC333333333333333333333333\",\"REC222222222222222222222222\"]"],
+        "_note": "rawValues is what PluginProperty.values() actually returns: a single string starting with '[', which the normalizer must JSON.parse into an array of guids",
+        "targetResolvesAs": "record"
+      },
+      "expected": [
+        {
+          "id": "prop:v1:REC111111111111111111111111:PROPFIELDID0000000000000001:0:REC333333333333333333333333",
+          "kind": "property",
+          "source": {
+            "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+            "collectionGuid": "COL111111111111111111111111",
+            "recordGuid": "REC111111111111111111111111",
+            "lineGuid": null,
+            "propertyId": "PROPFIELDID0000000000000001",
+            "segmentOrdinal": null
+          },
+          "target": {
+            "kind": "record",
+            "guid": "REC333333333333333333333333",
+            "link": null
+          },
+          "title": null,
+          "authored": true,
+          "derived": false,
+          "provenance": {
+            "propertyName": "Related Records",
+            "propertyType": "record"
+          }
+        },
+        {
+          "id": "prop:v1:REC111111111111111111111111:PROPFIELDID0000000000000001:1:REC222222222222222222222222",
+          "kind": "property",
+          "source": {
+            "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+            "collectionGuid": "COL111111111111111111111111",
+            "recordGuid": "REC111111111111111111111111",
+            "lineGuid": null,
+            "propertyId": "PROPFIELDID0000000000000001",
+            "segmentOrdinal": null
+          },
+          "target": {
+            "kind": "record",
+            "guid": "REC222222222222222222222222",
+            "link": null
+          },
+          "title": null,
+          "authored": true,
+          "derived": false,
+          "provenance": {
+            "propertyName": "Related Records",
+            "propertyType": "record"
+          }
+        }
+      ],
+      "_notes": "The single JSON-string value is parsed and expanded into multiple edges, one per GUID in the array. valueOrdinals are 0, 1 reflecting position AFTER expansion. This is the artifact of MCP update_record_property storing a JSON blob. expected is an array (multi-edge fixture)."
+    },
+
+    {
+      "id": "property-guid-object-shape",
+      "kind": "property",
+      "description": "Record relation property where values() returns a {guid:string} object — shape row 3 of the contract's property shapes table.",
+      "input": {
+        "sourceRecordGuid": "REC111111111111111111111111",
+        "collectionGuid": "COL111111111111111111111111",
+        "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+        "propertyFieldId": "PROPFIELDID0000000000000001",
+        "propertyName": "Linked Item",
+        "rawValues": [{"guid": "REC333333333333333333333333"}],
+        "valueOrdinal": 0,
+        "targetResolvesAs": "record"
+      },
+      "expected": {
+        "id": "prop:v1:REC111111111111111111111111:PROPFIELDID0000000000000001:0:REC333333333333333333333333",
+        "kind": "property",
+        "source": {
+          "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+          "collectionGuid": "COL111111111111111111111111",
+          "recordGuid": "REC111111111111111111111111",
+          "lineGuid": null,
+          "propertyId": "PROPFIELDID0000000000000001",
+          "segmentOrdinal": null
+        },
+        "target": {
+          "kind": "record",
+          "guid": "REC333333333333333333333333",
+          "link": null
+        },
+        "title": null,
+        "authored": true,
+        "derived": false,
+        "provenance": {
+          "propertyName": "Linked Item",
+          "propertyType": "record"
+        },
+        "_notes": "v.guid is the normalizer path for {guid:string} object shape. Same identity formula as string shape."
+      }
+    },
+
+    {
+      "id": "property-legacy-plain-text-no-edge",
+      "kind": "property",
+      "description": "Record relation property where values() returns a plain text string that is NOT a GUID — must produce NO edge. Defensive normalization: non-GUID strings are skipped.",
+      "input": {
+        "sourceRecordGuid": "REC111111111111111111111111",
+        "collectionGuid": "COL111111111111111111111111",
+        "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+        "propertyFieldId": "PROPFIELDID0000000000000001",
+        "propertyName": "Status",
+        "rawValues": ["some plain text value"],
+        "valueOrdinal": 0
+      },
+      "expected": null,
+      "_notes": "A plain-text string that does not parse as a GUID string and is not a JSON array and has no .guid field produces no property edge. The normalizer must not guess GUID shape from string length or prefix alone. null expected = zero edges emitted."
+    },
+
+    {
+      "id": "annotation-source-line-property",
+      "kind": "annotation",
+      "description": "Record holds a 'Source Line' property whose value is a line GUID — this is an annotation edge pointing to a specific line in another record.",
+      "input": {
+        "sourceRecordGuid": "REC222222222222222222222222",
+        "collectionGuid": "COL111111111111111111111111",
+        "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+        "propertyFieldId": "PROPFIELDID0000000000000002",
+        "propertyName": "Source Line",
+        "rawValues": ["LIN333333333333333333333333"],
+        "ownerRecordGuid": "REC333333333333333333333333",
+        "targetResolvesAs": "line"
+      },
+      "expected": {
+        "id": "ann:v1:REC222222222222222222222222:PROPFIELDID0000000000000002:LIN333333333333333333333333",
+        "kind": "annotation",
+        "source": {
+          "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+          "collectionGuid": "COL111111111111111111111111",
+          "recordGuid": "REC222222222222222222222222",
+          "lineGuid": null,
+          "propertyId": "PROPFIELDID0000000000000002",
+          "segmentOrdinal": null
+        },
+        "target": {
+          "kind": "line",
+          "guid": "LIN333333333333333333333333",
+          "link": null
+        },
+        "title": null,
+        "authored": true,
+        "derived": false,
+        "provenance": {
+          "propertyName": "Source Line",
+          "ownerRecordGuid": "REC333333333333333333333333"
+        },
+        "_notes": "Annotation identity: ann:v1 + sourceRecordGuid + propertyFieldId + targetLineGuid. NO ordinal component — a record/property/line triple is unique per the contract. provenance.ownerRecordGuid is the record that owns the target line (when resolved). target.kind='line'. title=null."
+      }
+    },
+
+    {
+      "id": "annotation-cold-owner",
+      "kind": "annotation",
+      "description": "Annotation edge where the line GUID is known but the owning record is not yet resolved — provenance.ownerRecordGuid is null.",
+      "input": {
+        "sourceRecordGuid": "REC222222222222222222222222",
+        "collectionGuid": "COL111111111111111111111111",
+        "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+        "propertyFieldId": "PROPFIELDID0000000000000002",
+        "propertyName": "Source Line",
+        "rawValues": ["LIN333333333333333333333333"],
+        "ownerRecordGuid": null,
+        "targetResolvesAs": "line"
+      },
+      "expected": {
+        "id": "ann:v1:REC222222222222222222222222:PROPFIELDID0000000000000002:LIN333333333333333333333333",
+        "kind": "annotation",
+        "source": {
+          "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+          "collectionGuid": "COL111111111111111111111111",
+          "recordGuid": "REC222222222222222222222222",
+          "lineGuid": null,
+          "propertyId": "PROPFIELDID0000000000000002",
+          "segmentOrdinal": null
+        },
+        "target": {
+          "kind": "line",
+          "guid": "LIN333333333333333333333333",
+          "link": null
+        },
+        "title": null,
+        "authored": true,
+        "derived": false,
+        "provenance": {
+          "propertyName": "Source Line",
+          "ownerRecordGuid": null
+        },
+        "_notes": "Same stable identity as the resolved case — the annotation id does not change when the owner record resolves later. provenance.ownerRecordGuid=null until g_universe.itemsByGuid resolves the line to its owning record."
+      }
+    },
+
+    {
+      "id": "claim-authored",
+      "kind": "claim",
+      "description": "Authored claim edge from the thymer-claims-v1 broker. authored=true, derived=false. title = predicate.name. Edge id wraps broker.edgeId unchanged.",
+      "input": {
+        "brokerEdge": {
+          "edgeId": "edge:CLM111111111111111111111111:0",
+          "source": "LIN111111111111111111111111",
+          "predicate": {
+            "name": "authored by",
+            "guid": "KEY111111111111111111111111"
+          },
+          "target": "REC333333333333333333333333",
+          "kind": "authored",
+          "claimGuid": "CLM111111111111111111111111",
+          "ordinal": 0,
+          "sourcePart": null,
+          "derivedFrom": null,
+          "derivedBy": null
+        },
+        "sourceRecordGuid": "REC111111111111111111111111",
+        "collectionGuid": "COL111111111111111111111111",
+        "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6"
+      },
+      "expected": {
+        "id": "claim:v1:edge:CLM111111111111111111111111:0",
+        "kind": "claim",
+        "source": {
+          "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+          "collectionGuid": "COL111111111111111111111111",
+          "recordGuid": "REC111111111111111111111111",
+          "lineGuid": "LIN111111111111111111111111",
+          "propertyId": null,
+          "segmentOrdinal": null
+        },
+        "target": {
+          "kind": "record",
+          "guid": "REC333333333333333333333333",
+          "link": null
+        },
+        "title": "authored by",
+        "authored": true,
+        "derived": false,
+        "provenance": {
+          "edgeId": "edge:CLM111111111111111111111111:0",
+          "source": "LIN111111111111111111111111",
+          "predicate": {
+            "name": "authored by",
+            "guid": "KEY111111111111111111111111"
+          },
+          "target": "REC333333333333333333333333",
+          "kind": "authored",
+          "claimGuid": "CLM111111111111111111111111",
+          "ordinal": 0,
+          "sourcePart": null,
+          "derivedFrom": null,
+          "derivedBy": null
+        },
+        "_notes": "Identity: claim:v1: + broker.edgeId. The broker's edgeId flows through unchanged; the Reference Surface NEVER creates a second claim identity. title = predicate.name. authored=true because broker edge kind='authored'. source.lineGuid = broker edge source (a line GUID in Attributes). target = {kind:'record', guid:broker.target}. provenance = frozen broker edge verbatim."
+      }
+    },
+
+    {
+      "id": "claim-derived-inverse",
+      "kind": "claim",
+      "description": "Derived inverse claim edge from the thymer-claims-v1 broker. authored=false, derived=true. edgeId has ':inverse' suffix.",
+      "input": {
+        "brokerEdge": {
+          "edgeId": "edge:CLM111111111111111111111111:0:inverse",
+          "source": "LIN333333333333333333333333",
+          "predicate": {
+            "name": "author of",
+            "guid": "KEY111111111111111111111111"
+          },
+          "target": "REC111111111111111111111111",
+          "kind": "derived",
+          "claimGuid": "CLM111111111111111111111111",
+          "ordinal": 0,
+          "sourcePart": null,
+          "derivedFrom": "edge:CLM111111111111111111111111:0",
+          "derivedBy": "inverse:KEY111111111111111111111111"
+        },
+        "sourceRecordGuid": "REC333333333333333333333333",
+        "collectionGuid": "COL111111111111111111111111",
+        "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6"
+      },
+      "expected": {
+        "id": "claim:v1:edge:CLM111111111111111111111111:0:inverse",
+        "kind": "claim",
+        "source": {
+          "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+          "collectionGuid": "COL111111111111111111111111",
+          "recordGuid": "REC333333333333333333333333",
+          "lineGuid": "LIN333333333333333333333333",
+          "propertyId": null,
+          "segmentOrdinal": null
+        },
+        "target": {
+          "kind": "record",
+          "guid": "REC111111111111111111111111",
+          "link": null
+        },
+        "title": "author of",
+        "authored": false,
+        "derived": true,
+        "provenance": {
+          "edgeId": "edge:CLM111111111111111111111111:0:inverse",
+          "source": "LIN333333333333333333333333",
+          "predicate": {
+            "name": "author of",
+            "guid": "KEY111111111111111111111111"
+          },
+          "target": "REC111111111111111111111111",
+          "kind": "derived",
+          "claimGuid": "CLM111111111111111111111111",
+          "ordinal": 0,
+          "sourcePart": null,
+          "derivedFrom": "edge:CLM111111111111111111111111:0",
+          "derivedBy": "inverse:KEY111111111111111111111111"
+        },
+        "_notes": "authored=false, derived=true because broker edge kind='derived'. The inverse edge reverses source/target. provenance.derivedFrom points to the parent edge id. The Reference Surface wraps the broker id; the claim still uses the SAME claimGuid as the parent (CLM111111111111111111111111)."
+      }
+    },
+
+    {
+      "id": "claim-derived-symmetric",
+      "kind": "claim",
+      "description": "Derived symmetric claim edge. edgeId has ':symmetric' suffix. derivedBy has 'symmetric:' prefix.",
+      "input": {
+        "brokerEdge": {
+          "edgeId": "edge:CLM111111111111111111111111:0:symmetric",
+          "source": "LIN333333333333333333333333",
+          "predicate": {
+            "name": "co-authored with",
+            "guid": "KEY222222222222222222222222"
+          },
+          "target": "REC111111111111111111111111",
+          "kind": "derived",
+          "claimGuid": "CLM111111111111111111111111",
+          "ordinal": 0,
+          "sourcePart": null,
+          "derivedFrom": "edge:CLM111111111111111111111111:0",
+          "derivedBy": "symmetric:KEY222222222222222222222222"
+        },
+        "sourceRecordGuid": "REC333333333333333333333333",
+        "collectionGuid": "COL111111111111111111111111",
+        "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6"
+      },
+      "expected": {
+        "id": "claim:v1:edge:CLM111111111111111111111111:0:symmetric",
+        "kind": "claim",
+        "source": {
+          "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+          "collectionGuid": "COL111111111111111111111111",
+          "recordGuid": "REC333333333333333333333333",
+          "lineGuid": "LIN333333333333333333333333",
+          "propertyId": null,
+          "segmentOrdinal": null
+        },
+        "target": {
+          "kind": "record",
+          "guid": "REC111111111111111111111111",
+          "link": null
+        },
+        "title": "co-authored with",
+        "authored": false,
+        "derived": true,
+        "provenance": {
+          "edgeId": "edge:CLM111111111111111111111111:0:symmetric",
+          "source": "LIN333333333333333333333333",
+          "predicate": {
+            "name": "co-authored with",
+            "guid": "KEY222222222222222222222222"
+          },
+          "target": "REC111111111111111111111111",
+          "kind": "derived",
+          "claimGuid": "CLM111111111111111111111111",
+          "ordinal": 0,
+          "sourcePart": null,
+          "derivedFrom": "edge:CLM111111111111111111111111:0",
+          "derivedBy": "symmetric:KEY222222222222222222222222"
+        },
+        "_notes": "Symmetric derivation: predicate name may be the same as the parent (symmetric relation) or a configured symmetric predicate name. derivedBy='symmetric:KEY' identifies the predicate key."
+      }
+    },
+
+    {
+      "id": "malformed-null-guid",
+      "kind": "malformed",
+      "description": "ref segment where text.guid is null — must produce NO edge. A null guid is not a valid target.",
+      "input": {
+        "sourceLineGuid": "LIN111111111111111111111111",
+        "sourceRecordGuid": "REC111111111111111111111111",
+        "collectionGuid": "COL111111111111111111111111",
+        "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+        "segmentOrdinal": 0,
+        "segment": {
+          "type": "ref",
+          "text": {
+            "guid": null
+          }
+        }
+      },
+      "expected": null,
+      "_notes": "null guid in any position of the segment text must be rejected. The normalizer checks guid !== null && typeof guid === 'string' && guid.length > 0 before creating an edge. No edge emitted."
+    },
+
+    {
+      "id": "malformed-empty-segments",
+      "kind": "malformed",
+      "description": "Line with an empty segments array — produces no edges. Not an error condition; simply no refs on this line.",
+      "input": {
+        "sourceLineGuid": "LIN111111111111111111111111",
+        "sourceRecordGuid": "REC111111111111111111111111",
+        "collectionGuid": "COL111111111111111111111111",
+        "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+        "segments": []
+      },
+      "expected": [],
+      "_notes": "Empty segments = empty edge set from this line. Not malformed per se — valid line with no refs. Included here as a boundary case that scanners must handle without crashing."
+    },
+
+    {
+      "id": "malformed-unknown-kind-target",
+      "kind": "ref",
+      "description": "ref segment where the target GUID does not resolve via any of the five _referenceTargetKind checks — target.kind remains 'unknown'. Edge is still emitted (unlike null-guid which is rejected).",
+      "input": {
+        "sourceLineGuid": "LIN111111111111111111111111",
+        "sourceRecordGuid": "REC111111111111111111111111",
+        "collectionGuid": "COL111111111111111111111111",
+        "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+        "segmentOrdinal": 0,
+        "segment": {
+          "type": "ref",
+          "text": {
+            "guid": "RECUNKNOWNUNKNOWNUNKNOWNUNK1"
+          }
+        },
+        "targetResolvesAs": null
+      },
+      "expected": {
+        "id": "ref:v1:LIN111111111111111111111111:0:RECUNKNOWNUNKNOWNUNKNOWNUNK1",
+        "kind": "ref",
+        "source": {
+          "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+          "collectionGuid": "COL111111111111111111111111",
+          "recordGuid": "REC111111111111111111111111",
+          "lineGuid": "LIN111111111111111111111111",
+          "propertyId": null,
+          "segmentOrdinal": 0
+        },
+        "target": {
+          "kind": "unknown",
+          "guid": "RECUNKNOWNUNKNOWNUNKNOWNUNK1",
+          "link": null
+        },
+        "title": null,
+        "authored": true,
+        "derived": false,
+        "provenance": {
+          "segmentType": "ref"
+        },
+        "_notes": "A ref segment with a GUID that cannot be positively resolved still emits an edge — it is NOT silently dropped. target.kind='unknown' is the unresolved state, NOT the dangling state (see dangling fixture below). target.guid is populated because we have the GUID string. The edge may be upgraded later when the target resolves (async enrichment). The contract states: 'Remains unknown until positively resolved; never guessed from GUID shape.'"
+      }
+    },
+
+    {
+      "id": "malformed-dangling-target",
+      "kind": "ref",
+      "description": "ref segment where the target was previously known (record existed) but has since been deleted — target.kind='unknown', target.guid populated. Distinct from cold-handle: this GUID was known and is now absent from all resolution caches.",
+      "input": {
+        "sourceLineGuid": "LIN111111111111111111111111",
+        "sourceRecordGuid": "REC111111111111111111111111",
+        "collectionGuid": "COL111111111111111111111111",
+        "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+        "segmentOrdinal": 0,
+        "segment": {
+          "type": "ref",
+          "text": {
+            "guid": "RECDELETEDDELETEDDELETEDDEL"
+          }
+        },
+        "targetWasPreviouslyKnown": true,
+        "targetResolvesAs": null
+      },
+      "expected": {
+        "id": "ref:v1:LIN111111111111111111111111:0:RECDELETEDDELETEDDELETEDDEL",
+        "kind": "ref",
+        "source": {
+          "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+          "collectionGuid": "COL111111111111111111111111",
+          "recordGuid": "REC111111111111111111111111",
+          "lineGuid": "LIN111111111111111111111111",
+          "propertyId": null,
+          "segmentOrdinal": 0
+        },
+        "target": {
+          "kind": "unknown",
+          "guid": "RECDELETEDDELETEDDELETEDDEL",
+          "link": null
+        },
+        "title": null,
+        "authored": true,
+        "derived": false,
+        "provenance": {
+          "segmentType": "ref"
+        },
+        "_notes": "The reference surface output is identical for unknown-kind and dangling targets — target.kind='unknown' in both cases. The distinction (cold vs dangling) is a consumer/health concern (Reference Graph R9). The edge is emitted and included in Reference Health diagnostics. The GUID is preserved in target.guid for repair tooling."
+      }
+    },
+
+    {
+      "id": "cold-handle-ref",
+      "kind": "ref",
+      "description": "ref segment where the target GUID is not yet resolvable because the workspace has not finished hydrating — cold handle. Emits an edge with target.kind='unknown'. The broker will upgrade to the resolved kind when hydration completes.",
+      "input": {
+        "sourceLineGuid": "LIN111111111111111111111111",
+        "sourceRecordGuid": "REC111111111111111111111111",
+        "collectionGuid": "COL111111111111111111111111",
+        "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+        "segmentOrdinal": 0,
+        "segment": {
+          "type": "ref",
+          "text": {
+            "guid": "RECCOLDCOLDCOLDCOLDCOLDCOLD1"
+          }
+        },
+        "brokerStatus": "partial",
+        "targetResolvesAs": null,
+        "_note": "The target will resolve to a 'record' once hydration completes. Broker status is 'partial' at snapshot time."
+      },
+      "expected": {
+        "id": "ref:v1:LIN111111111111111111111111:0:RECCOLDCOLDCOLDCOLDCOLDCOLD1",
+        "kind": "ref",
+        "source": {
+          "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+          "collectionGuid": "COL111111111111111111111111",
+          "recordGuid": "REC111111111111111111111111",
+          "lineGuid": "LIN111111111111111111111111",
+          "propertyId": null,
+          "segmentOrdinal": 0
+        },
+        "target": {
+          "kind": "unknown",
+          "guid": "RECCOLDCOLDCOLDCOLDCOLDCOLD1",
+          "link": null
+        },
+        "title": null,
+        "authored": true,
+        "derived": false,
+        "provenance": {
+          "segmentType": "ref"
+        },
+        "_snapshotStatus": "partial",
+        "_notes": "During partial hydration the broker emits edges with target.kind='unknown' for cold handles. The edge id is STABLE — it will not change when the target resolves. Consumers check snapshot.status and show a partial indicator. The broker publishes a new revision with the resolved target.kind once hydration reaches this GUID. This is the correct consumer expectation: never guess the kind, always wait for positive proof."
+      }
+    },
+
+    {
+      "id": "cold-handle-property",
+      "kind": "property",
+      "description": "Property edge where resolveTarget() returns null for the GUID — target kind is 'unknown'. The edge is still emitted with a partial broker status.",
+      "input": {
+        "sourceRecordGuid": "REC111111111111111111111111",
+        "collectionGuid": "COL111111111111111111111111",
+        "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+        "propertyFieldId": "PROPFIELDID0000000000000001",
+        "propertyName": "Linked Record",
+        "rawValues": ["RECCOLDCOLDCOLDCOLDCOLDCOLD2"],
+        "valueOrdinal": 0,
+        "targetResolvesAs": null,
+        "brokerStatus": "partial"
+      },
+      "expected": {
+        "id": "prop:v1:REC111111111111111111111111:PROPFIELDID0000000000000001:0:RECCOLDCOLDCOLDCOLDCOLDCOLD2",
+        "kind": "property",
+        "source": {
+          "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+          "collectionGuid": "COL111111111111111111111111",
+          "recordGuid": "REC111111111111111111111111",
+          "lineGuid": null,
+          "propertyId": "PROPFIELDID0000000000000001",
+          "segmentOrdinal": null
+        },
+        "target": {
+          "kind": "unknown",
+          "guid": "RECCOLDCOLDCOLDCOLDCOLDCOLD2",
+          "link": null
+        },
+        "title": null,
+        "authored": true,
+        "derived": false,
+        "provenance": {
+          "propertyName": "Linked Record",
+          "propertyType": "record"
+        },
+        "_snapshotStatus": "partial",
+        "_notes": "Property edge identity is stable even when target.kind is 'unknown'. The GUID is in the raw values() array; the resolver returned null. Broker marks snapshot partial; consumers show the partial indicator. Edge will be upgraded to target.kind='record' on the next revision after the target resolves."
+      }
+    },
+
+    {
+      "id": "stale-cursor-response",
+      "kind": "protocol",
+      "description": "EdgePage response shape when a stale or expired cursor is provided. items=[], error='stale-cursor', complete=false, cursor=null. Caller must restart from after:null.",
+      "input": {
+        "edgeQuery": {
+          "filter": {"_filterVersion": 1, "kinds": null, "targetGuid": null, "sourceRecord": null, "authored": null, "collectionGuid": null, "dateRange": null},
+          "limit": 50,
+          "after": "STALE_CURSOR_TOKEN",
+          "generation": "OLD_GENERATION",
+          "revision": 1
+        },
+        "brokerGeneration": "CURRENT_GENERATION",
+        "brokerRevision": 99
+      },
+      "expected": {
+        "items": [],
+        "error": "stale-cursor",
+        "complete": false,
+        "cursor": null,
+        "knownTotal": null,
+        "capReason": null,
+        "queryRevision": 99
+      },
+      "_notes": "Stale cursor: generation mismatch OR queryRevision mismatch returns this exact shape. items is always empty. No numeric-offset resume. Caller restarts from after:null. queryRevision in the response is the CURRENT broker revision so the caller knows what to use for the fresh request."
+    },
+
+    {
+      "id": "capped-result-page",
+      "kind": "protocol",
+      "description": "EdgePage where the cap (_maxResults=250) was hit before the authoritative set was exhausted. complete=false, capReason is populated.",
+      "input": {
+        "edgeQuery": {
+          "filter": {"_filterVersion": 1, "kinds": ["ref"], "targetGuid": "REC333333333333333333333333", "sourceRecord": null, "authored": null, "collectionGuid": null, "dateRange": null},
+          "limit": 250,
+          "after": null,
+          "generation": "GEN_CURRENT",
+          "revision": 42
+        },
+        "brokerStatus": "partial"
+      },
+      "expected": {
+        "items": ["... (250 edge objects truncated in fixture, exactly 250 items) ..."],
+        "error": null,
+        "complete": false,
+        "cursor": null,
+        "knownTotal": null,
+        "capReason": "searchByQuery cap",
+        "queryRevision": 42
+      },
+      "_notes": "When the searchByQuery maxResults cap is hit, the page carries complete=false + capReason='searchByQuery cap' and cursor=null (cannot resume — no cursor exists for a capped result). The broker snapshot status is 'partial'. The consumer MUST show 'showing 250 of at least 250' or similar, NOT 'showing all results'. Contract: complete=true means the authoritative set is exhausted, never just that a cap was reached."
+    },
+
+    {
+      "id": "deterministic-ordering",
+      "kind": "ordering",
+      "description": "Multiple edges from the same and different sources — expected in canonical sort order: kind asc < sourceRecordGuid asc < sourceLineGuid asc (null last) < segmentOrdinal asc (null last) < id asc. This fixture proves the sort is deterministic and independent of async arrival order.",
+      "input": {
+        "workspaceGuid": "WEJ9EZW6ADT58SJC3EQMNETSW6",
+        "collectionGuid": "COL111111111111111111111111",
+        "edges_unordered": [
+          {
+            "_desc": "claim from REC111 (kind=claim, sort position 5)",
+            "id": "claim:v1:edge:CLM111111111111111111111111:0",
+            "kind": "claim",
+            "source": {"recordGuid": "REC111111111111111111111111", "lineGuid": "LIN111111111111111111111111", "segmentOrdinal": null}
+          },
+          {
+            "_desc": "property from REC222 (kind=property, sort position 3)",
+            "id": "prop:v1:REC222222222222222222222222:PROPFIELDID0000000000000001:0:REC333333333333333333333333",
+            "kind": "property",
+            "source": {"recordGuid": "REC222222222222222222222222", "lineGuid": null, "segmentOrdinal": null}
+          },
+          {
+            "_desc": "ref from REC111 LIN222 ordinal 0 (kind=ref, record REC111, line LIN222)",
+            "id": "ref:v1:LIN222222222222222222222222:0:REC333333333333333333333333",
+            "kind": "ref",
+            "source": {"recordGuid": "REC111111111111111111111111", "lineGuid": "LIN222222222222222222222222", "segmentOrdinal": 0}
+          },
+          {
+            "_desc": "ref from REC111 LIN111 ordinal 1 (kind=ref, record REC111, line LIN111, ordinal 1)",
+            "id": "ref:v1:LIN111111111111111111111111:1:REC333333333333333333333333",
+            "kind": "ref",
+            "source": {"recordGuid": "REC111111111111111111111111", "lineGuid": "LIN111111111111111111111111", "segmentOrdinal": 1}
+          },
+          {
+            "_desc": "external-link from REC111 LIN111 ordinal 0 (kind=external-link, sort position 2)",
+            "id": "ext:v1:LIN111111111111111111111111:0:https://example.com/page",
+            "kind": "external-link",
+            "source": {"recordGuid": "REC111111111111111111111111", "lineGuid": "LIN111111111111111111111111", "segmentOrdinal": 0}
+          },
+          {
+            "_desc": "ref from REC111 LIN111 ordinal 0 (kind=ref, record REC111, line LIN111, ordinal 0)",
+            "id": "ref:v1:LIN111111111111111111111111:0:REC333333333333333333333333",
+            "kind": "ref",
+            "source": {"recordGuid": "REC111111111111111111111111", "lineGuid": "LIN111111111111111111111111", "segmentOrdinal": 0}
+          },
+          {
+            "_desc": "annotation from REC222 (kind=annotation, sort position 4)",
+            "id": "ann:v1:REC222222222222222222222222:PROPFIELDID0000000000000002:LIN333333333333333333333333",
+            "kind": "annotation",
+            "source": {"recordGuid": "REC222222222222222222222222", "lineGuid": null, "segmentOrdinal": null}
+          }
+        ]
+      },
+      "expected_order": [
+        {
+          "position": 1,
+          "id": "ref:v1:LIN111111111111111111111111:0:REC333333333333333333333333",
+          "_reason": "kind=ref (first); sourceRecordGuid=REC111...1 (first lexicographically); sourceLineGuid=LIN111...1 (first); segmentOrdinal=0 (first)"
+        },
+        {
+          "position": 2,
+          "id": "ref:v1:LIN111111111111111111111111:1:REC333333333333333333333333",
+          "_reason": "kind=ref; sourceRecordGuid=REC111...1; sourceLineGuid=LIN111...1; segmentOrdinal=1 (after 0)"
+        },
+        {
+          "position": 3,
+          "id": "ref:v1:LIN222222222222222222222222:0:REC333333333333333333333333",
+          "_reason": "kind=ref; sourceRecordGuid=REC111...1; sourceLineGuid=LIN222...2 (after LIN111...1 lexicographically); segmentOrdinal=0"
+        },
+        {
+          "position": 4,
+          "id": "ext:v1:LIN111111111111111111111111:0:https://example.com/page",
+          "_reason": "kind=external-link (second in kind order: ref < external-link < property < annotation < claim)"
+        },
+        {
+          "position": 5,
+          "id": "prop:v1:REC222222222222222222222222:PROPFIELDID0000000000000001:0:REC333333333333333333333333",
+          "_reason": "kind=property (third); sourceRecordGuid=REC222...2; lineGuid=null (null last, but no line edges in property — null is correct)"
+        },
+        {
+          "position": 6,
+          "id": "ann:v1:REC222222222222222222222222:PROPFIELDID0000000000000002:LIN333333333333333333333333",
+          "_reason": "kind=annotation (fourth); sourceRecordGuid=REC222...2"
+        },
+        {
+          "position": 7,
+          "id": "claim:v1:edge:CLM111111111111111111111111:0",
+          "_reason": "kind=claim (fifth, last in kind order)"
+        }
+      ],
+      "_notes": "The canonical sort order per the contract: (1) kind [ref < external-link < property < annotation < claim], (2) source.recordGuid asc, (3) source.lineGuid asc null-last, (4) source.segmentOrdinal asc null-last, (5) id asc as tiebreak. This order MUST be reproduced identically regardless of the async arrival order of edges from the broker's sub-indexes."
+    },
+
+    {
+      "id": "filter-grammar-equality",
+      "kind": "protocol",
+      "description": "Two FilterV1 objects that are semantically equal must be byte-identical when JSON-serialized with keys sorted and nulls explicit.",
+      "input": {
+        "filterA": {
+          "_filterVersion": 1,
+          "kinds": ["ref", "claim"],
+          "targetGuid": "REC333333333333333333333333",
+          "sourceRecord": null,
+          "authored": true,
+          "collectionGuid": null,
+          "dateRange": null
+        },
+        "filterB_same_different_key_order": {
+          "authored": true,
+          "collectionGuid": null,
+          "dateRange": null,
+          "_filterVersion": 1,
+          "kinds": ["ref", "claim"],
+          "sourceRecord": null,
+          "targetGuid": "REC333333333333333333333333"
+        }
+      },
+      "expected": {
+        "normalizedA": "{\"_filterVersion\":1,\"authored\":true,\"collectionGuid\":null,\"dateRange\":null,\"kinds\":[\"ref\",\"claim\"],\"sourceRecord\":null,\"targetGuid\":\"REC333333333333333333333333\"}",
+        "normalizedB": "{\"_filterVersion\":1,\"authored\":true,\"collectionGuid\":null,\"dateRange\":null,\"kinds\":[\"ref\",\"claim\"],\"sourceRecord\":null,\"targetGuid\":\"REC333333333333333333333333\"}",
+        "areEqual": true
+      },
+      "_notes": "Filters are equal when their JSON-serialized forms (keys sorted, nulls explicit) are byte-identical. This is how the cursor's embedded filter is compared — a filter with different key order but same content must produce the same cursor, not a stale-cursor. The normalizer sorts keys before serializing."
+    }
+
+  ],
+
+  "fixtureCountByKind": {
+    "ref": 7,
+    "external-link": 3,
+    "internal-linkobj-resolved-as-ref": 1,
+    "internal-linkobj-unresolved-as-external-link-unknown": 1,
+    "property": 4,
+    "annotation": 2,
+    "claim": 3,
+    "malformed": 3,
+    "cold-handle": 2,
+    "protocol-stale-cursor": 1,
+    "protocol-capped-result": 1,
+    "ordering": 1,
+    "filter-grammar": 1,
+    "total": 30
+  }
+}
