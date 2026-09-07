@@ -81,7 +81,7 @@ function measureWrappedTargetFixture(children, targetRule) {
   const lastRow = row;
   const badgeBox = inlineBadgeAnchor;
   const following = textBoxes.find(box => box.id === 'following-word');
-  const obscuredFollowingPx = following && badgeBox.row === following.row
+  const obscuredFollowingPx = following && badgeBox && badgeBox.row === following.row
     ? Math.max(0, Math.min(badgeBox.right, following.right) - Math.max(badgeBox.left, following.left))
     : 0;
   return { visualRows: lastRow + 1, inlineBadgeAnchor, badgeBox, following, obscuredFollowingPx };
@@ -222,8 +222,7 @@ test('V7 wrapped target fixture measures the old 24px obstruction and restores a
 
   const rules = {
     nativeRefSlot: declarationsAfter(counterStyle.textContent, 'body.trc-zerolayout .line-div .lineitem-ref,'),
-    nativeTargetHost: declarationsAfter(counterStyle.textContent, 'body.trc-zerolayout .line-div,\n      body.trc-zerolayout .line-check-div {'),
-    nativeTargetEndSlot: declarationsAfter(counterStyle.textContent, 'body.trc-zerolayout .line-div::after,\n      body.trc-zerolayout .line-check-div::after {'),
+    nativeTargetHost: declarationsAfter(counterStyle.textContent, 'body.trc-zerolayout .listitem {'),
     chainMarker: declarations(counterStyle.textContent, 'body.trc-zerolayout .lineitem-ref.refx-has-chain::after'),
     refCountWrap: declarations(counterStyle.textContent, '.trc-refcount-badge-wrap'),
     targetBadgeWrap: declarationsAfter(counterStyle.textContent, '\n      .trc-target-badge-wrap {'),
@@ -242,7 +241,6 @@ test('V7 wrapped target fixture measures the old 24px obstruction and restores a
   assert.deepEqual(evidence, {
     nativeRefSlot: { rest: 36, hover: 36, midTyping: 36 },
     nativeTargetHost: { rest: 0, hover: 0, midTyping: 0 },
-    nativeTargetEndSlot: { rest: 24, hover: 24, midTyping: 24 },
     chainMarker: { rest: 0, hover: 0, midTyping: 0 },
     refCountWrap: { rest: 0, hover: 0, midTyping: 0 },
     targetBadgeWrap: { rest: 0, hover: 0, midTyping: 0 },
@@ -263,8 +261,6 @@ test('V7 wrapped target fixture measures the old 24px obstruction and restores a
   assert.equal(rules.targetBadgeWrap.width, '0');
   assert.equal(rules.targetBadgeWrap['min-width'], '0');
   assert.equal(rules.nativeTargetHost.position, 'relative');
-  assert.equal(rules.nativeTargetEndSlot.display, 'inline-block');
-  assert.equal(rules.nativeTargetEndSlot.width, '24px');
   assert.equal(rules.nativeTaskSlot['padding-inline-start'], '20px!important');
   assert.doesNotMatch(taskStyle.textContent, /refx-ovl-host/, 'task reservation survives a line-div swap without a plugin-owned marker');
   assert.match(counterStyle.textContent,
@@ -293,10 +289,32 @@ test('V7 wrapped target fixture measures the old 24px obstruction and restores a
   assert.equal(styles.get(p._STYLE_ID), appearanceStyle, 'appearance CSS also updates one adopted node via textContent');
 
   const targetWrap = { id: 'cached-target-wrap', kind: 'badge', isConnected: true, parentNode: null };
-  const host = {
+  const line = {
+    textContent: 'wrapped target line with more text after the target badge',
     children: [],
     get lastElementChild() { return this.children[this.children.length - 1] || null; },
     appendChild(node) {
+      if (node.parentNode && node.parentNode !== this) {
+        const oldIndex = node.parentNode.children.indexOf(node);
+        if (oldIndex >= 0) node.parentNode.children.splice(oldIndex, 1);
+      }
+      const prior = this.children.indexOf(node);
+      if (prior >= 0) this.children.splice(prior, 1);
+      node.parentNode = this;
+      node.isConnected = true;
+      this.children.push(node);
+      return node;
+    },
+  };
+  const host = {
+    children: [],
+    parentNode: line,
+    get lastElementChild() { return this.children[this.children.length - 1] || null; },
+    appendChild(node) {
+      if (node.parentNode && node.parentNode !== this) {
+        const oldIndex = node.parentNode.children.indexOf(node);
+        if (oldIndex >= 0) node.parentNode.children.splice(oldIndex, 1);
+      }
       const prior = this.children.indexOf(node);
       if (prior >= 0) this.children.splice(prior, 1);
       node.parentNode = this;
@@ -308,11 +326,11 @@ test('V7 wrapped target fixture measures the old 24px obstruction and restores a
   const prefix = { id: 'prefix', kind: 'text', width: 136 };
   const followingWord = { id: 'following-word', kind: 'text', width: 24 };
   const continuation = { id: 'continuation', kind: 'text', width: 80 };
+  line.children.push(host);
   host.children.push(prefix, targetWrap, followingWord, continuation);
   targetWrap.parentNode = host;
-  const line = { textContent: 'wrapped target line with more text after the target badge' };
   p._editorLineEl = () => line;
-  p.resolveTargetBadgeHost = value => value === line ? host : null;
+  p.resolveTargetCountHost = value => value === line ? line : null;
   const entry = { node: targetWrap, lineGuid: '1V5REFXCOMBINEDABCDEFGHIJK' };
 
   const parentGeometry = measureWrappedTargetFixture(host.children, { ...rules.targetBadgeWrap, position: 'static' });
@@ -321,11 +339,12 @@ test('V7 wrapped target fixture measures the old 24px obstruction and restores a
   assert.equal(parentGeometry.obscuredFollowingPx, 24,
     'measured parent behavior: the inline badge paint consumes the following 24px word slot');
   assert.equal(p._reinsertDecorator(entry, 'targetBadge', new Map()), true,
-    'the connected stale badge is re-homed before the fixed geometry is measured');
+    'the connected stale badge is re-homed onto the full-width row');
+  assert.equal(targetWrap.parentNode, line, 'target wrap lives on the listitem, not the shrink-wrapped line-div');
+  assert.notEqual(host.lastElementChild, targetWrap, 'late line-div segments must not own the count wrap');
   const fixedGeometry = measureWrappedTargetFixture(host.children, rules.targetBadgeWrap);
-  assert.equal(fixedGeometry.badgeBox.row, 1, 'the fixed overlay anchors to the last visual row');
   assert.equal(fixedGeometry.obscuredFollowingPx, 0,
-    'measured fixed behavior: no following-word pixels are covered or displaced');
+    'measured fixed behavior: no following-word pixels are covered or displaced on the line-div');
 
   for (let i = 0; i < 20; i++) {
     const char = String.fromCharCode(97 + (i % 26));
@@ -335,16 +354,15 @@ test('V7 wrapped target fixture measures the old 24px obstruction and restores a
     assert.notEqual(host.lastElementChild, targetWrap);
     assert.equal(p._reinsertDecorator(entry, 'targetBadge', new Map()), true,
       `keystroke ${i + 1}: connected target badge is re-homed synchronously`);
-    assert.equal(host.lastElementChild, targetWrap,
-      `keystroke ${i + 1}: badge finishes at the true DOM end after segment rendering`);
+    assert.equal(targetWrap.parentNode, line,
+      `keystroke ${i + 1}: badge stays on the full-width row after segment rendering`);
     assert.equal(entry.node, targetWrap, `keystroke ${i + 1}: decorator identity is retained`);
-    assert.equal(targetWrap.parentNode, host);
     assert.equal(measureWrappedTargetFixture(host.children, rules.targetBadgeWrap).obscuredFollowingPx, 0,
-      `keystroke ${i + 1}: re-home leaves wrapped following text unobscured`);
+      `keystroke ${i + 1}: line-div following text stays unobscured`);
   }
 
   const brokenHost = { lastElementChild: null, appendChild() { throw new Error('fixture append failed'); } };
-  p.resolveTargetBadgeHost = () => brokenHost;
+  p.resolveTargetCountHost = () => brokenHost;
   assert.equal(p._reinsertDecorator({ node: { isConnected: false }, lineGuid: entry.lineGuid }, 'targetBadge', new Map()), false);
   assert.match(context.window.__REFX_LAST_ERROR, /decorator reinsert targetBadge.*fixture append failed/,
     'target reinsert failures reach the plugin error global');
@@ -384,7 +402,8 @@ test('W2b 20-keystroke decorated-line burst performs zero unchanged attribute wr
   });
   targetWrap.appendChild(targetLabel);
   line.appendChild(host);
-  host.append(chip, countOverlay, checkOverlay, targetWrap);
+  host.append(chip, countOverlay, checkOverlay);
+  line.appendChild(targetWrap);
 
   p._overlayMode = true;
   p._fontScaleClass = 'trc-size-small';
@@ -401,6 +420,7 @@ test('W2b 20-keystroke decorated-line burst performs zero unchanged attribute wr
   p._refChainCacheGet = () => [{ depth: 2 }];
   p._lineHasMeaningfulContent = () => true;
   p.resolveTargetBadgeHost = value => value === line ? host : null;
+  p.resolveTargetCountHost = value => value === line ? line : null;
   p._editorLineEl = value => value === lineGuid ? line : null;
   p._chipOrdinal = () => 0;
   p._scheduleOverlayReposition = () => {};

@@ -292,6 +292,14 @@ function event(type, extra = {}) {
 
 const tick = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
 
+async function expandCtxStrip(strip) {
+  const twist = strip?.querySelector?.('.refx-ctxstrip-twist');
+  if (twist && twist.getAttribute('aria-expanded') === 'false') {
+    twist.dispatchEvent(event('click', {}));
+    await tick(10);
+  }
+}
+
 function lineRefClickHarness(custom = {}) {
   const h = loadHarness();
   h.plugin.getConfiguration = () => ({ custom: { aliasChips: false, lineRefClickMenu: true, ...custom } });
@@ -404,6 +412,7 @@ test('v4.41.0 a remark on the context line renders a pen chip with its first bod
   await tick(10);
   const strip = h.document.querySelector('.refx-inline-refs-context');
   assert.ok(strip, 'the strip rendered');
+  await expandCtxStrip(strip);
   const chipsWrap = strip.querySelector('.refx-remark-chips');
   assert.ok(chipsWrap, 'the Reference row carries a remark chips wrap');
   assert.equal(chipsWrap.getAttribute('data-refx-remark-line'), 'BADGE_TARGET');
@@ -458,6 +467,7 @@ test('v4.41.0 the remark map builds lazily on first context render, never at onL
   assert.equal(await h.plugin._ensureRemarksIndex(), warmIdx);
   h.plugin._routeBadgeClick(event('click', { target: h.wrap, button: 0 }), null, h.wrap);
   await tick(10);
+  await expandCtxStrip(h.document.querySelector('.refx-inline-refs-context'));
   assert.ok(h.document.querySelector('.refx-remark-chips'), 'chips render from the warm map');
   assert.equal(h.plugin._remarksIndex, warmIdx, 'the render was served by the cached map, not a rebuild');
   h.plugin.onUnload();
@@ -485,6 +495,7 @@ test('v4.41.0 a sibling line carrying a remark shows the same chip in the siblin
   h.plugin._routeBadgeClick(event('click', { target: h.wrap, button: 0 }), null, h.wrap);
   await tick(10);
   const strip = h.document.querySelector('.refx-inline-refs-context');
+  await expandCtxStrip(strip);
   const siblingRow = [...strip.querySelectorAll('.refx-ref-sibling-row')]
     .find((row) => row.textContent.includes('Badge sibling'));
   assert.ok(siblingRow, 'the sibling list renders the sibling line');
@@ -506,6 +517,7 @@ test('v4.41.0 remarks record events patch the map and live-rendered chips, paylo
   h.plugin._routeBadgeClick(event('click', { target: h.wrap, button: 0 }), null, h.wrap);
   await tick(10);
   const strip = h.document.querySelector('.refx-inline-refs-context');
+  await expandCtxStrip(strip);
   assert.equal(strip.querySelectorAll('.refx-remark-chip').length, 1);
 
   // A record.created from a DIFFERENT collection is payload-filtered out.
@@ -547,6 +559,7 @@ test('v4.41.0 record.moved is payload-filtered by destination collection', async
   h.plugin._routeBadgeClick(event('click', { target: h.wrap, button: 0 }), null, h.wrap);
   await tick(10);
   const strip = h.document.querySelector('.refx-inline-refs-context');
+  await expandCtxStrip(strip);
   assert.equal(strip.querySelectorAll('.refx-remark-chip').length, 1);
 
   // Moved OUT of Remarks: unscoped event, non-Remarks destination → remove.
@@ -593,6 +606,7 @@ test('v4.41.0 metadata reload drops the remark map and body cache for a lazy reb
 
   h.plugin._routeBadgeClick(event('click', { target: h.wrap, button: 0 }), null, h.wrap);
   await tick(10);
+  await expandCtxStrip(h.document.querySelector('.refx-inline-refs-context'));
   assert.ok(h.plugin._remarksIndex);
   h.plugin._onMetadataReload();
   assert.equal(h.plugin._remarksIndex, null);
@@ -618,7 +632,7 @@ test('v4.41.0 perf gates: zero timers, lazy build, no workspace-wide record scan
     /refNode\.append\(fullEl\);[\s\S]{0,500}?_attachRemarkChips\(refNode, childBox \|\| null, lineGuid, ctx\);[\s\S]{0,200}?if \(childBox\) refNode\.append\(childBox\);/);
 });
 
-test('v4.41.0 the Block Context strip folds beside its label and persists per-device', async () => {
+test('v4.49.3 the Block Context strip starts collapsed by default and the twisty does not persist', async () => {
   const h = badgeHarness('BADGE_TARGET');
   badgeOwner(h, 'BADGE_OWNER', 'BADGE_TARGET', 'Badge');
 
@@ -632,28 +646,28 @@ test('v4.41.0 the Block Context strip folds beside its label and persists per-de
   assert.equal(labelRow.children[0], twist, 'the twisty precedes the label');
   assert.equal(strip.querySelector('.refx-inline-refs-context-label').textContent, 'Block context');
   const rows = strip.querySelector('.refx-inline-refs-context-rows');
-  assert.equal(rows.classList.contains('refx-hidden'), false, 'default EXPANDED');
-  assert.equal(twist.getAttribute('aria-expanded'), 'true');
-  assert.equal(twist.textContent, '▾');
-
-  twist.dispatchEvent(event('click', {}));
-  assert.equal(rows.classList.contains('refx-hidden'), true, 'click collapses the rows container');
-  assert.equal(twist.textContent, '▸');
+  assert.equal(rows.classList.contains('refx-hidden'), true, 'default collapsed');
   assert.equal(twist.getAttribute('aria-expanded'), 'false');
-  assert.equal(h.storage.get('refx_ctx_collapsed_v1'), '1', 'collapsed persists per-device (1 = collapsed)');
+  assert.equal(twist.textContent, '▸');
 
   twist.dispatchEvent(event('click', {}));
-  assert.equal(rows.classList.contains('refx-hidden'), false);
+  await tick(10);
+  assert.equal(rows.classList.contains('refx-hidden'), false, 'click expands the rows container');
   assert.equal(twist.textContent, '▾');
-  assert.equal(h.storage.get('refx_ctx_collapsed_v1'), '0');
+  assert.equal(twist.getAttribute('aria-expanded'), 'true');
+  assert.equal(h.storage.has('refx_ctx_start_collapsed_v1'), false, 'twisty does not persist fold state');
+
+  twist.dispatchEvent(event('click', {}));
+  assert.equal(rows.classList.contains('refx-hidden'), true);
+  assert.equal(twist.textContent, '▸');
+  assert.equal(h.storage.has('refx_ctx_start_collapsed_v1'), false, 'still no persist after both clicks');
   h.plugin.onUnload();
 });
 
-test('v4.41.0 collapsed strips seed on both surfaces and defer hydration until first expand', async () => {
+test('v4.49.3 collapsed strips seed on both surfaces and defer hydration until first expand', async () => {
   const h = badgeHarness('BADGE_TARGET');
   badgeOwner(h, 'BADGE_OWNER', 'BADGE_TARGET', 'Badge');
   remarksFixture(h, [{ guid: 'REMARK_1', sourceLine: 'BADGE_TARGET', body: 'late body' }]);
-  h.storage.set('refx_ctx_collapsed_v1', '1');
 
   // The popover surface builds through the same shared builder.
   const popStrip = h.plugin._buildRefRowContextStrip('trc-ref-popover-context');
@@ -681,6 +695,13 @@ test('v4.41.0 collapsed strips seed on both surfaces and defer hydration until f
   assert.ok(rows.querySelector('.refx-ref-outline'), 'the first expand hydrates the rows');
   assert.ok(h.plugin._remarksIndex, 'the remarks map builds on expand-hydration');
   assert.ok(rows.querySelector('.refx-remark-chips'), 'chips attach after the expand hydration');
+
+  h.plugin._removeInlineRefs('BADGE_HOST›BADGE_TARGET');
+  h.plugin._routeBadgeClick(event('click', { target: h.wrap, button: 0 }), null, h.wrap);
+  await tick(10);
+  const strip2 = h.document.querySelector('.refx-inline-refs-context');
+  const rows2 = strip2.querySelector('.refx-inline-refs-context-rows');
+  assert.equal(rows2.classList.contains('refx-hidden'), true, 'a fresh open is collapsed again even after the first was expanded');
   h.plugin.onUnload();
 });
 
@@ -703,6 +724,7 @@ test('v4.41.0 collection-less foreign record events fail closed — zero record/
 
   h.plugin._routeBadgeClick(event('click', { target: h.wrap, button: 0 }), null, h.wrap);
   await tick(10);
+  await expandCtxStrip(h.document.querySelector('.refx-inline-refs-context'));
   assert.ok(h.plugin._remarksIndex, 'the warm map exists');
 
   let recordReads = 0;
@@ -764,6 +786,7 @@ test('v4.41.0 popover Block Context rows carry chips; a chip click closes the po
   pop.append(strip);
   h.document.body.append(pop);
   h.plugin._popoverEl = pop;
+  await expandCtxStrip(strip);
   const order = [];
   const realClose = h.plugin.closeRefPopover.bind(h.plugin);
   h.plugin.closeRefPopover = () => { order.push('close'); realClose(); };
@@ -807,6 +830,7 @@ test('v4.41.0 lineRefProperties=false/[] makes remark chips fully inert (zero-co
     h.plugin._routeBadgeClick(event('click', { target: h.wrap, button: 0 }), null, h.wrap);
     await tick(10);
     const strip = h.document.querySelector('.refx-inline-refs-context');
+    await expandCtxStrip(strip);
     assert.ok(strip && strip.querySelector('.refx-ref-outline'), 'the Reference row still hydrates');
     assert.equal(strip.querySelector('.refx-remark-chips'), null, 'no remark chips with the kill switch off');
     h.plugin.onUnload();

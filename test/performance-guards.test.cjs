@@ -33,9 +33,9 @@ test('reference hydration seeds all record identities before property-edge class
 
 test('runtime and manifest versions identify the current release', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'plugin.json'), 'utf8'));
-  assert.equal(manifest.version, '4.48.6');
-  assert.ok(source.startsWith('// v4.48.6'), 'first line must be // v4.48.6');
-  assert.match(source, /window\.__REFX_VERSION = "4\.48\.6"/);
+  assert.equal(manifest.version, '4.49.7');
+  assert.ok(source.startsWith('// v4.49.7'), 'first line must be // v4.49.7');
+  assert.match(source, /window\.__REFX_VERSION = "4\.49\.7"/);
 });
 
 test('reference expansion avoids whole-body probes and broad record-update discovery', () => {
@@ -65,12 +65,13 @@ test('record refs preview without a native body; line refs stay native', () => {
   assert.match(freshCard, /if \(!silent\) this\._renderCardInto\(lineGuid,[\s\S]*?refx-propcard-loading/);
 });
 
-test('v4.48.6 target badge keeps its absolute end slot with a quiet Roam-like number', () => {
-  assert.match(source, /body\.trc-zerolayout \.line-div,\s*body\.trc-zerolayout \.line-check-div \{\s*position: relative;/);
-  assert.match(source, /body\.trc-zerolayout \.line-div::after,\s*body\.trc-zerolayout \.line-check-div::after \{[\s\S]*?display: inline-block;[\s\S]*?width: 24px;[\s\S]*?height: 0;/);
-  assert.match(source, /\.trc-target-badge-wrap \{[\s\S]*?position: absolute;[\s\S]*?width: 0;[\s\S]*?min-width: 0;[\s\S]*?overflow: visible;[\s\S]*?pointer-events: none;/);
+test('v4.49.3 target badge sits in the native backlink-pill slot on the full-width row', () => {
+  assert.match(source, /body\.trc-zerolayout \.listitem \{\s*position: relative;/);
+  assert.doesNotMatch(source, /body\.trc-zerolayout \.line-div::after/);
+  assert.match(source, /\.trc-target-badge-wrap \{[\s\S]*?position: absolute;[\s\S]*?inset-inline-end: 0;[\s\S]*?width: 0;[\s\S]*?min-width: 0;[\s\S]*?overflow: visible;[\s\S]*?pointer-events: none;/);
   assert.match(source, /\.trc-target-badge \{[\s\S]*?font-weight: 600;[\s\S]*?padding: 4px;[\s\S]*?background: transparent;[\s\S]*?pointer-events: auto;/);
-  assert.match(source, /e\.node\.parentNode !== host \|\| e\.node !== host\.lastElementChild/);
+  assert.match(source, /if \(e\.node\.parentNode !== host\) host\.appendChild\(e\.node\)/);
+  assert.match(source, /resolveTargetCountHost\(/);
 });
 
 test('v4.42 plain-line menu exposes the shared extension flyout context', () => {

@@ -1,6 +1,14 @@
 # Reference Extravaganza
 
-## Current release (v4.48.6)
+## Current release (v4.49.3)
+
+Inline linked-reference fill no longer waits on collapse-meta reads; the chain
+root reuses settled direct rows, and line badges prefer fresh RefX counts over
+the native pill floor.
+
+Source-line counts sit at the far right of the row (Thymer's native
+backlink-pill slot, like Roam's block ref-count). The Settings modal body
+scrolls when the window is short.
 
 The count-badge inline surface now reads in document order: **Block Context**,
 direct linked/property references, then **All reference paths**. The deepest
@@ -295,11 +303,13 @@ If no page has the exact title you typed, the **+ Create page** row is selected 
 
 Open **Reference Extravaganza — Settings** and choose **Reference appearance**:
 
-- **Distinct** (default) — page references are blue with a solid underline; line references use a teal dotted underline.
-- **Roam-inspired** — page references stay blue while line references look like neutral text with a subtle underline.
+- **Roam-inspired** (default) — matches Roam Research's live styling: line references (`((uid))`) inherit the body text color with a hairline bottom underline and a light hover wash, like Roam's `.rm-block-ref`; page references are Roam link blue (`#106ba3`) with no underline, like `.rm-page-ref--link`; the reference count is a quiet number at 0.8em and 50% opacity, like `.rm-block__ref-count`.
+- **Distinct** — page references are blue with a solid underline; line references use a teal dotted underline.
 - **Native Thymer** — the plugin adds no link colors or underline treatment.
 
-The setting applies to every reference, including targets with no count badge, and changes paint only—typing/caret geometry is untouched. The Configuration default is `custom.referenceStyle: "distinct"` (`"roam"` and `"native"` are also accepted).
+Under the preset, the same Settings modal exposes appearance knobs: page-link color, line-ref underline color and style (none / solid hairline / dotted), line-ref hover background, count size (0.7em–1em), count opacity (0.2–1), and count weight (regular / semibold), plus a reset button. Each knob writes one CSS custom property on `<body>` (`--refx-page-link-color`, `--refx-line-underline`, `--refx-line-hover-bg`, `--refx-count-size`, `--refx-count-opacity`, `--refx-count-weight`) and applies instantly without rescanning the document, so it is just as fast on a page with millions of references. Knobs persist in localStorage; `custom.appearance: { pageLinkColor, lineUnderline, lineUnderlineStyle, lineHoverBg, countSize, countOpacity, countWeight }` seeds defaults.
+
+The setting applies to every reference, including targets with no count badge, and changes paint only—typing/caret geometry is untouched (no padding, border, or font-size enters an editable chip). The Configuration default is `custom.referenceStyle: "roam"` (`"distinct"` and `"native"` are also accepted; a stored choice wins).
 
 ## Copy and paste a reference
 

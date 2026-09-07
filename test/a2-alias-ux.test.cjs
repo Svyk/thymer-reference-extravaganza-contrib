@@ -2410,6 +2410,9 @@ test('v4.48.6 the real badge route orders context, direct references, then paths
   );
   assert.equal(strip.querySelector('.refalias-preview-empty'), null);
 
+  strip.querySelector('.refx-ctxstrip-twist').dispatchEvent(event('click', {}));
+  await tick(10);
+
   // It is a NORMAL reference row, not a bespoke widget: source-record group
   // header, the shared row element, the foldable ancestor outline, children.
   assert.equal(
@@ -2485,6 +2488,7 @@ test('v4.48.6 the real count-badge route is context-first and labels the cross-p
   }
   h.plugin._fillInlineRefs = async (_key, entry) => {
     entry.titleEl.textContent = '↙ 2 Linked References';
+    h.plugin._fallbackInlineRefChainRootResolve(entry);
     throw new Error('Direct references unavailable');
   };
   h.plugin._hydrateRefRowContext = async () => {
@@ -2598,6 +2602,8 @@ test('v4.40.1 the context row folds through the same twisty as every other refer
   h.plugin._routeBadgeClick(event('click', { target: h.wrap, button: 0 }), null, h.wrap);
   await tick(10);
   const strip = h.document.querySelector('.refx-inline-refs-context');
+  strip.querySelector('.refx-ctxstrip-twist').dispatchEvent(event('click', {}));
+  await tick(10);
   const twist = strip.querySelector('.refx-ref-outline-twist');
   assert.ok(twist, 'the ancestor owns a fold twisty');
   const kids = strip.querySelector('.refx-ref-outline-kids');
@@ -2638,6 +2644,8 @@ test('v4.40.1 the context row reads its source tree once, through the ref-row ca
   h.plugin._routeBadgeClick(event('click', { target: h.wrap, button: 0 }), null, h.wrap);
   await tick(10);
   const strip = h.document.querySelector('.refx-inline-refs-context');
+  strip.querySelector('.refx-ctxstrip-twist').dispatchEvent(event('click', {}));
+  await tick(10);
   assert.ok(strip.querySelector('.refx-ref-outline'), 'the row filled from a source tree');
   assert.equal(
     reads(),
@@ -2701,6 +2709,8 @@ test('v4.40.1 the floating badge popover renders the same normal reference row a
   assert.ok(pop, 'the popover route opens the production popover');
   const strip = pop.querySelector('.trc-ref-popover-context');
   assert.ok(strip);
+  strip.querySelector('.refx-ctxstrip-twist').dispatchEvent(event('click', {}));
+  await tick(10);
   assert.equal(
     pop.children.map((child) => child.className.split(' ')[0]).slice(0, 2).join(','),
     'trc-ref-popover-header,trc-ref-popover-context',
@@ -4025,7 +4035,7 @@ test('v4.43 general ref-chain resolver guards cycles and enforces depth/fanout c
 test('v4.48.6 public bridge keeps v4 bounded-chain and one-level resolution compatibility', async () => {
   const h = lineRefClickHarness();
   installU6ChainGraph(h);
-  assert.equal(h.window.__refx.version, '4.48.6');
+  assert.equal(h.window.__refx.version, '4.49.7');
   assert.equal(Object.hasOwn(h.window.__refx, 'refChainVersion'), false);
   assert.equal(h.window.__refx.resolveRefChainVersion, 4);
   assert.equal(typeof h.window.__refx.resolveRefChain, 'function');

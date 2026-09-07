@@ -2585,6 +2585,7 @@ test('persisted collapse-all writes one meta snapshot and rebuilt entry seeds fr
   const hostNode = { insertAdjacentElement(_where, el) { el.isConnected = true; } };
 
   await plugin._buildInlineRefsSection(null, 'TARGET', hostNode, 'HOST');
+  await new Promise((resolve) => setTimeout(resolve, 0));
   const key = 'HOST›TARGET';
   const first = plugin._inlineRefs.get(key);
   assert.deepEqual([...first.collapsedGroups], ['SOURCE_A'], 'entry loads the persisted host-line meta');
@@ -2596,6 +2597,7 @@ test('persisted collapse-all writes one meta snapshot and rebuilt entry seeds fr
 
   plugin._removeInlineRefs(key);
   await plugin._buildInlineRefsSection(null, 'TARGET', hostNode, 'HOST');
+  await new Promise((resolve) => setTimeout(resolve, 0));
   const rebuilt = plugin._inlineRefs.get(key);
   assert.deepEqual([...rebuilt.collapsedGroups].sort(), ['SOURCE_A', 'SOURCE_B'], 'rebuilt entry seeds from persisted meta');
   assert.equal(rebuilt.collapseStateFromMeta, true);

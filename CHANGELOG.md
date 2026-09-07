@@ -1,14 +1,116 @@
 # Changelog
 
-## Port note (v4.48.6 onto upstream v3.2.1)
+## v4.49.7 — 2026-09-06
 
-This tree is the community feature port of Reference Extravaganza **v4.48.6**
-onto Parham Shafti's public plugin at v3.2.1. The plugin, tests, and user docs
-come from [Svyk/thymer-reference-extravaganza](https://github.com/Svyk/thymer-reference-extravaganza).
-Upstream 3.1–3.2 polish (native-look `[[` picker, hover line preview, wrapping
-text edits, live-search embeds, image/file/URL properties, dates in line text)
-is present in the v4 line; this is a replacement of `plugin.js` rather than a
-line-by-line merge of 3.2.1 into 4.48.6.
+### Fixed
+
+- Typing `@today` inside a Workbench transclusion inserts the date again: a visible native picker (including Thymer's `.omni-overlay`) now suppresses both the Workbench Enter interception and the split-focus click repair, so neither steals the commit.
+- Enter also yields when the caret line still ends in an uncommitted `@…` trigger, even if the picker portal is not one we can match.
+- Datacore `dc:` / `dc.js:` widgets added to the Workbench mount instead of showing their source: RefX pokes `window.__plexusDatacoreEmbed.refresh(true)` after the shelf decorates or an item is added.
+
+### Added
+
+- Drag a Workbench item's header to reorder the shelf; the move is a real reorder of the backing record's transclusion line, so it syncs across devices.
+
+## v4.49.5 — 2026-09-06
+
+### Fixed
+
+- Workbench add from a `q:` live-search row uses the real source line.
+- Datacore JS/query widgets pinned to the Workbench keep the original host record (`this`).
+
+## v4.49.4 — 2026-09-06
+
+### Fixed
+
+- Left-click ref menu no longer clips off the bottom of a windowed Thymer: the popover clamps to the remaining pocket under or above the chip, and chain / Block Context reservations shrink so action rows stay visible.
+- Outgoing chain insertion, post-hydrate Block Context refit, and lazy incoming chain growth no longer slide action rows after the one-shot anchor.
+- Outgoing chain reservation now runs on the menu surface (it was unreachable behind the incoming-tree early return).
+- Standalone Block Context popover reserves its full height at anchor time so it clamps to the pocket under or above the chip and the Jump / Open actions bar stays on screen.
+- Submenu and hover preview overflow is capped via inline max-height and overflow hidden.
+- The (( / [[ picker keeps its pre-4.49.4 placement; the pocket clamp applies only to fitted popovers.
+
+### Improved
+
+- Hover preview reads structure-only record bodies (`getLineItems(false)`).
+- Chip chain decoration scan resolves at most 12 cold guids per idle pass and re-queues the remainder.
+- Line-target count badges share the inbound `@linkto` search with inline fill.
+
+## v4.49.3 — 2026-09-06
+
+### Fixed
+
+- Inline linked-reference fill no longer waits on collapse-meta hydration before issuing the first `@linkto` query.
+- The inline chain root reuses direct-reference rows from fill instead of racing a 3 s root resolve that timed out on cold search.
+- Fill and chain share one inbound `@linkto` search per target guid; chain timeout/abort no longer cancels that shared query.
+- Fill failure shows "Couldn't load references" with Retry instead of hanging on "Loading references…".
+- Line-target badges prefer a fresh RefX count from the settled inline section over the native pill floor (the floor still protects stale zeros, disk seeds, optimistic placeholders, and capped counts).
+
+## v4.49.2 — 2026-09-06
+
+### Fixed
+
+- Line-target badge and headline count unique `@linkto` lines only; property references stay in the footer and subtitle, with the split shown in the tooltip (`N via properties`).
+- Remark-only line targets still show a badge when property references exist and no inline `@linkto` hits.
+
+### Changed
+
+- Block Context starts collapsed when Linked References opens; Settings adds "Block context starts collapsed" (default on). The twisty no longer persists last-expanded state.
+- The menu compact Block Context strip remains always expanded (height-reserved); the setting governs the inline section and floating popover only.
+
+### Improved
+
+- Sibling and ancestor image lines render as viewport-loaded thumbnails in the Block Context outline.
+- Relation labels (Parent → Reference → Children/Siblings) read as a clearer hierarchy with nested rails.
+
+## v4.49.1 — 2026-09-06
+
+### Fixed
+
+- The source-line count now sits in Thymer's native backlink-pill slot at the far right of the row (Roam `.rm-block__ref-count`), not glued after the last glyph of `.line-div`.
+- The settings modal body scrolls when the window is short (`min-height: 0` so flex content cannot defeat `max-height`; header/footer stay pinned).
+
+## v4.49.0 — 2026-09-06
+
+### Added
+
+- Inline line references now match Roam Research's `.rm-block-ref`: inherit the body text color, a hairline bottom underline, and a light hover wash. Page references stay Roam link blue (`#106ba3`) with no underline. Reference counts are a quiet number at 0.8em and 50% opacity, regular weight, inheriting the text color. `referenceStyle: "roam"` is now the Configuration default; a stored Distinct / Native choice still wins.
+- Settings → Reference appearance knobs: page-link color, line-ref underline color and style (none / solid / dotted), line-ref hover background, count size, count opacity, count weight, and a reset button. Each knob writes one CSS custom property on `<body>` and applies instantly; nothing rescans chips or panels, so a change costs the same on a 10-line page and a 10,000,000-reference page. `custom.appearance {...}` seeds defaults.
+
+### Changed
+
+- Switching the appearance preset no longer walks the document to reclassify chips; classification stays on the existing scan path and the preset is a body-class toggle.
+- Chip padding, border-width, and font-size are untouched on editable chips (caret law); the hairline is an inset box-shadow (solid) or a 1px background-image (dotted).
+
+## v4.48.9 — 2026-09-05
+
+### Fixed
+
+- The Roam-style source-line count (`1` at the end of a referenced line) stayed
+  hidden on the focused/caret line while "Hide Thymer's native backlink pill"
+  was on, so the replacement looked missing. Target-line badges no longer use
+  the chip hide-on-caret rule; the native pill still hides; click still opens
+  Linked References.
+- A stale cached zero no longer blanks a live native-pill count, and an
+  icon-only host pill still seeds a count of at least 1.
+
+## v4.48.8 — 2026-09-05
+
+### Fixed
+
+- Thymer's host now paints untitled line refs as underscore slugs instead of "[Title missing]"; heal those chips back to the live line text so they look like Roam block refs.
+
+## v4.48.7 — 2026-09-05
+
+### Fixed
+
+- Cmd/Ctrl+V of a `thymer-ref://` URI no longer falls through to native paste when the caret is only known via `g_range` or the caret-line DOM class. A missing grapheme offset inserts the chip at the end of the line.
+- A Copy transclusion stash embeds once; later pastes of the same clipboard insert a chip.
+- Live text selections (`g_range` non-collapsed on one line) no longer hijack paste via the caret-line DOM fallback; transclusion `consumedAt` is set only after embed succeeds; Tier B offset uses grapheme position when `segment_index` is absent.
+
+### Tests
+
+- `test/paste-inline-ref.test.cjs` covers caret tiers, preventDefault, end-of-line insert, and consumedAt.
 
 ## v4.48.6 — 2026-08-01
 

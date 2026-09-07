@@ -58,6 +58,47 @@ function instance() {
   return { plugin, context };
 }
 
+function classListSet(initial = []) {
+  const set = new Set(initial);
+  return {
+    set,
+    add: (...names) => names.forEach((n) => set.add(n)),
+    remove: (...names) => names.forEach((n) => set.delete(n)),
+    contains: (name) => set.has(name),
+    toggle(name, force) {
+      if (force === undefined) force = !set.has(name);
+      if (force) set.add(name); else set.delete(name);
+      return force;
+    }
+  };
+}
+
+function nativePickerNode(overrides = {}) {
+  const classes = overrides.classList ? null : classListSet(
+    typeof overrides.className === 'string' ? overrides.className.split(/\s+/).filter(Boolean) : ['cmdpal--inline']
+  );
+  return {
+    isConnected: true,
+    hidden: false,
+    style: {},
+    className: 'cmdpal--inline',
+    classList: classes || overrides.classList,
+    getAttribute: (a) => null,
+    ...overrides
+  };
+}
+
+function transclusionEnterSetup(plugin, context) {
+  context.localStorage.setItem('refx_transclusion_enter', '1');
+  const container = {
+    isConnected: false,
+    closest: (sel) => sel === '.transclusion-container-div' ? container : null,
+    querySelector: () => null
+  };
+  plugin._detect = () => ({ lineGuid: 'LINE1', lineNode: container });
+  return container;
+}
+
 function keyEvent(key, mods = {}) {
   return {
     key,
@@ -98,6 +139,158 @@ test('A1-01: plain Enter inside .transclusion-container-div is intercepted', asy
   await new Promise((r) => setTimeout(r, 50));
   assert.ok(e.prevented, 'preventDefault must be called');
   assert.ok(e.stopped, 'stopImmediatePropagation must be called');
+});
+
+test('A1-01b: visible native inline picker prevents Enter interception in transclusion', () => {
+  const { plugin, context } = instance();
+  transclusionEnterSetup(plugin, context);
+  const portal = nativePickerNode();
+  context.document.querySelectorAll = () => [portal];
+  const e = keyEvent('Enter');
+  plugin._handleWbEnter(e);
+  assert.ok(!e.prevented, 'visible native picker must not trigger preventDefault');
+  assert.ok(!e.stopped, 'visible native picker must not trigger stopImmediatePropagation');
+});
+
+test('A1-01c: hidden native picker still allows Enter interception', () => {
+  const { plugin, context } = instance();
+  transclusionEnterSetup(plugin, context);
+  const cases = [
+    nativePickerNode({ hidden: true }),
+    nativePickerNode({ getAttribute: (a) => a === 'aria-hidden' ? 'true' : null }),
+    nativePickerNode({ className: 'cmdpal--inline hidden', classList: classListSet(['cmdpal--inline', 'hidden']) })
+  ];
+  for (const portal of cases) {
+    context.document.querySelectorAll = () => [portal];
+    const e = keyEvent('Enter');
+    plugin._handleWbEnter(e);
+    assert.ok(e.prevented, `hidden picker (${portal.hidden ? 'hidden' : portal.getAttribute('aria-hidden') || 'class'}) must still intercept`);
+    assert.ok(e.stopped, 'hidden picker must still stop propagation');
+  }
+});
+
+// ── v4.49.7: the native @ picker owns Enter AND the click that commits it ─────
+
+// The caret line's own text element, so _wbEnterHasOpenTrigger reads the live
+// DOM rather than falling back to _lineTextByGuid.
+function ownTextContainer(text) {
+  const container = {
+    isConnected: false,
+    closest: (sel) => sel === '.transclusion-container-div' ? container : null,
+    querySelector: (sel) => sel === ':scope > .listitem-text' ? { textContent: text } : null
+  };
+  return container;
+}
+
+test('A1-01d: uncommitted @ trigger on the caret line yields Enter to the native picker', () => {
+  const { plugin, context } = instance();
+  context.localStorage.setItem('refx_transclusion_enter', '1');
+  for (const text of ['so @today', 'meet @', 'due @tod']) {
+    const container = ownTextContainer(text);
+    plugin._detect = () => ({ lineGuid: 'LINE1', lineNode: container });
+    const e = keyEvent('Enter');
+    plugin._handleWbEnter(e);
+    assert.ok(!e.prevented, `"${text}" must not trigger preventDefault`);
+    assert.ok(!e.stopped, `"${text}" must not stop propagation`);
+  }
+});
+
+test('A1-01e: committed text (no open @ trigger) still intercepts Enter', async () => {
+  const { plugin, context } = instance();
+  context.localStorage.setItem('refx_transclusion_enter', '1');
+  for (const text of ['so @today ', 'plain line', 'mail svyk@icloud.com now']) {
+    const container = ownTextContainer(text);
+    plugin._detect = () => ({ lineGuid: 'LINE1', lineNode: container });
+    context.window.g_universe.itemsByGuid['LINE1'] = { guid: 'LINE1', rguid: 'REC1', props: {}, parent_guid: null };
+    plugin.data = { getRecord: () => ({ getLineItems: async () => [], createLineItem: async () => null }) };
+    plugin._hitTestCaret = () => {};
+    plugin._toast = () => {};
+    const e = keyEvent('Enter');
+    plugin._handleWbEnter(e);
+    assert.ok(e.prevented, `"${text}" must still be intercepted`);
+  }
+});
+
+test('A1-01f: uncommitted @ read from _lineTextByGuid when the DOM text is unavailable', () => {
+  const { plugin, context } = instance();
+  const container = transclusionEnterSetup(plugin, context); // querySelector → null
+  assert.equal(container.querySelector(':scope > .listitem-text'), null);
+  plugin._lineTextByGuid = () => 'so @today';
+  const e = keyEvent('Enter');
+  plugin._handleWbEnter(e);
+  assert.ok(!e.prevented, 'data-side @ trigger must not trigger preventDefault');
+});
+
+test('A1-01g: .omni-overlay counts as a visible native picker', () => {
+  const { plugin, context } = instance();
+  transclusionEnterSetup(plugin, context);
+  const portal = nativePickerNode({ className: 'omni-overlay', classList: classListSet(['omni-overlay']) });
+  context.document.querySelectorAll = () => [portal];
+  const e = keyEvent('Enter');
+  plugin._handleWbEnter(e);
+  assert.ok(!e.prevented, 'omni-overlay picker must not trigger preventDefault');
+  assert.ok(plugin._nativePickerRootSelector().includes('.omni-overlay'), 'root selector must list .omni-overlay');
+  assert.ok(plugin._nativePickerSelector().includes('.omni-overlay'), 'node selector must list .omni-overlay');
+});
+
+// ── v4.49.7 _wbFocusFix: a click that commits the picker is not a split-focus ──
+
+function focusFixSetup(plugin, context, opts = {}) {
+  const calls = [];
+  plugin._hitTestCaret = (node) => calls.push(node);
+  plugin._wbFocusSuppressUntil = 0;
+  const wbEl = { classList: classListSet(['editor-panel', 'refx-wb-live', 'focused-component']) };
+  const textNode = { text: true };
+  const thread = {
+    closest: () => null, // caret is in the MAIN panel → split focus
+    querySelector: (sel) => sel === '.lineitem-text' ? textNode : null
+  };
+  context.document.querySelector = (sel) => {
+    if (sel === '.editor-panel.refx-wb-live') return wbEl;
+    if (sel === '.flowythymer-thread-target') return thread;
+    return null;
+  };
+  context.document.querySelectorAll = () => opts.pickers || [];
+  const pickerSel = plugin._nativePickerSelector();
+  const target = {
+    nodeType: 1,
+    matches: () => false,
+    querySelectorAll: (sel) => (opts.targetHasPickerDescendant && sel === pickerSel) ? [nativePickerNode()] : [],
+    closest: (sel) => {
+      if (sel === '.editor-panel.refx-wb-live') return wbEl;
+      if (sel === '.transclusion-container-div') return { tx: true };
+      if (sel === pickerSel) return opts.targetInPicker ? nativePickerNode({ nodeType: 1, matches: (s) => s === pickerSel }) : null;
+      return null;
+    }
+  };
+  return { calls, target, textNode };
+}
+
+test('A2-10: click inside a WB transclusion still repairs split focus when no picker is open', async () => {
+  const { plugin, context } = instance();
+  const { calls, target, textNode } = focusFixSetup(plugin, context);
+  plugin._wbFocusFix({ isTrusted: true, target });
+  await new Promise((r) => setTimeout(r, 10));
+  assert.equal(calls.length, 1, 'settle-check must run with no picker open');
+  assert.equal(calls[0], textNode);
+});
+
+test('A2-11: a visible native picker suppresses the _wbFocusFix settle-check', async () => {
+  const { plugin, context } = instance();
+  const { calls, target } = focusFixSetup(plugin, context, { pickers: [nativePickerNode()] });
+  plugin._wbFocusFix({ isTrusted: true, target });
+  await new Promise((r) => setTimeout(r, 10));
+  assert.equal(calls.length, 0, 'visible picker must not yank the caret mid-commit');
+});
+
+test('A2-12: clicking a picker row (or its descendant) suppresses the settle-check', async () => {
+  for (const opts of [{ targetInPicker: true }, { targetHasPickerDescendant: true }]) {
+    const { plugin, context } = instance();
+    const { calls, target } = focusFixSetup(plugin, context, opts);
+    plugin._wbFocusFix({ isTrusted: true, target });
+    await new Promise((r) => setTimeout(r, 10));
+    assert.equal(calls.length, 0, 'a click on the picker itself must not run the settle-check');
+  }
 });
 
 test('A1-02: Enter on root line creates first-child (parent=root, after=null)', async () => {

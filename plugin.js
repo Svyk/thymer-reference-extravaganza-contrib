@@ -1,4 +1,6 @@
-// v4.48.6 - Inline references lead with Block Context and retain source-page provenance at every chain hop.
+// v4.49.7 - Workbench click/Enter yield to the native @ date picker; Datacore widgets refresh in the Workbench; header drag-reorder.
+// Previous release: left-click ref menu clamps to the remaining window pocket (chain/Block Context reservations shrink so action rows stay visible); outgoing chain reserves inside the chain budget; hover preview reads structure-only bodies; chip chain scan caps cold resolves; line count shares the @linkto search.
+// Previous release: inline fill no longer waits on collapse meta; inline chain root reuses fill rows; shared @linkto search; badge prefers fresh RefX count over native pill floor.
 // Previous release: media review hardening held image skeletons until decode, pinned preview geometry, bounded/reaped the viewport queue, gated hover media sweeps, and hardened disposal/error forensics.
 // v4.45.0 - Media renders inside references: image/file lines in linked-reference rows, child subtrees, block-context outlines, and chain rows paint real lazy previews (viewport-gated, reserved skeleton box, fail-closed filename chip, cold rows rehydrated to a blob-capable line by guid), and a chip whose target is an image/file line shows a small lazy thumbnail under the hover-popup title. Forensics via window.__REFX_MEDIA_STATS.
 // v4.44.0 - Reference chains include bounded child-subtree refs with provenance; popup sections are lifecycle-safe; cold-owner cycle checks converge through rendered/live fallbacks; contentless titles and property-reference breadcrumbs stay honest.
@@ -631,6 +633,8 @@ class Plugin extends AppPlugin {
   _wbFilterBar = null; // the filter/count/clear decorator bar
   _wbMigrated = false;
   _wbLiveRefreshT = 0;
+  _wbDatacorePokeT = 0; // throttle handle for the post-decorate Datacore refresh poke
+  _wbDrag = null; // {lineGuid} while a Workbench header drag-reorder is in flight
   _wbPendingCollapse = null; // lineGuid -> {collapsed, until}: optimistic fold state until meta read-back confirms
   // v3.55.0 WB body fold twisties: per-body-line fold/unfold overlays.
   // _wbFoldTwists key = wbLineGuid + ">" + bodyLineGuid -> {node, wbLineGuid, bodyLineGuid}
@@ -652,8 +656,14 @@ class Plugin extends AppPlugin {
     // still point at the PREVIOUS caret line in the MAIN panel, and the
     // "fix" would yank the caret there (the post-Enter jump bug).
     if (!e.isTrusted) return;
+    // v4.49.7: while a native inline picker (@ date / autocomplete / omni
+    // overlay) is open, the click IS the commit. Running the settle-check then
+    // yanks the caret to the main panel mid-commit and the picker closes
+    // without inserting anything (the "@today does nothing" bug).
+    if (this._nativeInlinePickerVisible()) return;
     // Only clicks inside a WB transclusion body (not headers/buttons/cards).
     if (!e.target || !e.target.closest) return;
+    if (this._isNativePickerNode(e.target, true)) return;
     if (!e.target.closest(".editor-panel.refx-wb-live")) return;
     if (e.target.closest(".refx-wb-hdr, .refx-propcard, .refx-wb-filterbar, .refx-wb-vmenu")) return;
     if (!e.target.closest(".transclusion-container-div")) return;
@@ -710,6 +720,8 @@ class Plugin extends AppPlugin {
   _REF_CHAIN_MORE_BATCH = 40;
   _REF_CHAIN_AUTO_CONCURRENCY = 2;
   _REF_CHAIN_JOB_TIMEOUT_MS = 3000;
+  _INLINE_FILL_TIMEOUT_MS = 20000;
+  _inboundRefQuery = null;
   _refChainUiGeneration = 0;
   _refChainTreeDiagnostics = null;
   _refChainTreeStates = new Set();
@@ -3415,6 +3427,7 @@ class Plugin extends AppPlugin {
   _handleWbEnter = (e) => {
     if (e.key !== "Enter" || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
     if (this._modal || this._link || this._cardEditing || this._cardNav) return;
+    if (this._nativeInlinePickerVisible()) return;
     // Kill-switch (default on).
     if (!this.loadBoolSetting("refx_transclusion_enter", true)) return;
     const hit = this._detect();
@@ -3422,9 +3435,39 @@ class Plugin extends AppPlugin {
     // Match ANY .transclusion-container-div in the document (WB and main embeds).
     const containerBody = hit.lineNode.closest && hit.lineNode.closest(".transclusion-container-div");
     if (!containerBody) return;
+    // v4.49.7: an uncommitted native trigger ("@", "@tod", "@today") owns Enter
+    // even when the picker portal isn't matched by _nativePickerRootSelector
+    // (Thymer's datetime UI can be mounted under a class we don't know). Read
+    // the caret line's LIVE text — synchronously, no SDK round-trip — and yield.
+    if (this._wbEnterHasOpenTrigger(hit)) return;
     e.preventDefault(); e.stopImmediatePropagation();
     this._wbCreateSiblingBelow(hit, containerBody).catch(() => {});
   };
+
+  // True when the caret line still carries an UNCOMMITTED native trigger, i.e.
+  // its text ends in "@..." with no whitespace after the sigil. Enter then
+  // belongs to Thymer's own datetime/mention commit, not to our line creation.
+  // Own row only: hit.lineNode is the .listitem, whose descendants include the
+  // line's children.
+  _wbEnterHasOpenTrigger(hit) {
+    const OPEN_TRIGGER = /@[^\s]*$/;
+    const clean = (s) => String(s == null ? "" : s).replace(/[\u200b\u200c\ufeff]/g, "");
+    try {
+      const node = hit && hit.lineNode;
+      const own = node && node.querySelector && (
+        node.querySelector(":scope > .listitem-text")
+        || node.querySelector(":scope > .line-div > .listitem-text")
+        || node.querySelector(":scope > .line-div")
+      );
+      const domText = own ? clean(own.textContent) : "";
+      if (domText) return OPEN_TRIGGER.test(domText);
+    } catch (_) {}
+    try {
+      const text = clean(this._lineTextByGuid(hit && hit.lineGuid));
+      if (text) return OPEN_TRIGGER.test(text);
+    } catch (_) {}
+    return false;
+  }
 
   async _wbCreateSiblingBelow(hit, containerBody) {
     const st = ((window.g_universe && window.g_universe.itemsByGuid) || {})[hit.lineGuid] || this._liveStateByGuid(hit.lineGuid);
@@ -4026,15 +4069,18 @@ class Plugin extends AppPlugin {
     const t = e.target;
     if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)
         && t.closest && t.closest(".refalias-pop, .refalias-modal, .refalias-backdrop, .refx-propcard, .trc-ref-popover")) return;
-    const info = this._caretInfo();
+    const info = this._caretInfo({ fallback: true });
     if (!info || !info.lineGuid) return; // no editor caret → native paste
-    const stash = window.__refxCopiedRef;
-    const asTransclusion = !!(stash && stash.guid === m[1] && stash.asTransclusion === true);
-    if (!asTransclusion && typeof info.offset !== "number") return;
+    const asTransclusion = this._pasteIntentFor(m[1]) === "transclusion";
     e.preventDefault();
     e.stopImmediatePropagation();
-    if (asTransclusion) this._bridgeCreateEmbed(info.lineGuid, m[1], { forceTransclusion: true }).catch(() => {});
-    else this._insertRefAtCaret(m[1], info);
+    if (asTransclusion) {
+      this._bridgeCreateEmbed(info.lineGuid, m[1], { forceTransclusion: true })
+        .then((ok) => {
+          if (ok && window.__refxCopiedRef) window.__refxCopiedRef.consumedAt = Date.now();
+        })
+        .catch(() => {});
+    } else this._insertRefAtCaret(m[1], info);
   };
 
   onLoad() {
@@ -4122,7 +4168,7 @@ class Plugin extends AppPlugin {
     this._attachAttributesClaims();
     this._referenceSurfaceBroker = this._initReferenceSurfaceBroker(); // R1 + A1: Reference Surface v1
     this._referenceEditsBroker = this._initReferenceEditsBroker();
-    try { window.__REFX_VERSION = "4.48.6"; } catch (e) {} // live-version tell for debugging
+    try { window.__REFX_VERSION = "4.49.7"; } catch (e) {} // live-version tell for debugging
     try {
       this._moveGeneration = Number(window.__refxMoveGeneration || 0) + 1;
       window.__refxMoveGeneration = this._moveGeneration;
@@ -5212,6 +5258,7 @@ class Plugin extends AppPlugin {
     if (this._wbStatusItem) { try { this._wbStatusItem.remove(); } catch (e) {} this._wbStatusItem = null; }
     this._wbLiveTeardownObserver(); // live headers + panel observer + filter bar
     if (this._wbLiveRefreshT) { try { clearTimeout(this._wbLiveRefreshT); } catch (e) {} this._wbLiveRefreshT = 0; }
+    if (this._wbDatacorePokeT) { try { clearTimeout(this._wbDatacorePokeT); } catch (e) {} this._wbDatacorePokeT = 0; }
     this._wbBackingRecord = null;
     this._wbBackingGuid = null;
     this._wbBackingValidatedGuid = null;
@@ -5362,6 +5409,34 @@ class Plugin extends AppPlugin {
     } catch (e) { return null; }
   }
 
+  // Live-search (q:) result rows are VIRTUAL lines: empty text, ephemeral V-guid,
+  // props.itemref → the real source line. Adding the V-guid to the Workbench
+  // creates an unresolvable transclusion (0 items). Same remap _detect() uses.
+  _resolveCanonicalLineGuid(guid, lineNode) {
+    guid = String(guid || "").trim();
+    if (!guid) return guid;
+    const uni = (window.g_universe && window.g_universe.itemsByGuid) || {};
+    const fromState = (g) => {
+      let st = null;
+      try { st = uni[g] || this._liveStateByGuid(g); } catch (e) { st = uni[g] || null; }
+      const real = st && st.is_virtual && st.props && st.props.itemref
+        ? String(st.props.itemref).trim()
+        : "";
+      return real || g;
+    };
+    const mapped = fromState(guid);
+    if (mapped !== guid) return mapped;
+    try {
+      const esc = (window.CSS && CSS.escape) ? CSS.escape(guid) : (/^[A-Za-z0-9_-]+$/.test(guid) ? guid : "");
+      const node = lineNode
+        || (esc ? document.querySelector('.listitem[data-guid="' + esc + '"]') : null);
+      const li = node?.closest?.(".listitem[data-guid]") || node;
+      if (!li?.closest?.(".query-container-div")) return guid;
+      const rowGuid = String(li.getAttribute("data-guid") || "").trim();
+      return rowGuid ? fromState(rowGuid) : guid;
+    } catch (e) { return guid; }
+  }
+
   _detect() {
     const lvs = (window.g_universe && window.g_universe.listviews) || [];
     let best = null;
@@ -5448,18 +5523,9 @@ class Plugin extends AppPlugin {
       // text run.
       const segs = this._segmentsFromState(st);
       const chipLen = (s) => this._segmentCaretLength(s);
-      const flatOffset = (pos) => {
-        const pairIdx = pos.linespan ? pos.linespan.segment_index : null;
-        const ordinal = (typeof pairIdx === "number") ? Math.floor(pairIdx / 2) : null;
-        const localOff = typeof pos.grapheme_offset === "number" ? pos.grapheme_offset : 0;
-        if (ordinal == null || ordinal === 0) return localOff;
-        let acc = 0;
-        for (let i = 0; i < ordinal && i < segs.length; i++) acc += chipLen(segs[i]);
-        return acc + localOff;
-      };
 
-      const start = flatOffset(fp);
-      const end = flatOffset(lp);
+      const start = this._flatCaretOffset(fp, st);
+      const end = this._flatCaretOffset(lp, stEnd);
       if (start >= end) return null;
 
       // Reject if any atomic segment lies wholly inside [start, end).
@@ -5743,6 +5809,7 @@ class Plugin extends AppPlugin {
   // Current display text of a line item by guid. Used as the blank-fallback for
   // text-reference aliases (a line ref has no page name to fall back to).
   _lineTextByGuid(guid) {
+    guid = this._resolveCanonicalLineGuid(guid);
     const segs = this._liveSegs(guid);
     return segs ? this._cleanDisplayText(segs).trim() : "";
   }
@@ -12810,12 +12877,15 @@ class Plugin extends AppPlugin {
     return job;
   }
 
+  // v4.49.7: .omni-overlay is Thymer's z-99999 role=dialog overlay (the same
+  // node the fleet's _anyOverlayOpen() checks). The native @-date UI can mount
+  // there instead of .cmdpal--inline, which is why Enter/click still reached us.
   _nativePickerSelector() {
-    return '.cmdpal--inline, .cmdpal--dialog, .autocomplete, .autocomplete--menu, .autocomplete--option, [role="listbox"], [role="option"], [role="combobox"][aria-expanded="true"]';
+    return '.cmdpal--inline, .cmdpal--dialog, .omni-overlay, .autocomplete, .autocomplete--menu, .autocomplete--option, [role="listbox"], [role="option"], [role="combobox"][aria-expanded="true"]';
   }
 
   _nativePickerRootSelector() {
-    return '.cmdpal--inline, .cmdpal--dialog, .autocomplete, .autocomplete--menu, [role="listbox"], [role="combobox"][aria-expanded="true"]';
+    return '.cmdpal--inline, .cmdpal--dialog, .omni-overlay, .autocomplete, .autocomplete--menu, [role="listbox"], [role="combobox"][aria-expanded="true"]';
   }
 
   _isRefxUiNode(node) {
@@ -12966,9 +13036,10 @@ class Plugin extends AppPlugin {
         this._tagReferenceChip(chip, tg);
       }
       try {
-        const host = this.resolveTargetBadgeHost(li);
-        const tb = host && host.querySelector(':scope > .trc-target-badge-wrap');
+        const countHost = this.resolveTargetCountHost(li);
+        const tb = countHost && countHost.querySelector(':scope > .trc-target-badge-wrap');
         if (tb) { const e = this._liveTargetBadges.get(lineGuid); if (!e || e.node !== tb) this._liveTargetBadges.set(lineGuid, { node: tb, lineGuid }); }
+        const host = this.resolveTargetBadgeHost(li);
         // v3.47.0: adopt checkbox overlays present on this line's host (registry
         // survives a reap; dataset carries guid + ordinal for the key).
         if (host) {
@@ -14299,7 +14370,7 @@ class Plugin extends AppPlugin {
     this._cardEditing = true;
     const backdrop = this._el("div", "refx-pop-backdrop");
     document.body.append(backdrop, pop);
-    this._positionPopover(pop, [anchorEl]);
+    this._positionPopover(pop, [anchorEl], opts.reserveHeight ? { reserveHeight: opts.reserveHeight } : null);
     backdrop.addEventListener("mousedown", (e) => { e.preventDefault(); this._closeCardPopup(); });
     let onKey, resync = null, selectTopRow = null;
     if (opts.onKey) {
@@ -14584,8 +14655,21 @@ class Plugin extends AppPlugin {
 
   // ------------------------------------------------- inline (( text references
 
+  // Flatten a listview caret pos into the editor's grapheme space. Missing
+  // linespan / ordinal 0 stay at the local grapheme_offset (not null).
+  _flatCaretOffset(pos, state) {
+    const pairIdx = pos.linespan ? pos.linespan.segment_index : null;
+    const ordinal = (typeof pairIdx === "number") ? Math.floor(pairIdx / 2) : null;
+    const localOff = typeof pos.grapheme_offset === "number" ? pos.grapheme_offset : 0;
+    if (ordinal == null || ordinal === 0) return localOff;
+    const segs = this._segmentsFromState(state);
+    let acc = 0;
+    for (let i = 0; i < ordinal && i < segs.length; i++) acc += this._segmentCaretLength(segs[i]);
+    return acc + localOff;
+  }
+
   // The caret's line + grapheme offset, read from the global listview registry.
-  _caretInfo() {
+  _caretInfo(opts) {
     const lvs = (window.g_universe && window.g_universe.listviews) || [];
     let best = null;
     for (const lv of lvs) {
@@ -14598,7 +14682,46 @@ class Plugin extends AppPlugin {
         if (!best) best = cand;
       } catch (e) {}
     }
-    if (!best) return null;
+    if (!best) {
+      if (opts && opts.fallback === true) {
+        try {
+          const r = window.g_range;
+          const fp = r && r.first_pos;
+          const lp = r && r.last_pos;
+          const fpSt = fp && fp.list_item && fp.list_item.state;
+          const lpSt = lp && lp.list_item && lp.list_item.state;
+          if (fpSt && lpSt && fpSt.guid === lpSt.guid) {
+            const collapsed = fp.linespan === lp.linespan
+              && fp.grapheme_offset === lp.grapheme_offset;
+            if (!collapsed) return null;
+            return {
+              lineGuid: fpSt.guid,
+              pageGuid: fpSt.rguid || this._pageGuidFromDom(fpSt.guid),
+              offset: typeof fp.grapheme_offset === "number" ? this._flatCaretOffset(fp, fpSt) : null,
+              state: fpSt,
+              caretEl: null,
+              anchorNode: fp.linespan ? fp.linespan.$node : null,
+            };
+          }
+        } catch (e) {}
+        try {
+          const el = this.refxCaretLine();
+          if (el) {
+            const lineGuid = el.getAttribute('data-guid');
+            const state = this._liveStateByGuid(lineGuid);
+            return {
+              lineGuid,
+              pageGuid: (state && state.rguid) || this._pageGuidFromDom(lineGuid),
+              offset: null,
+              state,
+              caretEl: null,
+              anchorNode: null,
+            };
+          }
+        } catch (e) {}
+      }
+      return null;
+    }
     const st = best.pos.list_item.state;
     return {
       lineGuid: st.guid,
@@ -14607,7 +14730,7 @@ class Plugin extends AppPlugin {
       // self-reference checks; write paths resolve the real PluginLineItem via
       // _resolveLineItemByGuid because data.getRecord(S-...) returns null.
       pageGuid: st.rguid || this._pageGuidFromDom(st.guid),
-      offset: best.pos.grapheme_offset,
+      offset: typeof best.pos.grapheme_offset === "number" ? best.pos.grapheme_offset : null,
       state: st,
       caretEl: best.caret && best.caret.$caret,
       anchorNode: best.pos.linespan ? best.pos.linespan.$node : null,
@@ -14750,7 +14873,7 @@ class Plugin extends AppPlugin {
       || (info.caretEl && info.caretEl.closest && info.caretEl.closest(".listitem"))
       || null;
     const anchors = [lineNode, info.caretEl, info.anchorNode];
-    this._positionPopover(pop, anchors);
+    this._positionPopover(pop, anchors, { fit: false });
     this._attachLinkPositioning(this._link, pop, anchors);
     window.addEventListener("keydown", this._linkKey, true);
     document.addEventListener("mousedown", this._linkClickOutside, true);
@@ -14805,7 +14928,7 @@ class Plugin extends AppPlugin {
       link.positionRaf = requestAnimationFrame(() => {
         link.positionRaf = 0;
         if (this._link !== link || !pop.isConnected) return;
-        this._positionPopover(pop, link.positionAnchors);
+        this._positionPopover(pop, link.positionAnchors, { fit: false });
       });
       if (window.__refxLinkPosition?.handler === handler) window.__refxLinkPosition.raf = link.positionRaf;
     };
@@ -18581,6 +18704,12 @@ class Plugin extends AppPlugin {
         }
       } catch (e) { if (_visiblyEmpty(lineDisplayTitle) || lineDisplayTitle === result.guid) lineDisplayTitle = '(untitled block)'; }
     }
+    if (kind !== 'record') {
+      try {
+        const livePick = this._lineTextByGuid(result.guid);
+        if (livePick && this._isHostLineRefSlug(lineDisplayTitle, livePick)) lineDisplayTitle = livePick;
+      } catch (e) {}
+    }
     const ref = { type: "ref", text: kind === "record"
       ? (recordDisplayTitle ? { guid: result.guid, title: String(recordDisplayTitle) } : { guid: result.guid })
       : { guid: result.guid, title: String(lineDisplayTitle) } };
@@ -18773,11 +18902,17 @@ class Plugin extends AppPlugin {
     this._toast(text ? 'Copied reference to "' + text.slice(0, 40) + '"' : "Copied reference");
   }
 
+  _pasteIntentFor(guid) {
+    const stash = window.__refxCopiedRef;
+    if (stash && stash.guid === guid && stash.asTransclusion === true && !stash.consumedAt) return "transclusion";
+    return "chip";
+  }
+
   // Insert the copied reference at the caret as an inline chip. The clipboard
   // wins when it holds a thymer-ref:// URI (works after a reload or from another
   // tab); otherwise the in-session stash. Nothing is removed from the line.
   async _pasteRef() {
-    const info = this._caretInfo();
+    const info = this._caretInfo({ fallback: true });
     if (!info || !info.lineGuid) { this._toast("Put the caret where the reference should go"); return; }
     let guid = null;
     try {
@@ -18793,11 +18928,11 @@ class Plugin extends AppPlugin {
     const stash = window.__refxCopiedRef;
     if (!guid && stash) guid = stash.guid;
     if (!guid) { this._toast('Nothing to paste — run "Copy reference to current line" first'); return; }
-    if (stash && stash.guid === guid && stash.asTransclusion === true) {
+    if (this._pasteIntentFor(guid) === "transclusion") {
       await this._bridgeCreateEmbed(info.lineGuid, guid, { forceTransclusion: true });
+      if (window.__refxCopiedRef) window.__refxCopiedRef.consumedAt = Date.now();
       return;
     }
-    if (typeof info.offset !== "number") { this._toast("Put the caret where the reference should go"); return; }
     await this._insertRefAtCaret(guid, info);
   }
 
@@ -18807,20 +18942,23 @@ class Plugin extends AppPlugin {
   // untitled so the chip tracks the live page name) and insert a ref segment
   // at the caret via _insertAt.
   async _insertRefAtCaret(guid, info) {
-    info = info || this._caretInfo();
-    if (!info || !info.lineGuid || typeof info.offset !== "number") { this._toast("Put the caret where the reference should go"); return false; }
+    info = info || this._caretInfo({ fallback: true });
+    if (!info || !info.lineGuid) { this._toast("Put the caret where the reference should go"); return false; }
     if (guid === info.lineGuid) { this._toast("That reference points at this line"); return false; }
     let title = "";
     if (!this.data.getRecord(guid)) {
       title = this._lineTextByGuid(guid);
       if (!title) { const stash = window.__refxCopiedRef; if (stash && stash.guid === guid) title = stash.text || ""; }
+      const liveText = this._lineTextByGuid(guid);
+      if (liveText && title && this._isHostLineRefSlug(title, liveText)) title = liveText;
     }
     const li = await this._resolveLineItemByGuid(info.lineGuid, info.pageGuid);
     if (!li) return false;
     const liveState = this._liveStateByGuid(info.lineGuid);
     const segs = liveState ? this._segmentsFromState(liveState) : (li.segments || []).map((s) => ({ type: s.type, text: s.text }));
     if (!this._lineRefGuids?.has(info.lineGuid)) this._lineRefGuids?.set(info.lineGuid, this.extractRefGuidsFromSegments(segs));
-    const off = Math.min(Math.max(0, info.offset), this._splitGraphemes(this._lineText(segs)).length);
+    const lineLen = this._splitGraphemes(this._lineText(segs)).length;
+    const off = typeof info.offset === "number" ? Math.min(Math.max(0, info.offset), lineLen) : lineLen;
     const ref = { type: "ref", text: title ? { guid, title } : { guid } };
     const ordinal = title ? segs.filter((s) => s.type === 'ref' && (typeof s.text === 'string' ? s.text : s.text?.guid) === guid).length : 0;
     let wrote = false;
@@ -19002,9 +19140,11 @@ class Plugin extends AppPlugin {
   // resolvers, and a genuinely empty line says so explicitly. null is reserved
   // for a GUID whose line state/segments could not be read at all.
   _readableLineTitle(lineOrGuid, suppliedSegments = null) {
-    const guid = typeof lineOrGuid === "string"
+    const rawGuid = typeof lineOrGuid === "string"
       ? lineOrGuid
       : String(lineOrGuid?.guid || "");
+    const lineNode = typeof lineOrGuid === "object" && lineOrGuid ? lineOrGuid : null;
+    const guid = this._resolveCanonicalLineGuid(rawGuid, lineNode);
     let line = typeof lineOrGuid === "object" && lineOrGuid ? lineOrGuid : null;
     let state = null;
     if (guid) {
@@ -19128,12 +19268,49 @@ class Plugin extends AppPlugin {
     return null;
   }
 
+  // Thymer paints untitled line refs as underscore slugs (spaces → _). Detect
+  // when a stored/display title is that slug so heal paths can restore live text.
+  _isHostLineRefSlug(title, liveText) {
+    if (!title || !liveText) return false;
+    const t = String(title).trim();
+    const live = String(liveText).trim();
+    if (!t || !live) return false;
+    if (!live.includes(' ')) return false;
+    if (t.includes(' ') || !t.includes('_')) return false;
+    return t === live.replace(/ /g, '_');
+  }
+
+  // v4.48.8: Display-time heal for slug-painted chips already on screen.
+  // Conditional write on the chip title node only — no segment/caret mutation.
+  _healHostLineRefSlugChipTitles(refs) {
+    if (!refs || !refs.length) return;
+    for (const ref of refs) {
+      try {
+        const chip = ref.el;
+        const targetGuid = ref.guid;
+        if (!chip || !targetGuid || !chip.isConnected) continue;
+        if (this._referenceTargetKind(targetGuid) === 'record') continue;
+        const live = this._lineTextByGuid(targetGuid);
+        if (!live) continue;
+        const display = this._refChipDisplayTitle(chip);
+        if (!this._isHostLineRefSlug(display, live)) continue;
+        const titleEl = chip.querySelector('.lineitem-ref-title');
+        if (titleEl) {
+          if (titleEl.textContent !== live) titleEl.textContent = live;
+        } else if (chip.textContent !== live) {
+          chip.textContent = live;
+        }
+      } catch (e) {}
+    }
+  }
+
   // v4.24.0: Self-heal scan for existing "[Title missing]" chips. Called from
   // _scanPanelImpl (async, fire-and-forget). For every line-ref segment in the
   // current panel whose stored title is empty, visually-empty, the literal
-  // placeholder, or a raw GUID, resolves the target's live text (g_universe →
-  // listview → synthesis) and rewrites the segment once per session. Throttled
-  // by a per-session Set so the same chip isn't rewritten on every scan trigger.
+  // placeholder, a raw GUID, or a Thymer underscore slug, resolves the target's
+  // live text (g_universe → listview → synthesis) and rewrites the segment once
+  // per session. Throttled by a per-session Set so the same chip isn't rewritten
+  // on every scan trigger.
   async _healLineRefTitleScan(editorRoot) {
     if (!editorRoot) return;
     if (!this._healedLineRefTitles) this._healedLineRefTitles = new Set();
@@ -19163,9 +19340,7 @@ class Plugin extends AppPlugin {
           // not record-kind proof.
           if (this._referenceTargetKind(t.guid) === 'record') return seg;
           const title = typeof t.title === 'string' ? t.title : '';
-          const isBroken = _visiblyEmpty(title) || title === '(empty) ▸' || title === '[Title missing]' || title === t.guid || title === '(untitled block)';
-          if (!isBroken) return seg;
-          // Resolve live text for the target line
+          // Resolve live text for the target line before the broken check
           let resolved = '';
           const univSt = byGuid[t.guid];
           if (univSt) resolved = this._cleanDisplayText(this._segmentsFromState(univSt)).trim();
@@ -19177,6 +19352,9 @@ class Plugin extends AppPlugin {
             const synth = this._synthesizeLineTitle(t.guid);
             if (synth && !_visiblyEmpty(synth)) resolved = synth;
           }
+          const isBroken = _visiblyEmpty(title) || title === '(empty) ▸' || title === '[Title missing]' || title === t.guid || title === '(untitled block)' || this._isHostLineRefSlug(title, resolved);
+          if (!isBroken) return seg;
+          if (title === resolved) return seg;
           if (!resolved || _visiblyEmpty(resolved)) return seg; // can't heal yet
           needsHeal = true;
           return { type: 'ref', text: { guid: t.guid, title: resolved } };
@@ -19226,6 +19404,11 @@ class Plugin extends AppPlugin {
             if (sc && !this._hasGuidToken(sc)) return sc;
           }
           return "↗";
+        }
+        if (s.type === "query") {
+          if (typeof raw === "string") return raw;
+          const t = raw || {};
+          return this._scrubGuidTokens(t.query || t.text || t.q || "");
         }
         if (typeof raw === "string") return this._scrubGuidTokens(raw);
         const t = raw || {};
@@ -20282,24 +20465,81 @@ class Plugin extends AppPlugin {
     const maxW = bR - bL;
     if (w > maxW) { pop.style.width = Math.round(maxW) + "px"; w = maxW; }
     const h = pop.offsetHeight || 90;
+    const reserve = opts.fit !== false ? Math.max(0, Number(opts.reserveHeight) || 0) : 0;
+    const hEff = reserve ? Math.max(h, Math.min(reserve, vh - 2 * m)) : h;
+    const applyMaxHeight = (px) => {
+      pop.style.maxHeight = px + "px";
+      if (!this._popoverOwnsOverflow(pop)) pop.style.overflowY = "auto";
+    };
     if (opts.placement === "side") {
+      const cap = vh - 2 * m;
+      if (opts.fit !== false && hEff > cap) applyMaxHeight(cap);
+      const hh = Math.min(hEff, cap);
       let left = rect.right + 6;
       if (left + w > bR) left = rect.left - w - 6;
       if (left < bL) left = bL;
       let top = rect.top;
-      if (top + h > vh - m) top = Math.max(m, vh - m - h);
+      if (top + hh > vh - m) top = Math.max(m, vh - m - hh);
       if (top < m) top = m;
       pop.style.left = Math.round(left) + "px";
       pop.style.top = Math.round(top) + "px";
       return;
     }
+    if (opts.fit === false) {
+      let left = rect.left;
+      if (left + w > bR) left = bR - w;
+      if (left < bL) left = bL;
+      let top = rect.bottom + 6;
+      if (top + h > vh - m && rect.top - h - 6 >= m) top = rect.top - h - 6;
+      pop.style.left = Math.round(left) + "px";
+      pop.style.top = Math.round(top) + "px";
+      return;
+    }
+    const below = vh - m - (rect.bottom + 6);
+    const above = rect.top - 6 - m;
+    let placeAbove = false;
+    if (hEff > below && above > below) placeAbove = true;
+    const pocket = Math.max(48, Math.floor(placeAbove ? above : below));
+    let hh = hEff;
+    if (hEff > pocket || reserve) {
+      applyMaxHeight(pocket);
+      hh = pocket;
+    }
     let left = rect.left;
     if (left + w > bR) left = bR - w;
     if (left < bL) left = bL;
-    let top = rect.bottom + 6;
-    if (top + h > vh - m && rect.top - h - 6 >= m) top = rect.top - h - 6;
+    let top = placeAbove ? rect.top - 6 - hh : rect.bottom + 6;
+    top = Math.min(Math.max(m, top), Math.max(m, vh - m - hh));
     pop.style.left = Math.round(left) + "px";
     pop.style.top = Math.round(top) + "px";
+  }
+
+  _popoverOwnsOverflow(pop) {
+    const cl = pop?.classList;
+    if (!cl?.contains) return false;
+    return cl.contains("refx-refmenu")
+      || cl.contains("refx-submenu")
+      || cl.contains("refx-linemenu")
+      || cl.contains("refx-line-context-pop")
+      || cl.contains("refx-hoverpop");
+  }
+
+  _popoverPocket(anchorEl) {
+    const m = 12;
+    const vh = window.innerHeight;
+    let rect = null;
+    try {
+      if (anchorEl?.getBoundingClientRect
+          && (anchorEl.__refxVirtualAnchor || document.contains(anchorEl))) {
+        const r = anchorEl.getBoundingClientRect();
+        if ((r.width || r.height) && r.top >= 0 && r.top < vh && r.left >= 0) rect = r;
+      }
+    } catch (e) {}
+    if (!rect) return { below: vh - 2 * m, above: 0, best: vh - 2 * m };
+    const below = vh - m - (rect.bottom + 6);
+    const above = rect.top - 6 - m;
+    const best = Math.max(48, Math.floor(Math.max(below, above)));
+    return { below, above, best };
   }
 
   _openShortcutModal() {
@@ -20470,10 +20710,14 @@ class Plugin extends AppPlugin {
   position: fixed; inset: 0; z-index: 2147483000;
   background: rgba(0,0,0,.38); backdrop-filter: blur(2px);
   display: flex; align-items: flex-start; justify-content: center;
-  padding: 14vh 16px 16px;
+  padding: min(14vh, 24px) 16px 16px;
+  box-sizing: border-box;
 }
 .refalias-modal {
   width: min(460px, 96vw);
+  max-height: min(80vh, calc(100vh - 48px));
+  min-height: 0;
+  box-sizing: border-box;
   display: flex; flex-direction: column;
   background: var(--modal-bg, var(--cmdpal-bg-color, #fcfcfd));
   border: 1px solid rgba(127,127,127,.30);
@@ -20484,6 +20728,7 @@ class Plugin extends AppPlugin {
 }
 .refalias-header {
   display: flex; align-items: center; gap: 10px;
+  flex: 0 0 auto;
   padding: 14px 18px; border-bottom: 1px solid rgba(127,127,127,.16);
 }
 .refalias-title { font-size: 15px; font-weight: 600; flex: 1; }
@@ -20493,7 +20738,14 @@ class Plugin extends AppPlugin {
   border-radius: 7px; display: flex; align-items: center; justify-content: center;
 }
 .refalias-x:hover { background: rgba(127,127,127,.18); opacity: 1; }
-.refalias-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+.refalias-body {
+  padding: 16px 18px;
+  display: flex; flex-direction: column; gap: 12px;
+  flex: 1 1 auto; min-height: 0;
+  overflow-y: auto; overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
 .refalias-sub { font-size: 12px; opacity: .6; }
 .refalias-sub b { font-weight: 600; opacity: .95; }
 .refalias-input, .refalias-capture {
@@ -20931,6 +21183,7 @@ class Plugin extends AppPlugin {
 }
 .refalias-footer {
   display: flex; justify-content: flex-end; gap: 10px;
+  flex: 0 0 auto;
   padding: 13px 18px; border-top: 1px solid rgba(127,127,127,.16);
   background: rgba(127,127,127,.04);
 }
@@ -21596,6 +21849,7 @@ class Plugin extends AppPlugin {
   font-size: 12.5px; font-weight: 650;
 }
 .refx-line-context-body { min-height: 74px; max-height: 420px; overflow-y: auto; }
+.refalias-pop.refx-line-context-pop .refx-line-context-body { flex: 1 1 auto; min-height: 0; max-height: none; }
 .refx-line-context-owner {
   padding: 8px 12px 5px; color: var(--color-text-600, var(--text-muted, #9ca3af));
   font-size: 10.5px; font-weight: 650;
@@ -21654,6 +21908,12 @@ class Plugin extends AppPlugin {
 .refx-chain-tree-root {
   max-height: min(180px, 42vh); overflow-y: auto; overscroll-behavior: contain;
   scrollbar-gutter: stable;
+}
+.refx-refmenu > .refx-ref-chain-tree .refx-chain-tree-root {
+  height: var(--refx-refmenu-chain-height, 120px); max-height: none;
+}
+.refx-refmenu > .refx-ref-chain-outgoing {
+  height: var(--refx-refmenu-outgoing-height, auto); overflow-y: auto; box-sizing: border-box;
 }
 .refx-inline-refs > .refx-ref-chain-tree {
   margin: 5px 8px 7px; padding: 6px 7px 7px;
@@ -21785,7 +22045,7 @@ class Plugin extends AppPlugin {
   border-color: transparent;
 }
 .refx-result-count { flex: 0 0 auto; margin-left: 8px; font-size: 10px; opacity: .55; }
-.refx-hoverpop { max-width: 380px; padding: 8px 10px; pointer-events: none; }
+.refx-hoverpop { max-width: 380px; padding: 8px 10px; pointer-events: none; overflow: hidden; }
 .refx-hoverpop.refx-popup-interactive { pointer-events: auto; }
 .refx-pickerpop { width: auto; min-width: 220px; max-width: 320px; }
 .refx-hoverpop-title { font-size: 12px; font-weight: 650; margin-bottom: 2px; }
@@ -21833,22 +22093,41 @@ body.refx-links-distinct .refx-lineref-chip {
   background: transparent;
 }
 body.refx-links-roam .refx-pageref-chip {
-  color: var(--refx-page-link-color, var(--color-accent-500, #4f83cc)) !important;
-  text-decoration: underline solid currentColor;
-  text-underline-offset: 2px;
+  /* Roam .rm-page-ref--link: colored, no underline, no border, transparent bg. */
+  color: var(--refx-page-link-color, #106ba3) !important;
+  text-decoration: none;
   background: transparent;
 }
 body.refx-links-roam .refx-lineref-chip {
+  /* Roam .rm-block-ref: inherit body color, transparent bg, hairline bottom.
+     Roam paints it with padding + border-bottom; Thymer editable chips must not
+     gain padding or border-width (caret law, rule 99), so the hairline is an
+     inset box-shadow (solid) or a 1px background-image (dotted). */
   color: inherit !important;
   text-decoration: none;
   background: transparent;
-  box-shadow: inset 0 -1px 0 var(--refx-roam-underline, rgba(136,153,168,.62));
+  box-shadow: inset 0 -1px 0 var(--refx-line-underline, var(--refx-roam-underline, rgba(138,155,168,.62)));
+}
+body.refx-links-roam.refx-line-underline-none .refx-lineref-chip {
+  box-shadow: none;
+}
+body.refx-links-roam.refx-line-underline-dotted .refx-lineref-chip {
+  box-shadow: none;
+  background-image: repeating-linear-gradient(to right, var(--refx-line-underline, rgba(138,155,168,.62)) 0 2px, transparent 2px 4px);
+  background-size: 100% 1px;
+  background-position: 0 100%;
+  background-repeat: no-repeat;
 }
 body.refx-links-distinct .refx-pageref-chip:hover,
-body.refx-links-distinct .refx-lineref-chip:hover,
-body.refx-links-roam .refx-pageref-chip:hover,
-body.refx-links-roam .refx-lineref-chip:hover {
+body.refx-links-distinct .refx-lineref-chip:hover {
   background: var(--sidebar-bg-hover, rgba(127,127,127,.10));
+}
+body.refx-links-roam .refx-pageref-chip:hover {
+  background: var(--sidebar-bg-hover, rgba(127,127,127,.10));
+}
+body.refx-links-roam .refx-lineref-chip:hover {
+  /* Roam hover wash rgb(245,248,250) on light; a translucent grey maps to both themes. */
+  background-color: var(--refx-line-hover-bg, rgba(127,127,127,.08));
 }
 /* RefX already exposes Open / Open in side panel in its reference menus and
    Cmd/Ctrl+O / Cmd/Ctrl+Shift+O chords. Hide Thymer's redundant hover opener
@@ -22601,7 +22880,10 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
           this._recordRefxError(error, "grabber coordinate line");
         }
         const guid = String(line?.getAttribute?.("data-guid") || "").trim();
-        if (guid) return { guid, line };
+        if (guid) {
+          const canon = this._resolveCanonicalLineGuid(guid, line);
+          return { guid: canon, line };
+        }
       }
     }
 
@@ -22630,7 +22912,10 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
           return null;
         }
         const unique = Array.from(new Set(lines));
-        if (unique.length === 1) return { guid: floatingGuid, line: unique[0] };
+        if (unique.length === 1) {
+          const canon = this._resolveCanonicalLineGuid(floatingGuid, unique[0]);
+          return { guid: canon, line: unique[0] };
+        }
         if (unique.length > 1) return null;
         scope = scope.parentElement;
       }
@@ -22640,7 +22925,10 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     const enclosed = handle?.closest?.(".listitem[data-guid]");
     if (enclosed) {
       const guid = String(enclosed.getAttribute?.("data-guid") || "").trim();
-      if (guid) return { guid, line: enclosed };
+      if (guid) {
+        const canon = this._resolveCanonicalLineGuid(guid, enclosed);
+        return { guid: canon, line: enclosed };
+      }
     }
     const handleGuid = String(handle?.getAttribute?.("data-guid") || "").trim();
     let parent = handle?.parentElement || null;
@@ -22651,11 +22939,17 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       }
       if (handleGuid) {
         const exact = lines.find((line) => String(line.getAttribute?.("data-guid") || "") === handleGuid);
-        if (exact) return { guid: handleGuid, line: exact };
+        if (exact) {
+          const canon = this._resolveCanonicalLineGuid(handleGuid, exact);
+          return { guid: canon, line: exact };
+        }
       }
       if (lines.length === 1) {
         const guid = String(lines[0].getAttribute?.("data-guid") || "").trim();
-        if (guid) return { guid, line: lines[0] };
+        if (guid) {
+          const canon = this._resolveCanonicalLineGuid(guid, lines[0]);
+          return { guid: canon, line: lines[0] };
+        }
       }
       if (parent.matches?.(".listview-items[data-guid]")) break;
       parent = parent.parentElement;
@@ -22706,6 +23000,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
   // target; reuses the ref-menu popup shell + row builder and the same actions
   // (add-to-Workbench, copy reference, jump). No ref/alias/replace rows.
   _openLineMenu(lineGuid, anchorEl, options = {}) {
+    lineGuid = this._resolveCanonicalLineGuid(lineGuid, options.lineNode);
     const selectionContext = options.selectionContext === true;
     const name = selectionContext
       ? "Selection"
@@ -23781,9 +24076,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         // its independent 32-candidate budget; reusing that constant here
         // silently hid rows 33-200 from the automatic tree.
         const searchLimit = limit;
-        const result = await this.data.searchByQuery(
-          '@linkto = "' + guid.replace(/"/g, "") + '"', searchLimit, { signal }
-        );
+        const result = await this._sharedExactRefSearch(guid, searchLimit);
         this._throwIfRefChainAborted(signal);
         if (result?.error) throw new Error(String(result.error));
         const searched = Array.isArray(result?.lines) ? result.lines : [];
@@ -23948,6 +24241,46 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     return { rows, complete, failed, truncated: edges.length > rows.length, indexLookups };
   }
 
+  _refLevelRowsFromCandidates(guid, rawRows, options = {}) {
+    const limit = Math.max(1, Math.min(
+      this._REF_CHAIN_LEVEL_RESOLVE_LIMIT,
+      Math.floor(Number(options.limit ?? this._REF_CHAIN_LEVEL_RESOLVE_LIMIT)
+        || this._REF_CHAIN_LEVEL_RESOLVE_LIMIT)
+    ));
+    const direction = options.direction === "out" ? "out" : "in";
+    let complete = options.complete !== false;
+    let truncated = options.truncated === true || rawRows.length > limit;
+    const knownTotal = options.knownTotal ?? null;
+    const capReason = options.capReason || null;
+    const indexLookups = Number(options.indexLookups) || 0;
+    rawRows = rawRows.slice(0, limit);
+    const rows = new Array(rawRows.length);
+    rawRows.forEach((row, index) => {
+      let countInfo = null;
+      try { countInfo = this.getCachedCountInfo(row.guid); } catch (error) {
+        this._recordRefxError(error, "ref level cached count " + row.guid);
+      }
+      rows[index] = Object.freeze({
+        ...row,
+        inboundCount: countInfo ? Math.max(0, Number(countInfo.count) || 0) : null,
+        inboundCapped: countInfo?.capped === true,
+      });
+    });
+    if (truncated) complete = false;
+    Object.defineProperties(rows, {
+      bridgeVersion: { value: 4, enumerable: false },
+      rootGuid: { value: guid, enumerable: false },
+      direction: { value: direction, enumerable: false },
+      complete: { value: complete, enumerable: true },
+      truncated: { value: truncated, enumerable: true },
+      knownTotal: { value: knownTotal, enumerable: false },
+      capReason: { value: capReason, enumerable: false },
+      indexLookupCount: { value: indexLookups, enumerable: false },
+      countLookupCount: { value: 0, enumerable: false },
+    });
+    return Object.freeze(rows);
+  }
+
   // Resolve exactly one indexed level. The popup scheduler composes these
   // bounded promises into an automatically expanding unbounded tree; pills
   // only collapse/reopen settled branches. The method itself performs no
@@ -24005,31 +24338,15 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         truncated = resolved.truncated;
         indexLookups = resolved.indexLookups;
       }
-      rawRows = rawRows.slice(0, limit);
-      const rows = new Array(rawRows.length);
-      rawRows.forEach((row, index) => {
-        let countInfo = null;
-        try { countInfo = this.getCachedCountInfo(row.guid); } catch (error) {
-          this._recordRefxError(error, "ref level cached count " + row.guid);
-        }
-        rows[index] = Object.freeze({
-          ...row,
-          inboundCount: countInfo ? Math.max(0, Number(countInfo.count) || 0) : null,
-          inboundCapped: countInfo?.capped === true,
-        });
+      const result = this._refLevelRowsFromCandidates(guid, rawRows, {
+        direction,
+        complete,
+        truncated,
+        knownTotal,
+        capReason,
+        indexLookups,
+        limit,
       });
-      Object.defineProperties(rows, {
-        bridgeVersion: { value: 4, enumerable: false },
-        rootGuid: { value: guid, enumerable: false },
-        direction: { value: direction, enumerable: false },
-        complete: { value: complete, enumerable: true },
-        truncated: { value: truncated, enumerable: true },
-        knownTotal: { value: knownTotal, enumerable: false },
-        capReason: { value: capReason, enumerable: false },
-        indexLookupCount: { value: indexLookups, enumerable: false },
-        countLookupCount: { value: 0, enumerable: false },
-      });
-      const result = Object.freeze(rows);
       this._throwIfRefChainAborted(signal);
       if (failed && cached?.result) return cached.result;
       if (failed && options.throwOnFailure === true) {
@@ -25292,6 +25609,15 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     const status = job?._refxInterrupted || outcome?.status || "failed";
     if (status === "cancelled" || status === "capped" || status === "hot-reload") return false;
     if (!this._refChainTreeStateAlive(state) || job.rowEl?.isConnected === false) return false;
+    if (status === "timeout" && job.isRoot && state.deferRoot) {
+      const inlineKey = state.section?.closest?.(".refx-inline-refs")?.dataset?.refxInlineKey;
+      const entry = inlineKey ? this._inlineRefs.get(inlineKey) : null;
+      if (entry?._rawItems?.length) {
+        if (this._settleInlineRefChainRootFromFill(entry, entry._rawItems, {
+          isCapped: entry._rawItems.length >= this._maxResults,
+        })) return true;
+      }
+    }
     if (status === "resolved") {
       return this._settleRefChainTreeResolution(state, job, outcome.value);
     }
@@ -25880,24 +26206,29 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       grouped: true,
       sourceRecordGuid: "",
     };
+    const rootJob = {
+      guid: String(targetGuid), container: tree, parentCtx: rootCtx, isRoot: true,
+    };
+    state.rootJob = rootJob;
+    state.deferRoot = options.deferRoot === true;
     // Mount the shell synchronously, then cross the same rAF -> task boundary
     // used by cold preview shells. A raw rAF callback still runs before paint,
     // so starting an SDK provider inside it can hide the loading shell for the
     // entire frame. Fence every continuation against popup replacement,
     // generation drift, disconnect, unload, and explicit cancellation.
     const startGeneration = state.generation;
-    this._yieldPreviewPaint().then(() => {
-      if (state.cancelled || state.generation !== startGeneration
-          || this._refChainUiGeneration !== startGeneration
-          || section.isConnected === false || tree.isConnected === false) {
-        this._cancelRefChainTreeState(state);
-        return;
-      }
-      if (!this._refChainTreeStateAlive(state)) return;
-      this._queueRefChainTreeResolution(state, {
-        guid: String(targetGuid), container: tree, parentCtx: rootCtx, isRoot: true,
-      });
-    }).catch((error) => this._recordRefxError(error, "ref chain first-paint boundary"));
+    if (options.deferRoot !== true) {
+      this._yieldPreviewPaint().then(() => {
+        if (state.cancelled || state.generation !== startGeneration
+            || this._refChainUiGeneration !== startGeneration
+            || section.isConnected === false || tree.isConnected === false) {
+          this._cancelRefChainTreeState(state);
+          return;
+        }
+        if (!this._refChainTreeStateAlive(state)) return;
+        this._queueRefChainTreeResolution(state, rootJob);
+      }).catch((error) => this._recordRefxError(error, "ref chain first-paint boundary"));
+    }
     return section;
   }
 
@@ -26009,6 +26340,10 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       return section;
     };
     const outgoingSection = append(outgoing, "out");
+    if (body.classList?.contains?.("refx-refmenu") && outgoingSection && !body.dataset.refxOutgoingReserved) {
+      this._reserveRefMenuChainBudget(body, outgoingSection);
+      body.dataset.refxOutgoingReserved = "1";
+    }
     const incomingSection = lazyIncoming
       ? this._appendLazyRefChainTree(body, targetGuid)
       : (wantsIncoming ? append(incoming, "in") : null);
@@ -26073,6 +26408,65 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     return section;
   }
 
+  _fitRefMenuToPocket(pop, contextSection, list, pocketPx) {
+    const ROW = 28;
+    const DIVIDER = 9;
+    const HEAD = 34;
+    const MIN_ACTION_ROWS = 6;
+    const CHAIN_DEFAULT = 120;
+    const CHAIN_MIN = 48;
+    const BC_MIN = 56;
+    const BC_MAX = 200;
+    const CHAIN_CHROME = 44;
+    const BC_CHROME = 26;
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    const rows = list?.children
+      ? [...list.children].filter((n) => n?.classList?.contains?.("refalias-result")).length
+      : 0;
+    const dividers = list?.children
+      ? [...list.children].filter((n) => n?.classList?.contains?.("refx-menu-divider")).length
+      : 0;
+    const actionsPx = rows * ROW + dividers * DIVIDER + 10;
+    const minActionsPx = Math.min(actionsPx, MIN_ACTION_ROWS * ROW + 10);
+    const budget = pocketPx - HEAD - minActionsPx - CHAIN_CHROME - (contextSection ? BC_CHROME : 0);
+    let chain;
+    let cap = BC_MAX;
+    if (!contextSection) {
+      chain = clamp(budget, CHAIN_MIN, CHAIN_DEFAULT);
+    } else if (budget >= CHAIN_DEFAULT + BC_MAX) {
+      chain = CHAIN_DEFAULT;
+      cap = BC_MAX;
+    } else {
+      chain = clamp(Math.round(budget * 0.45), CHAIN_MIN, CHAIN_DEFAULT);
+      cap = clamp(budget - chain, BC_MIN, BC_MAX);
+      if (chain + cap > budget) chain = Math.max(40, budget - cap);
+    }
+    pop?.style?.setProperty?.("--refx-refmenu-chain-height", chain + "px");
+    if (contextSection) contextSection.dataset.refxContextCap = String(cap);
+    return { chain, cap };
+  }
+
+  _cssVar(style, name) {
+    if (!style) return "";
+    if (typeof style.getPropertyValue === "function") {
+      const value = style.getPropertyValue(name);
+      if (value) return value;
+    }
+    return style[name] || "";
+  }
+
+  _reserveRefMenuChainBudget(body, outgoingSection) {
+    const total = parseInt(this._cssVar(body.style, "--refx-refmenu-chain-height"), 10) || 120;
+    const rows = outgoingSection.querySelectorAll(".refx-ref-chain-row").length
+      + (outgoingSection.querySelector(".refx-ref-chain-more") ? 1 : 0);
+    const out = Math.min(
+      Math.max(40, rows * 24 + 26),
+      Math.max(40, Math.floor(total / 2))
+    );
+    body.style.setProperty("--refx-refmenu-outgoing-height", out + "px");
+    body.style.setProperty("--refx-refmenu-chain-height", Math.max(40, total - out) + "px");
+  }
+
   _fitLineRefMenuContext(section, targetGuid, chain = null) {
     const body = section?.querySelector?.('.refx-line-context-body');
     if (!body) return 200;
@@ -26097,6 +26491,12 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       const chrome = 8;
       height = Math.max(56, Math.min(200, rows * rowH + chrome));
     }
+    if (section.dataset?.refxHeightLocked === "1") {
+      const cur = parseInt(this._cssVar(body.style, "--refx-line-context-height"), 10);
+      if (Number.isFinite(cur)) return cur;
+    }
+    const cap = Number(section.dataset?.refxContextCap);
+    if (Number.isFinite(cap) && cap > 0) height = Math.min(height, Math.max(56, cap));
     body.style.setProperty('--refx-line-context-height', height + 'px');
     return height;
   }
@@ -26112,11 +26512,10 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
   _buildRefRowContextStrip(kindClass) {
     const section = this._el("div", kindClass);
     // v4.41.0 COLLAPSIBLE BLOCK CONTEXT: a fold twisty beside the label
-    // collapses the rows container. Persisted per-device via the boolean
-    // localStorage helpers (saveConfiguration reloads the whole plugin — never
-    // used for view prefs), default EXPANDED. Both call sites (the floating
-    // badge popover and the inline section) build through here, so both fold.
-    // While the pref is collapsed the call sites DEFER hydration entirely and
+    // collapses the rows container. v4.49.2: default collapsed via Settings
+    // (`refx_ctx_start_collapsed_v1`); the twisty does NOT persist last fold.
+    // Both call sites (the floating badge popover and the inline section) build
+    // through here. While collapsed the call sites DEFER hydration entirely and
     // stash it on the section; the twisty's first expand runs it (below).
     const labelRow = this._el("div", kindClass + "-label-row");
     const twist = this._el("button", kindClass + "-twist refx-ctxstrip-twist", "▾");
@@ -26132,7 +26531,6 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     loading.setAttribute("aria-live", "polite");
     rows.append(loading);
     section.append(rows);
-    const storageKey = "refx_ctx_collapsed_v1";
     const applyCollapsed = (collapsed) => {
       rows.classList.toggle("refx-hidden", collapsed);
       twist.textContent = collapsed ? "▸" : "▾";
@@ -26140,13 +26538,12 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       twist.setAttribute("aria-expanded", collapsed ? "false" : "true");
       labelRow.classList.toggle("refx-ctxstrip-collapsed", collapsed);
     };
-    applyCollapsed(this.loadBoolSetting(storageKey, false));
+    applyCollapsed(this.loadBoolSetting('refx_ctx_start_collapsed_v1', true));
     // Swallow the press so it never reaches the surface/popover handling.
     twist.addEventListener("mousedown", (ev) => { ev.preventDefault(); ev.stopPropagation(); });
     twist.addEventListener("click", (ev) => {
       ev.preventDefault(); ev.stopPropagation();
       const collapsed = !rows.classList.contains("refx-hidden");
-      this.saveBoolSetting(storageKey, collapsed);
       applyCollapsed(collapsed);
       // A strip built while the collapse pref was set deferred its hydration
       // (the call site stashed it here); the FIRST expand runs it, once.
@@ -26180,15 +26577,14 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
   // differently-shaped, expansion-on tree in here would give the strip an
   // outline that disagrees with the rows underneath it.
   async _hydrateRefRowContext(section, targetGuid, options = {}) {
-    // A collapsed strip pays nothing: while the fold pref is set, hydration is
-    // deferred — the call sites stash it on the section and the strip's twisty
-    // runs it on first expand. This early return is the backstop so no caller
-    // can sneak a build (owner resolution, tree reads, remarks index) in while
-    // the rows are hidden anyway.
-    if (this.loadBoolSetting('refx_ctx_collapsed_v1', false)) return false;
     const rowsClass = options.rowsClass || "";
     const rowsEl = rowsClass ? section?.querySelector?.("." + rowsClass) : null;
     if (!rowsEl) return false;
+    // A collapsed strip pays nothing: hydration is deferred — the call sites
+    // stash it on the section and the strip's twisty runs it on first expand.
+    // This early return is the backstop so no caller can sneak a build while
+    // the rows container is hidden.
+    if (rowsEl.classList.contains('refx-hidden')) return false;
     const alive = () => !this._unloaded && (!options.alive || options.alive());
     try {
       const ownerGuid = await this._lineRefContextOwner(targetGuid);
@@ -26339,7 +26735,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     actions.append(jump, menu);
     pop.append(head, body, actions);
     this._ensureLineRefChainBeforeContext(pop, targetGuid);
-    this._openCardPopup(pop, chip, { focusInput: false });
+    this._openCardPopup(pop, chip, { focusInput: false, reserveHeight: 560 });
     setTimeout(() => { try { pop.focus(); } catch (e) {} }, 0);
     const current = () => (!stillCurrent || stillCurrent())
       && chip.isConnected
@@ -26934,7 +27330,10 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     ]);
     // The extension host is mounted at a fixed reservation before this one-shot
     // fit/anchor, so content that settles later cannot move the action rows.
+    const pocket = this._popoverPocket(anchorEl || r.anchorNode || r.lineNode).best;
+    this._fitRefMenuToPocket(pop, contextSection, list, pocket);
     if (contextSection) this._fitLineRefMenuContext(contextSection, r.targetGuid, cachedChain);
+    if (contextSection) contextSection.dataset.refxHeightLocked = "1";
     this._openCardPopup(pop, anchorEl || r.anchorNode || r.lineNode, { focusInput: false });
     if (withContext) {
       const current = () => (!options.stillCurrent || options.stillCurrent())
@@ -27346,7 +27745,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     pop.append(native);
     if (rec) {
       native.append(this._el("div", "refx-hoverpop-title", (rec.getName && rec.getName()) || "Untitled"));
-      rec.getLineItems().then((items) => {
+      rec.getLineItems(false).then((items) => {
         if (!alive()) return;
         let n = 0;
         let automaticImages = 0;
@@ -27888,7 +28287,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       const old = localStorage.getItem(this._storageKeyRoamLineRefs);
       if (old != null) legacyReferenceStyle = old === '0' ? 'native' : 'roam';
     } catch (e) {}
-    const configuredReferenceStyle = cfg?.custom?.referenceStyle || 'distinct';
+    const configuredReferenceStyle = cfg?.custom?.referenceStyle || 'roam';
     this._referenceStyle = this.normalizeReferenceStyle(storedReferenceStyle || legacyReferenceStyle || configuredReferenceStyle);
     this._roamLineRefs = this._referenceStyle !== 'native'; // compatibility for older bridges/tests
     // v3.28.0 zero-layout badges: the reserved-slot rule is gated on a body
@@ -27898,6 +28297,11 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     try { document.body.classList.toggle('refx-hide-editing-counts', this._hideEditingCounts); } catch (e) {}
     try { document.body.classList.toggle('refx-overlay-badges', this._overlayMode); } catch (e) {}
     this._applyReferenceStyleClass();
+    // v4.49.0: appearance knobs are CSS variables on <body> (plus one underline
+    // body class). Config seed custom.appearance {...}; stored JSON wins.
+    this._storageKeyAppearance = 'refx_appearance_v1';
+    this._appearance = this._loadAppearance(custom.appearance || cfg?.custom?.appearance);
+    this._applyAppearanceVars();
 
     const storedCountMode = this.loadStringSetting(this._storageKeyCountMode);
     this._countMode = this.normalizeCountMode(storedCountMode || custom.countMode);
@@ -28678,9 +29082,99 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     this._referenceStyle = next;
     this._roamLineRefs = next !== 'native';
     this.saveStringSetting(this._storageKeyReferenceStyle, next);
+    // v4.49.0: paint only. Chip classification (page vs line class) is preset
+    // independent and stays on the scan/keep-alive path, so a preset change is
+    // one body-class toggle: no querySelectorAll, no panel scan, no refetch.
     this._applyReferenceStyleClass();
-    // Reclassify currently mounted chips without a count query or panel scan.
-    try { this._tagReferenceChipsIn(document); } catch (e) {}
+  }
+
+  // v4.49.0 appearance knobs. Every knob is a CSS custom property read by the
+  // stylesheet; applying one is a body style write and nothing else.
+  static get APPEARANCE_KNOBS() {
+    return {
+      pageLinkColor:   { cssVar: '--refx-page-link-color', def: '#106ba3' },
+      lineUnderline:   { cssVar: '--refx-line-underline',  def: 'rgba(138,155,168,.62)' },
+      lineUnderlineStyle: { cssVar: null, def: 'solid', values: ['none', 'solid', 'dotted'] },
+      lineHoverBg:     { cssVar: '--refx-line-hover-bg',   def: 'rgba(127,127,127,.08)' },
+      countSize:       { cssVar: '--refx-count-size',      def: '0.8em', values: ['0.7em', '0.8em', '0.9em', '1em'] },
+      countOpacity:    { cssVar: '--refx-count-opacity',   def: '0.5' },
+      countWeight:     { cssVar: '--refx-count-weight',    def: '400', values: ['400', '600'] }
+    };
+  }
+
+  _appearanceDefaults() {
+    const out = {};
+    for (const [k, spec] of Object.entries(Plugin.APPEARANCE_KNOBS)) out[k] = spec.def;
+    return out;
+  }
+
+  _sanitizeAppearanceValue(key, value) {
+    const spec = Plugin.APPEARANCE_KNOBS[key];
+    if (!spec) return null;
+    let v = value == null ? '' : String(value).trim();
+    if (spec.values) return spec.values.includes(v) ? v : spec.def;
+    if (key === 'countOpacity') {
+      const n = Number(v);
+      if (!Number.isFinite(n)) return spec.def;
+      return String(Math.max(0.2, Math.min(1, n)));
+    }
+    // Color-ish strings: reject anything that could escape a CSS value.
+    if (v.length > 64 || /[;{}<>]/.test(v)) return spec.def;
+    return v; // '' is allowed for lineHoverBg (= no hover wash)
+  }
+
+  _loadAppearance(seed) {
+    const out = this._appearanceDefaults();
+    if (seed && typeof seed === 'object') {
+      for (const k of Object.keys(out)) if (seed[k] != null) out[k] = this._sanitizeAppearanceValue(k, seed[k]);
+    }
+    try {
+      const raw = this.loadStringSetting(this._storageKeyAppearance);
+      const stored = raw ? JSON.parse(raw) : null;
+      if (stored && typeof stored === 'object') {
+        for (const k of Object.keys(out)) if (stored[k] != null) out[k] = this._sanitizeAppearanceValue(k, stored[k]);
+      }
+    } catch (e) {}
+    return out;
+  }
+
+  _applyAppearanceVars() {
+    const a = this._appearance || this._appearanceDefaults();
+    let body = null;
+    try { body = document.body; } catch (e) {}
+    if (!body) return;
+    const style = body.style;
+    for (const [k, spec] of Object.entries(Plugin.APPEARANCE_KNOBS)) {
+      if (!spec.cssVar || !style?.setProperty) continue;
+      const v = a[k];
+      try {
+        if (v === '' && k === 'lineHoverBg') style.setProperty(spec.cssVar, 'transparent');
+        else if (v == null || v === '') style.removeProperty(spec.cssVar);
+        else style.setProperty(spec.cssVar, v);
+      } catch (e) {}
+    }
+    try {
+      const us = a.lineUnderlineStyle || 'solid';
+      body.classList.toggle('refx-line-underline-none', us === 'none');
+      body.classList.toggle('refx-line-underline-dotted', us === 'dotted');
+      body.classList.toggle('refx-line-underline-solid', us === 'solid');
+    } catch (e) {}
+  }
+
+  setAppearance(key, value) {
+    if (!Plugin.APPEARANCE_KNOBS[key]) return;
+    const next = this._sanitizeAppearanceValue(key, value);
+    if (!this._appearance) this._appearance = this._appearanceDefaults();
+    if (this._appearance[key] === next) return;
+    this._appearance[key] = next;
+    try { this.saveStringSetting(this._storageKeyAppearance, JSON.stringify(this._appearance)); } catch (e) {}
+    this._applyAppearanceVars();
+  }
+
+  resetAppearance() {
+    this._appearance = this._appearanceDefaults();
+    try { localStorage.removeItem(this._storageKeyAppearance); } catch (e) {}
+    this._applyAppearanceVars();
   }
 
   // Compatibility surface for callers/settings saved before v3.79.
@@ -28817,9 +29311,60 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         refStyleSel.addEventListener('change', () => this.setReferenceStyle(refStyleSel.value));
         refStyleRow.append(refStyleSel);
         body.append(refStyleRow);
+        // v4.49.0: appearance knobs. Each control writes one CSS variable on
+        // <body> (or one body class) and returns; nothing rescans the document.
+        const ap = this._appearance || this._appearanceDefaults();
+        const appearanceRefreshers = [];
+        const mkTextRow = (label, key, placeholder) => {
+          const row = this._el('div', 'refx-modal-row');
+          row.append(this._el('div', 'refx-modal-label', label));
+          const inp = this._el('input', 'refalias-input');
+          inp.type = 'text'; inp.value = ap[key] || ''; inp.placeholder = placeholder || '';
+          inp.addEventListener('input', () => this.setAppearance(key, inp.value));
+          appearanceRefreshers.push(() => { inp.value = this._appearance[key] || ''; });
+          row.append(inp);
+          return row;
+        };
+        const mkSelRow = (label, key, options) => {
+          const row = this._el('div', 'refx-modal-row');
+          row.append(this._el('div', 'refx-modal-label', label));
+          const sel = this._el('select', 'refalias-input');
+          for (const [val, text] of options) {
+            const o = this._el('option', null, text); o.value = val;
+            if (val === ap[key]) o.selected = true;
+            sel.append(o);
+          }
+          sel.addEventListener('change', () => this.setAppearance(key, sel.value));
+          appearanceRefreshers.push(() => { sel.value = this._appearance[key]; });
+          row.append(sel);
+          return row;
+        };
+        body.append(mkTextRow('Page-link color', 'pageLinkColor', '#106ba3'));
+        body.append(mkTextRow('Line-ref underline color', 'lineUnderline', 'rgba(138,155,168,.62)'));
+        body.append(mkSelRow('Line-ref underline style', 'lineUnderlineStyle', [['none', 'None'], ['solid', 'Solid hairline (Roam)'], ['dotted', 'Dotted']]));
+        body.append(mkTextRow('Line-ref hover background (empty = none)', 'lineHoverBg', 'rgba(127,127,127,.08)'));
+        body.append(mkSelRow('Count size', 'countSize', [['0.7em', '0.7em'], ['0.8em', '0.8em (Roam)'], ['0.9em', '0.9em'], ['1em', '1em']]));
+        const opRow = this._el('div', 'refx-modal-row');
+        opRow.append(this._el('div', 'refx-modal-label', 'Count opacity'));
+        const opInp = this._el('input', 'refalias-input');
+        opInp.type = 'range'; opInp.min = '0.2'; opInp.max = '1'; opInp.step = '0.05'; opInp.value = ap.countOpacity || '0.5';
+        opInp.addEventListener('input', () => this.setAppearance('countOpacity', opInp.value));
+        appearanceRefreshers.push(() => { opInp.value = this._appearance.countOpacity; });
+        opRow.append(opInp);
+        body.append(opRow);
+        body.append(mkSelRow('Count weight', 'countWeight', [['400', 'Regular (Roam)'], ['600', 'Semibold']]));
+        const resetRow = this._el('div', 'refx-modal-row');
+        const resetBtn = this._el('button', 'refalias-btn', 'Reset appearance to Roam defaults');
+        resetBtn.type = 'button';
+        resetBtn.addEventListener('click', () => { this.resetAppearance(); for (const fn of appearanceRefreshers) { try { fn(); } catch (e) {} } });
+        resetRow.append(resetBtn);
+        body.append(resetRow);
         // v3.49.0: Property cards start folded (default OFF).
         body.append(mkCheckRow('Property cards start folded', this._cardFoldedDefault(), (on) => {
           try { localStorage.setItem('refx_card_folded_default_v1', on ? '1' : '0'); } catch (_e) {}
+        }));
+        body.append(mkCheckRow('Block context starts collapsed', this.loadBoolSetting('refx_ctx_start_collapsed_v1', true), (on) => {
+          this.saveBoolSetting('refx_ctx_start_collapsed_v1', on);
         }));
         body.append(mkCheckRow('Automatically load small record bodies (≤ ' + this._smallBodyLineCap + ' lines)', configuredInlineGroups.autoLoadSmallBodies, (on) => {
           configuredInlineGroups.autoLoadSmallBodies = on;
@@ -29203,18 +29748,18 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
          live re-test = 0 leak frames / 4573 while typing. NOTE: thread-target is
          in the Indent-Rainbow-family namespace; if that's ever off the rule
          no-ops (flicker returns, nothing breaks) — a refx-owned mirror is the
-         future hardening. The target-line pill now joins the same caret hide
-         policy: its rule-99 reserved slot keeps line geometry unchanged while
-         hidden. Gated on refx-hide-editing-counts (Settings toggle, default ON).
-         v3.37.0: this hide-on-caret rule is INLINE-MODE ONLY — scope it with
-         :not(.refx-overlay-badges) so it can never hide the OVERLAY node (which
-         reuses .trc-refcount-badge-wrap for click routing). In overlay mode the
-         in-chip digit is hidden unconditionally (rule below) and the overlay
-         paints its own always-visible digit. */
+         future hardening. Gated on refx-hide-editing-counts (Settings toggle,
+         default ON). v3.37.0: this hide-on-caret rule is INLINE-MODE ONLY —
+         scope it with :not(.refx-overlay-badges) so it can never hide the
+         OVERLAY node (which reuses .trc-refcount-badge-wrap for click routing).
+         In overlay mode the in-chip digit is hidden unconditionally (rule
+         below) and the overlay paints its own always-visible digit.
+         v4.48.9: do NOT hide .trc-target-badge-wrap here. That pill replaces
+         Thymer's native backlink count on the SOURCE line; Roam keeps the
+         clickable 1 on the focused block, and hide-on-caret made the
+         replacement invisible on the exact line the user is looking at. */
       body:not(.refx-overlay-badges).refx-hide-editing-counts .flowythymer-thread-target .trc-refcount-badge-wrap,
-      body:not(.refx-overlay-badges).refx-hide-editing-counts .listitem-with-caret .trc-refcount-badge-wrap,
-      body.refx-hide-editing-counts .flowythymer-thread-target .trc-target-badge-wrap,
-      body.refx-hide-editing-counts .listitem-with-caret .trc-target-badge-wrap { visibility: hidden !important; }
+      body:not(.refx-overlay-badges).refx-hide-editing-counts .listitem-with-caret .trc-refcount-badge-wrap { visibility: hidden !important; }
 
       /* v3.37.0 OVERLAY MODE. (a) Always hide the IN-CHIP digit (the descendant
          of .lineitem-ref) so it never double-paints with the overlay. Target the
@@ -29291,10 +29836,18 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         cursor: pointer;
       }
 
-      .trc-refcount-badge-wrap.trc-size-xsmall .trc-refcount-badge { font-size: 9px; }
-      .trc-refcount-badge-wrap.trc-size-small .trc-refcount-badge { font-size: 10px; }
-      .trc-refcount-badge-wrap.trc-size-medium .trc-refcount-badge { font-size: 11px; }
-      .trc-refcount-badge-wrap.trc-size-large .trc-refcount-badge { font-size: 12px; }
+      /* v4.49.0 appearance knobs. Precedence: explicit knob var (set on body by
+         Settings) > preset default (body.refx-links-roam) > legacy Badge size
+         class. Changing a knob writes one CSS variable; no chip is touched. */
+      .trc-refcount-badge-wrap.trc-size-xsmall { --refx-count-size-scale: 9px; }
+      .trc-refcount-badge-wrap.trc-size-small { --refx-count-size-scale: 10px; }
+      .trc-refcount-badge-wrap.trc-size-medium { --refx-count-size-scale: 11px; }
+      .trc-refcount-badge-wrap.trc-size-large { --refx-count-size-scale: 12px; }
+      .trc-refcount-badge-wrap .trc-refcount-badge {
+        font-size: var(--refx-count-size, var(--refx-count-size-preset, var(--refx-count-size-scale, 11px)));
+        opacity: var(--refx-count-opacity, var(--refx-count-opacity-preset, ${this._opacity}));
+        font-weight: var(--refx-count-weight, var(--refx-count-weight-preset, 600));
+      }
 
       .trc-refcount-badge-wrap.trc-hover-only .trc-refcount-badge {
         opacity: 0;
@@ -29306,30 +29859,21 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         opacity: ${this._opacity};
       }
 
-      /* Target-line badges use the same rule-99 geometry immunity as reference
-         badges. A Thymer-host ::after owns the stable slot at the TRUE inline
-         end, so only the last visual row reserves it. The absolute wrap uses its
-         static inline position immediately before that slot and owns no flow. */
-      body.trc-zerolayout .line-div,
-      body.trc-zerolayout .line-check-div {
+      /* Target-line count sits in Thymer's native backlink-pill slot: the FAR
+         RIGHT of the full-width .listitem row (Roam .rm-block__ref-count), not
+         after the last glyph of the shrink-wrapped .line-div. Absolute, zero
+         flow. Nested child lines are their own .listitem and get their own wrap. */
+      body.trc-zerolayout .listitem {
         position: relative;
-      }
-      body.trc-zerolayout .line-div::after,
-      body.trc-zerolayout .line-check-div::after {
-        content: '';
-        display: inline-block;
-        width: 24px;
-        height: 0;
-        padding: 0;
-        margin: 0;
-        pointer-events: none;
       }
 
       .trc-target-badge-wrap {
         display: inline-flex;
         align-items: center;
-        justify-content: flex-start;
+        justify-content: flex-end;
         position: absolute;
+        inset-inline-end: 0;
+        top: 0;
         box-sizing: border-box;
         width: 0;
         min-width: 0;
@@ -29341,6 +29885,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         user-select: none;
         pointer-events: none;
         cursor: pointer;
+        z-index: 3;
       }
 
       .trc-target-badge {
@@ -29356,6 +29901,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         z-index: 3;
         pointer-events: auto;
         cursor: pointer;
+        transform: translateX(-100%);
       }
 
       .trc-target-badge-wrap:hover .trc-target-badge {
@@ -29372,17 +29918,37 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         transition: none !important;
       }
 
-      .trc-target-badge-wrap.trc-size-xsmall .trc-target-badge { font-size: 10px; }
-      .trc-target-badge-wrap.trc-size-small .trc-target-badge { font-size: 11px; }
-      .trc-target-badge-wrap.trc-size-medium .trc-target-badge { font-size: 12px; }
-      .trc-target-badge-wrap.trc-size-large .trc-target-badge { font-size: 13px; }
+      .trc-target-badge-wrap.trc-size-xsmall { --refx-count-size-scale: 10px; }
+      .trc-target-badge-wrap.trc-size-small { --refx-count-size-scale: 11px; }
+      .trc-target-badge-wrap.trc-size-medium { --refx-count-size-scale: 12px; }
+      .trc-target-badge-wrap.trc-size-large { --refx-count-size-scale: 13px; }
+      .trc-target-badge-wrap .trc-target-badge {
+        font-size: var(--refx-count-size, var(--refx-count-size-preset, var(--refx-count-size-scale, 12px)));
+        opacity: var(--refx-count-opacity, var(--refx-count-opacity-preset, ${this._opacity}));
+        font-weight: var(--refx-count-weight, var(--refx-count-weight-preset, 600));
+      }
+      /* Roam .rm-block__ref-count: font-size 0.8em, opacity 0.5, inherit color,
+         transparent bg, no filled pill. Hover/active go to full opacity. */
+      body.refx-links-roam {
+        --refx-count-size-preset: 0.8em;
+        --refx-count-opacity-preset: 0.5;
+        --refx-count-weight-preset: 400;
+      }
+      body.refx-links-roam .trc-target-badge,
+      body.refx-links-roam .trc-refcount-badge {
+        color: inherit;
+        background: transparent;
+      }
+      body.refx-links-roam .trc-target-badge-wrap:hover .trc-target-badge,
+      body.refx-links-roam .trc-refcount-badge-wrap:hover .trc-refcount-badge {
+        opacity: 1;
+      }
 
       .trc-target-badge-wrap.trc-hover-only .trc-target-badge {
         opacity: 0;
       }
 
-      .line-div:hover .trc-target-badge-wrap.trc-hover-only .trc-target-badge,
-      .line-check-div:hover .trc-target-badge-wrap.trc-hover-only .trc-target-badge,
+      .listitem:hover .trc-target-badge-wrap.trc-hover-only .trc-target-badge,
       .trc-target-badge-wrap.trc-hover-only:hover .trc-target-badge {
         opacity: ${this._opacity};
       }
@@ -29421,6 +29987,10 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       .trc-ref-popover-context {
         border-bottom: 1px solid var(--cards-border-color);
         margin-bottom: 4px;
+      }
+      .trc-ref-popover-context:has(> .trc-ref-popover-context-label-row.refx-ctxstrip-collapsed) {
+        border-bottom: 0;
+        margin-bottom: 2px;
       }
       .trc-ref-popover-context-label {
         padding: 0 8px 2px;
@@ -29781,6 +30351,10 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       .refx-inline-refs-context {
         margin: 0 0 4px;
         border-bottom: 1px solid var(--cards-border-color);
+      }
+      .refx-inline-refs-context:has(> .refx-inline-refs-context-label-row.refx-ctxstrip-collapsed) {
+        border-bottom: 0;
+        margin-bottom: 2px;
       }
       .refx-inline-refs-context-label {
         padding: 1px 0 2px;
@@ -30237,6 +30811,9 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       .listitem-transclusion:has(> .refx-wb-hdr) { flex-wrap: wrap; row-gap: 0; }
       .refx-wb-item > .transclusion-container-div { flex: 1 1 100%; min-width: 0; }
       .refx-wb-hdr-twist { flex: 0 0 auto; font-size: 14px; min-width: 20px; }
+      .refx-wb-hdr-dragging { opacity: .45; }
+      .refx-wb-drop-before { box-shadow: inset 0 2px 0 0 var(--color-accent-400, #4a90d9); }
+      .refx-wb-drop-after { box-shadow: inset 0 -2px 0 0 var(--color-accent-400, #4a90d9); }
       /* v3.20.0: keyboard shelf-nav cursor on the item header */
       .refx-wb-hdr.refx-nav-focus {
         outline: 2px solid var(--button-primary-bg-color, #2d72d2);
@@ -30459,8 +31036,8 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         line-height: 1.45;
       }
       .refx-ref-outline-kids {
-        margin-left: 8px;
-        padding-left: 8px;
+        margin-left: 10px;
+        padding-left: 10px;
         border-left: 1px solid var(--cards-border-color, rgba(127,127,127,0.18));
       }
       .refx-ref-outline-twist {
@@ -30494,7 +31071,9 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       .refx-ref-outline-refline {
         display: block;
         border-left: 2px solid var(--color-accent-500, var(--button-primary-bg-color, #4a90d9));
-        padding-left: 6px;
+        padding: 2px 6px;
+        border-radius: 0 4px 4px 0;
+        background: color-mix(in srgb, var(--color-accent-500, #4a90d9) 7%, transparent);
         margin-left: -1px;
       }
 
@@ -30502,35 +31081,36 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       .refx-ref-relation-label {
         flex: 0 0 auto;
         display: inline-block;
-        margin-right: 5px;
-        padding: 0 4px;
-        border-radius: 4px;
-        border: 1px solid var(--cards-border-color, rgba(127,127,127,.20));
+        margin-right: 6px;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
         color: var(--color-text-600);
-        font-size: 10px;
+        font-size: 9.5px;
         font-weight: 650;
         line-height: 1.45;
-        letter-spacing: .04em;
+        letter-spacing: .06em;
         text-transform: uppercase;
         vertical-align: 1px;
       }
       .refx-ref-relation-reference {
         color: var(--color-accent-500, var(--button-primary-bg-color, #4a90d9));
-        border-color: color-mix(in srgb, currentColor 45%, transparent);
+        font-weight: 700;
       }
       .refx-ref-relation-section { margin: 5px 0 2px; }
       .refx-ref-relation-heading {
         color: var(--color-text-600);
         font-size: 9.5px;
         font-weight: 650;
-        letter-spacing: .04em;
+        letter-spacing: .06em;
         text-transform: uppercase;
-        margin: 3px 0 2px;
+        margin: 4px 0 1px;
       }
       .refx-ref-sibling-list {
-        padding: 3px 6px 4px;
-        border-radius: 5px;
-        background: color-mix(in srgb, var(--cards-bg, transparent) 70%, transparent);
+        margin: 4px 0 2px 18px;
+        padding: 0 0 0 8px;
+        border-left: 1px dashed var(--cards-border-color);
+        border-radius: 0;
       }
       .refx-ref-sibling-row {
         display: flex;
@@ -30650,6 +31230,26 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       .refx-ctxstrip-twist:hover { color: var(--color-text-400); }
       /* collapsed Block Context label row dims to signal the hidden rows */
       .refx-ctxstrip-collapsed { opacity: 0.72; }
+      .refx-ref-outline-refnode > .refx-ref-context-children {
+        margin-left: 18px;
+        padding-left: 8px;
+        border-left: 1px solid var(--cards-border-color);
+      }
+      .refx-inline-refs-context-rows .refx-inline-refs-group-count,
+      .refx-inline-refs-context-rows .refx-inline-refs-group-header-actions,
+      .trc-ref-popover-context-rows .refx-inline-refs-group-count,
+      .trc-ref-popover-context-rows .refx-inline-refs-group-header-actions {
+        display: none;
+      }
+      .refx-inline-refs-context-rows .refx-inline-refs-group,
+      .trc-ref-popover-context-rows .refx-inline-refs-group {
+        margin-top: 0;
+        border-top: 0;
+      }
+      .refx-ref-outline-label.refx-ref-outline-media .refx-preview-media-card,
+      .refx-ref-sibling-row .refx-preview-media-card {
+        max-width: 220px;
+      }
       .refx-ref-context-children { margin-left: 8px; }
       .refx-ref-children-heading { margin-left: 8px; }
 
@@ -31193,7 +31793,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       })).catch((error) => this._recordRefxError(error, 'ref popover context hydration'));
       // While the fold pref is collapsed the strip defers hydration; the
       // twisty's first expand runs this same closure (see the strip builder).
-      if (this.loadBoolSetting('refx_ctx_collapsed_v1', false)) contextSection._refxHydrateOnExpand = hydratePopoverContext;
+      if (this.loadBoolSetting('refx_ctx_start_collapsed_v1', true)) contextSection._refxHydrateOnExpand = hydratePopoverContext;
       else hydratePopoverContext();
     }
 
@@ -32470,7 +33070,11 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       row.append(this._el('span', 'refx-wb-tree-dot', '•'));
       if (this._isTaskLikeLine(sib)) row.append(this._buildTaskToggleGlyph(sib));
       const txt = this._el('span', 'refx-wb-tree-text');
-      this._renderPreviewLineItem(txt, sib, { autoLoadImage: false, openSource: false });
+      this._renderPreviewLineItem(txt, sib, {
+        autoLoadImage: "viewport",
+        openSource: false,
+        resolveLine: () => this._resolveMediaLineByGuid(sib.guid, sib?.record?.guid || null),
+      });
       row.append(txt);
       const acts = this._el('span', 'refx-wb-tree-acts refx-ref-sibling-actions');
       acts.append(this._mkRefRowAction('↗', 'Jump to sibling', () => { ctx.onJump(sib.guid); }));
@@ -32615,10 +33219,23 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
           });
           lineEl.append(twist);
           lineEl.append(this._el('span', 'refx-ref-relation-label', chainIndex === chain.length - 1 ? 'Parent' : 'Ancestor'));
-          const aEl = this._el('button', 'trc-ref-popover-crumb-parent refx-ref-outline-label', ptxt.length > 80 ? ptxt.slice(0, 80) + '…' : ptxt);
-          aEl.type = 'button';
-          aEl.title = 'Jump to this ancestor line';
-          aEl.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); ctx.onJump(anc.guid); });
+          let aEl;
+          if (this._mediaLineInfo(anc)) {
+            aEl = this._el('span', 'refx-ref-outline-label refx-ref-outline-media');
+            this._renderPreviewLineItem(aEl, anc, {
+              compact: true,
+              thumb: true,
+              autoLoadImage: "viewport",
+              controls: false,
+              openSource: false,
+              resolveLine: () => this._resolveMediaLineByGuid(anc.guid, srcGuid),
+            });
+          } else {
+            aEl = this._el('button', 'trc-ref-popover-crumb-parent refx-ref-outline-label', ptxt.length > 80 ? ptxt.slice(0, 80) + '…' : ptxt);
+            aEl.type = 'button';
+            aEl.title = 'Jump to this ancestor line';
+            aEl.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); ctx.onJump(anc.guid); });
+          }
           lineEl.append(aEl);
           lineEl.append(mkAncActions(anc, lineEl, aEl));
           node.append(lineEl, kids);
@@ -33028,6 +33645,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       ? this._appendLazyRefChainTree(el, targetGuid, {
           surface: "inline",
           label: "All reference paths",
+          deferRoot: true,
         })
       : null;
 
@@ -33107,23 +33725,13 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       })).catch((error) => this._recordRefxError(error, 'inline refs context hydration'));
       // While the fold pref is collapsed the strip defers hydration; the
       // twisty's first expand runs this same closure (see the strip builder).
-      if (this.loadBoolSetting('refx_ctx_collapsed_v1', false)) contextSection._refxHydrateOnExpand = hydrateInlineContext;
+      if (this.loadBoolSetting('refx_ctx_start_collapsed_v1', true)) contextSection._refxHydrateOnExpand = hydrateInlineContext;
       else hydrateInlineContext();
     }
     this._ensureCardObserver(); // keep-alive must run even with zero cards open
-    if (this._inlineRefsPersistCollapse !== false) {
-      let persisted = null;
-      try { persisted = await this._readCollapsedGroupsMeta(hostLineGuid); } catch (e) {}
-      if (this._inlineRefs.get(key) !== entry) return;
-      if (persisted !== null) {
-        entry.collapsedGroups = persisted;
-        entry.collapseStateFromMeta = true;
-      }
-    }
     this._paintInlineRefsCollapseAll(entry);
-    // Schedule the registry-first fill after the shell's paint opportunity. Its
-    // warm walk yields every ~8 ms, and the monotonic generation prevents a
-    // close/reopen from receiving stale rows.
+    // Schedule the registry-first fill immediately. Collapse-meta hydration is
+    // independent and must not gate the first @linkto query.
     entry.fillGeneration = ++this._inlineFillGen;
     const fillGeneration = entry.fillGeneration;
     entry.fillTimer = setTimeout(() => {
@@ -33131,6 +33739,20 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       if (this._inlineRefs.get(key) !== entry || entry.fillGeneration !== fillGeneration) return;
       this._fillInlineRefs(key, entry).catch(() => {});
     }, 0);
+    if (this._inlineRefsPersistCollapse !== false) {
+      Promise.resolve(this._readCollapsedGroupsMeta(hostLineGuid)).then((persisted) => {
+        if (this._inlineRefs.get(key) !== entry) return;
+        if (persisted !== null) {
+          entry.collapsedGroups = persisted;
+          entry.collapseStateFromMeta = true;
+        }
+        this._paintInlineRefsCollapseAll(entry);
+        if (entry._rawItems) this._applyInlineRefsFilter(entry);
+        else if (entry.collapseStateFromMeta && entry.bodyEl?.querySelector?.('.refx-inline-refs-group')) {
+          this._applyInlineRefsGroupCollapse(entry);
+        }
+      }).catch(() => {});
+    }
   }
 
   _removeInlineRefs(key) {
@@ -33180,11 +33802,30 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     }
   }
 
+  async _sharedExactRefSearch(targetGuid, limit) {
+    targetGuid = String(targetGuid || "").trim();
+    limit = Math.max(1, Math.floor(Number(limit) || 1));
+    if (!targetGuid || typeof this.data?.searchByQuery !== "function") {
+      return { lines: [], error: null, complete: true };
+    }
+    if (!this._inboundRefQuery) this._inboundRefQuery = new Map();
+    const existing = this._inboundRefQuery.get(targetGuid);
+    if (existing && limit <= existing.limit) return existing.promise;
+    const query = '@linkto = "' + targetGuid.replace(/"/g, "") + '"';
+    const promise = Promise.resolve(this.data.searchByQuery(query, limit))
+      .finally(() => {
+        const current = this._inboundRefQuery.get(targetGuid);
+        if (current?.promise === promise) this._inboundRefQuery.delete(targetGuid);
+      });
+    this._inboundRefQuery.set(targetGuid, { promise, limit, at: Date.now() });
+    return promise;
+  }
+
   async _searchExactRefLines(targetGuid) {
     let lines = [];
     let ok = false;
     try {
-      const result = await this.data.searchByQuery(`@linkto = "${targetGuid}"`, this._maxResults);
+      const result = await this._sharedExactRefSearch(targetGuid, this._maxResults);
       if (!result?.error) {
         ok = true;
         lines = Array.isArray(result?.lines) ? result.lines : [];
@@ -34167,6 +34808,67 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     })();
   }
 
+  _settleInlineRefChainRootFromFill(entry, items, options = {}) {
+    const chainSection = entry?.chainEl;
+    const state = chainSection?._refxChainTreeState;
+    const rootJob = state?.rootJob;
+    if (!state || !rootJob) return false;
+    const container = rootJob.container;
+    if (!container || container.dataset?.refxResolved === "1") return false;
+    const targetGuid = String(entry.targetGuid || "");
+    const limit = this._REF_CHAIN_LEVEL_RESOLVE_LIMIT;
+    let rawRows = (items || []).map((line) => this._refLevelIncomingRow(line)).filter(Boolean);
+    const remarks = this._refLevelRemarkRows(targetGuid);
+    const seen = new Set(rawRows.map((row) => row.guid));
+    for (const remark of remarks) if (!seen.has(remark.guid)) rawRows.push(remark);
+    const isCapped = options.isCapped === true;
+    const result = this._refLevelRowsFromCandidates(targetGuid, rawRows, {
+      direction: "in",
+      complete: !isCapped,
+      truncated: isCapped,
+      capReason: isCapped ? "linkto-cap" : null,
+      limit,
+    });
+    const stamp = this._refLevelCacheStamp();
+    this._refLevelCacheSet(targetGuid, "in", limit, result, stamp);
+    delete rootJob._refxInterrupted;
+    if (container.dataset) container.dataset.refxQueued = "0";
+    return this._settleRefChainTreeResolution(state, rootJob, result);
+  }
+
+  _fallbackInlineRefChainRootResolve(entry) {
+    const state = entry?.chainEl?._refxChainTreeState;
+    const rootJob = state?.rootJob;
+    if (!state || !rootJob || rootJob.container?.dataset?.refxResolved === "1") return;
+    if (rootJob.container?.dataset?.refxQueued === "1") return;
+    const prevTimeout = this._REF_CHAIN_JOB_TIMEOUT_MS;
+    this._REF_CHAIN_JOB_TIMEOUT_MS = Math.max(15000, prevTimeout);
+    this._queueRefChainTreeResolution(state, rootJob);
+    this._REF_CHAIN_JOB_TIMEOUT_MS = prevTimeout;
+  }
+
+  _showInlineFillFailure(key, entry, error) {
+    entry.titleEl.textContent = '↙ Linked References';
+    entry.bodyEl.textContent = '';
+    const empty = document.createElement('div');
+    empty.className = 'refx-inline-refs-empty';
+    empty.textContent = "Couldn't load references";
+    const retry = document.createElement('button');
+    retry.className = 'refx-inline-refs-retry';
+    retry.type = 'button';
+    retry.textContent = 'Retry';
+    retry.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      this._fillInlineRefs(key, entry).catch(() => {});
+    });
+    entry.bodyEl.append(empty, retry);
+    this._fallbackInlineRefChainRootResolve(entry);
+    if (error && error.name !== 'RefxFillTimeout') {
+      this._recordRefxError(error, 'inline linked-reference fill');
+    }
+  }
+
   async _fillInlineRefs(key, entry) {
     const targetGuid = entry.targetGuid;
     // A query/sort refresh may change the source structure. Filters rerender
@@ -34264,7 +34966,19 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       }
     }
 
-    const queriedItems = await this._queryRefLines(targetGuid);
+    const queriedItems = await Promise.race([
+      this._queryRefLines(targetGuid),
+      new Promise((_resolve, reject) => setTimeout(() => {
+        const error = new Error('inline linked-reference fill timed out');
+        error.name = 'RefxFillTimeout';
+        reject(error);
+      }, Math.max(1000, Number(this._INLINE_FILL_TIMEOUT_MS) || 20000))),
+    ]).catch((error) => {
+      if (entry.aborted || this._inlineRefs.get(key) !== entry) return null;
+      this._showInlineFillFailure(key, entry, error);
+      return null;
+    });
+    if (queriedItems == null) return;
     // A collapse/re-toggle/navigation while loading → this build is dead. Map
     // identity is the lifecycle truth — el.isConnected can be TRANSIENTLY false
     // mid-re-render (the keep-alive re-inserts the cached node), and bailing on
@@ -34377,14 +35091,26 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     }
 
     if (entry.aborted || this._inlineRefs.get(key) !== entry) return;
-    const total = items.length + propRecs.length + sdkSection.length;
+    const isLineTgt = this._lineConnectionsEnabled && !this.isExistingRecordGuid(targetGuid);
+    let total;
     let titleSuffix = '';
-    if (propRecs.length > 0 || sdkSection.length > 0) {
-      const parts = [];
-      if (items.length > 0 || propRecs.length > 0) parts.push(`${items.length} inline`);
-      if (propRecs.length > 0) parts.push(`${propRecs.length} properties`);
-      if (sdkSection.length > 0) parts.push(`${sdkSection.length} via property`);
-      titleSuffix = ` — ${parts.join(' · ')}`;
+    if (isLineTgt) {
+      total = items.length > 0 ? items.length : (propRecs.length + sdkSection.length);
+      if (propRecs.length > 0 || sdkSection.length > 0) {
+        const parts = [];
+        if (propRecs.length > 0) parts.push(`${propRecs.length} properties`);
+        if (sdkSection.length > 0) parts.push(`${sdkSection.length} via property`);
+        titleSuffix = ` — ${parts.join(' · ')}`;
+      }
+    } else {
+      total = items.length + propRecs.length + sdkSection.length;
+      if (propRecs.length > 0 || sdkSection.length > 0) {
+        const parts = [];
+        if (items.length > 0 || propRecs.length > 0) parts.push(`${items.length} inline`);
+        if (propRecs.length > 0) parts.push(`${propRecs.length} properties`);
+        if (sdkSection.length > 0) parts.push(`${sdkSection.length} via property`);
+        titleSuffix = ` — ${parts.join(' · ')}`;
+      }
     }
     // R2 F1: when the line search hit the _maxResults cap, the total is a lower
     // bound — we don't know the real count. Surface a partial-status indicator so
@@ -34396,6 +35122,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     entry._rawItems = items;
     entry._rawPropRecs = propRecs;
     entry._rawSdkRecs = sdkSection.map((e) => e.recordGuid).filter(Boolean);
+    this._settleInlineRefChainRootFromFill(entry, items, { isCapped });
     // v3.56.0 F2: build chip facets from all items (before chip filter is applied)
     this._renderInlineRefChips(entry, items);
     // Apply chip filter to items, then global filters on top (load once, pass in to avoid double-parse)
@@ -34407,13 +35134,23 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     entry.deferContext = deferContext;
     // v3.60.0 F3: global filter note in header
     const gfActive = (gf.inc.length > 0 || gf.exc.length > 0);
+    if (isLineTgt && !isCapped && !gfActive && !(entry.chipFilters?.size > 0)) {
+      const visible = items.length > 0 ? items.length : (propRecs.length + sdkSection.length);
+      const countInfo = {
+        count: visible,
+        capped: false,
+        sdkPropCount: propRecs.length + sdkSection.length,
+      };
+      this.setCachedCountInfo(targetGuid, countInfo);
+      this._paintCountInfoForGuidNow(targetGuid, countInfo);
+      const hostLineEl = this._inlineHostNode(entry);
+      if (hostLineEl) this._paintTargetEntriesNow([{ lineEl: hostLineEl }], targetGuid, countInfo);
+    }
     if (entry.globalFilterNoteEl) {
       entry.globalFilterNoteEl.textContent = `global filters active (${gf.inc.length + gf.exc.length})`;
       entry.globalFilterNoteEl.style.display = gfActive ? '' : 'none';
     }
     entry.bodyEl.textContent = '';
-
-    const isLineTgt = this._lineConnectionsEnabled && !this.isExistingRecordGuid(targetGuid);
 
     if (filteredItems.length === 0 && propRecs.length === 0 && sdkSection.length === 0) {
       const empty = document.createElement('div');
@@ -36638,7 +37375,8 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     const bullet = t.closest(".line-check-div, .flowythymer-marker");
     if (bullet) {
       const li = bullet.closest(".listitem[data-guid]");
-      const g = li && (li.getAttribute("data-guid") || "").trim();
+      let g = li && (li.getAttribute("data-guid") || "").trim();
+      if (g) g = this._resolveCanonicalLineGuid(g, li);
       // Never eat a Shift+click on a bullet inside a rendered transclusion (that
       // line has its own home) — only real editor rows.
       if (g && !bullet.closest(".listitem-transclusion")) return { guid: g };
@@ -36708,6 +37446,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
   // the target) instead of the target itself.
   _wbAdd(guid, opts) {
     if (!guid) return;
+    guid = this._resolveCanonicalLineGuid(guid, opts && opts.lineNode);
     this._wbAddLive(guid, opts).catch(() => {});
   }
 
@@ -38096,7 +38835,25 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     this._wbLiveFilterBarEnsure(panelEl, items);
     this._wbLiveApplyFilter();
     this._wbSyncStatusIcon();
+    this._wbPokeDatacore();
     return true;
+  }
+
+  // v4.49.7: Datacore's own scan only reaches the ACTIVE panel on most ticks, so
+  // a widget that lands in the Workbench can sit unmounted (showing its `dc.js:`
+  // source) until an unrelated tick happens to include background panels. Poke
+  // its embed manager once the WB DOM has settled. Throttled: a WB refresh can
+  // fire several times in a burst, and refresh(true) walks every mounted embed.
+  _wbPokeDatacore(delay = 60) {
+    if (this._wbDatacorePokeT) return;
+    this._wbDatacorePokeT = setTimeout(() => {
+      this._wbDatacorePokeT = 0;
+      if (this._unloaded) return;
+      try {
+        const embed = window.__plexusDatacoreEmbed;
+        if (embed && typeof embed.refresh === "function") embed.refresh(true);
+      } catch (e) {}
+    }, Math.max(0, Number(delay) || 0));
   }
 
   _wbLiveDecorate(node, it, backgroundGeneration = null, owner = this._wbOwner, refreshSeq = null) {
@@ -38111,6 +38868,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     if (node.firstChild !== h.el) { try { node.insertBefore(h.el, node.firstChild); } catch (e) {} }
     // reflect state on the node (CSS drives collapse + variant body hiding)
     node.classList.add("refx-wb-item");
+    this._wbPreserveQueryHost(node, it);
     node.classList.toggle("refx-wb-collapsed", !!it.collapsed);
     node.classList.remove("refx-wb-v-card", "refx-wb-v-refs", "refx-wb-v-children");
     if (it.variant === "card") node.classList.add("refx-wb-v-card");
@@ -38167,8 +38925,89 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       ev.preventDefault(); ev.stopPropagation();
       this._wbLiveToggleCollapse(el.__wbIt || it);
     });
+    this._wbLiveWireDrag(el);
     this._wbLiveHeaderSync(el, it, false, backgroundGeneration, owner, refreshSeq);
     return el;
+  }
+
+  // v4.49.7 P1 — Roam right-bar parity: drag a Workbench item's header to
+  // reorder the shelf. The reorder is a real data move of the underlying
+  // transclusion PluginLineItem among its siblings on the backing record
+  // (line.move(record, after) — the same GUID-preserving call the pin-to-top
+  // path already uses), so order syncs across devices like any other edit.
+  _wbLiveWireDrag(el) {
+    el.draggable = true;
+    el.addEventListener("dragstart", (ev) => {
+      const it = el.__wbIt;
+      if (!it || !it.lineGuid) return;
+      this._wbDrag = { lineGuid: it.lineGuid };
+      el.classList.add("refx-wb-hdr-dragging");
+      try {
+        ev.dataTransfer.effectAllowed = "move";
+        ev.dataTransfer.setData("text/plain", "refx-wb:" + it.lineGuid);
+      } catch (e) {}
+      ev.stopPropagation();
+    });
+    el.addEventListener("dragover", (ev) => {
+      if (!this._wbDrag) return; // never hijack a native/foreign drag
+      ev.preventDefault(); ev.stopPropagation();
+      try { ev.dataTransfer.dropEffect = "move"; } catch (e) {}
+      const before = this._wbDragIsBefore(el, ev);
+      el.classList.toggle("refx-wb-drop-before", before);
+      el.classList.toggle("refx-wb-drop-after", !before);
+    });
+    el.addEventListener("dragleave", () => {
+      el.classList.remove("refx-wb-drop-before", "refx-wb-drop-after");
+    });
+    el.addEventListener("drop", (ev) => {
+      if (!this._wbDrag) return;
+      ev.preventDefault(); ev.stopPropagation();
+      const before = this._wbDragIsBefore(el, ev);
+      const src = this._wbDrag.lineGuid;
+      const dst = el.__wbIt && el.__wbIt.lineGuid;
+      this._wbDrag = null;
+      this._wbClearDragMarks();
+      if (src && dst && src !== dst) this._wbLiveReorder(src, dst, before).catch(() => {});
+    });
+    el.addEventListener("dragend", () => { this._wbDrag = null; this._wbClearDragMarks(); });
+  }
+
+  _wbDragIsBefore(el, ev) {
+    try {
+      const r = el.getBoundingClientRect();
+      if (!r || !r.height) return true;
+      return ev.clientY < r.top + r.height / 2;
+    } catch (e) { return true; }
+  }
+
+  _wbClearDragMarks() {
+    try {
+      for (const n of document.querySelectorAll(".refx-wb-hdr-dragging, .refx-wb-drop-before, .refx-wb-drop-after")) {
+        n.classList.remove("refx-wb-hdr-dragging", "refx-wb-drop-before", "refx-wb-drop-after");
+      }
+    } catch (e) {}
+  }
+
+  // Move srcGuid's shelf line so it lands immediately before/after dstGuid.
+  async _wbLiveReorder(srcGuid, dstGuid, before) {
+    const owner = this._wbOwner;
+    const rec = this._wbBackingRecord;
+    if (!rec || !this._wbOwnerCurrent(owner)) return;
+    const items = await this._wbLoadLive(null, owner);
+    if (!this._wbOwnerCurrent(owner)) return;
+    const src = items.find((x) => x.lineGuid === srcGuid);
+    if (!src || !src.line || typeof src.line.move !== "function") return;
+    // Compute the "after" sibling in the list WITHOUT the dragged item, so
+    // dropping above the first item yields after=null (move to top).
+    const rest = items.filter((x) => x.lineGuid !== srcGuid);
+    const at = rest.findIndex((x) => x.lineGuid === dstGuid);
+    if (at < 0) return;
+    const afterItem = before ? (at > 0 ? rest[at - 1] : null) : rest[at];
+    let moved = false;
+    try { moved = (await src.line.move(rec, afterItem ? afterItem.line : null)) !== false; } catch (e) { moved = false; }
+    if (!this._wbOwnerCurrent(owner)) return;
+    if (!moved) { this._toast("Couldn't reorder that Workbench item."); return; }
+    this._wbLiveScheduleRefresh(60);
   }
 
   _wbLiveHeaderSync(el, it, dangling, backgroundGeneration = null, owner = this._wbOwner, refreshSeq = null) {
@@ -38452,6 +39291,28 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     this._wbLiveScheduleRefresh();
   }
 
+  _wbTargetLabel(guid) {
+    if (this.data.getRecord(guid)) return this.getOrLoadRecordName(guid) || guid;
+    return this._readableLineTitle(guid) || this._lineTextByGuid(guid) || guid;
+  }
+
+  _wbPreserveQueryHost(node, it) {
+    if (!node || !it?.target || this.data.getRecord(it.target)) return;
+    const hostGuid = this._wbItemRecordGuid({ guid: it.target });
+    if (!hostGuid || hostGuid === this._wbBackingGuid) return;
+    const container = node.querySelector(".transclusion-container-div");
+    if (!container) return;
+    const nested = container.querySelector(":scope > .listview-items[data-guid]");
+    if (nested) {
+      const nestedGuid = nested.getAttribute("data-guid");
+      if (nestedGuid && nestedGuid !== this._wbBackingGuid) return;
+    }
+    // Stamp before Datacore's poll mounts .pdc-embed-root. Quick Log's heading
+    // line has no dc: prefix; host must still be the original journal record.
+    container.classList.add("listview-items");
+    if (container.getAttribute("data-guid") !== hostGuid) container.setAttribute("data-guid", hostGuid);
+  }
+
   async _wbAddLive(guid, opts) {
     const owner = this._wbOwner;
     if (!guid || !this._wbOwnerCurrent(owner)) return;
@@ -38484,9 +39345,17 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     if (!this._wbOwnerCurrent(owner)) return;
     // cap: drop the oldest UNPINNED item
     let dropped = false;
+    let next = [];
     try {
-      const next = await this._wbLoadLive(null, owner);
-      if (!this._wbOwnerCurrent(owner)) return;
+      let added = null;
+      for (let attempt = 0; attempt < 4; attempt++) {
+        next = await this._wbLoadLive(null, owner);
+        if (!this._wbOwnerCurrent(owner)) return;
+        added = next.find((x) => x.target === guid && ((x.variant === "refs") === isRefs));
+        if (added) break;
+        if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 90));
+      }
+      if (!added) { this._toast("Couldn't add to the Workbench."); return; }
       if (next.length > this._WB_CAP) {
         for (let i = next.length - 1; i >= 0; i--) {
           if (!next[i].pinned) {
@@ -38497,10 +39366,11 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
           }
         }
       }
-    } catch (e) {}
+    } catch (e) { this._toast("Couldn't add to the Workbench."); return; }
     this._wbEnsureOpen();
     this._wbLiveScheduleRefresh();
-    const name = this.getOrLoadRecordName(guid);
+    this._wbPokeDatacore(200);
+    const name = this._wbTargetLabel(guid);
     const label = (isRefs ? "Linked refs: " : "") + (name.length > 40 ? name.slice(0, 40) + "…" : name);
     this._toast("Added to Workbench: " + label + (dropped ? " — oldest unpinned dropped (" + this._WB_CAP + " max)" : ""));
   }
@@ -38995,6 +39865,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     state.scanSeq = seq;
 
     const refs = this.collectReferenceTargets(editorRoot);
+    this._healHostLineRefSlugChipTitles(refs);
     // v4.22.1: decorate footnote chips with [N] superscripts
     this._decorateFootnoteChips(editorRoot).catch(() => {});
     // v4.24.0: self-heal "[Title missing]" line-ref chips on sight
@@ -39322,9 +40193,10 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     // pass below refines. Skip lines whose count is already known.
     if (this._excludeCollections.size === 0) {
       for (const { lineEl, guid } of targets) {
-        if (this.getCachedCountInfo(guid)) continue;
+        const cached = this.getCachedCountInfo(guid);
         const pc = this._nativePillCount(lineEl);
-        if (pc >= this._minCount) this.upsertTargetBadge(lineEl, guid, { count: pc, capped: false });
+        const immediate = Math.max(pc, cached?.count || 0);
+        if (immediate >= this._minCount) this.upsertTargetBadge(lineEl, guid, { count: immediate, capped: cached?.capped === true });
       }
     }
     const uniqueGuids = Array.from(new Set(targets.map((x) => x.guid)));
@@ -39346,8 +40218,9 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     for (const { lineEl, guid } of targets) {
       if (!lineEl.isConnected) continue;
       const info = counts.get(guid) || { count: 0, capped: false };
-      if (info.count <= 0 || info.count < this._minCount) { this.removeTargetBadgeFromLine(lineEl); continue; }
-      this.upsertTargetBadge(lineEl, guid, info);
+      const count = this._targetCountWithNativeFloor(lineEl, info.count, info);
+      if (count < this._minCount) { this.removeTargetBadgeFromLine(lineEl); continue; }
+      this.upsertTargetBadge(lineEl, guid, { ...info, count });
     }
   }
 
@@ -39417,12 +40290,12 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       if (!e || !e.node) return false;
       if (kind === 'targetBadge') {
         const li = this._editorLineEl(e.lineGuid); // main-editor copy, never the Workbench's
-        const host = li ? this.resolveTargetBadgeHost(li) : null;
+        const host = li ? this.resolveTargetCountHost(li) : null;
         if (!host) return false;
-        // Segment renderers can append later spans after a still-connected badge.
-        // Re-home it to the true DOM end in the same pre-paint callback. Its CSS
-        // is absolute, so neither this move nor a wrap-boundary position owns flow.
-        if (e.node.parentNode !== host || e.node !== host.lastElementChild) host.appendChild(e.node);
+        // Absolute on the full-width row. Do NOT re-append to lastElementChild —
+        // nested child .listitem nodes live after the line-div and must not
+        // steal the wrap (and re-appending them would churn the outline).
+        if (e.node.parentNode !== host) host.appendChild(e.node);
         return true;
       }
       if (e.node.isConnected) return true;
@@ -40912,15 +41785,28 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       for (const p of pills) {
         if (p.closest('.listitem[data-guid]') !== lineEl) continue; // belongs to a nested line
         const raw = (p.textContent || '').trim();
-        // Only trust a plain digit run. Reject abbreviated / separated counts
-        // ("1.2k", "12,300", "99+") — parseInt of the stripped digits would be
-        // wrong (e.g. "1.2k" -> 12). The async pass supplies the real number.
-        if (!raw || /[.,+kKmM]/.test(raw)) continue;
+        // Presence of this line's native backlink control means ≥1 inbound ref
+        // even when the host paints an icon instead of a digit.
+        if (!raw) return 1;
+        // Reject abbreviated / separated counts ("1.2k", "12,300", "99+") —
+        // parseInt of the stripped digits would be wrong (e.g. "1.2k" -> 12).
+        if (/[.,+kKmM]/.test(raw)) continue;
         const n = parseInt(raw.replace(/[^0-9]/g, ''), 10);
         if (Number.isFinite(n) && n > 0) return n;
+        return 1;
       }
     } catch (e) {}
     return 0;
+  }
+
+  // Live native pill is a floor against stale zeros only. Fresh RefX counts win.
+  _targetCountWithNativeFloor(lineEl, count, info = null) {
+    const n = Number(count) || 0;
+    if (this._excludeCollections.size > 0) return n;
+    const pill = this._nativePillCount(lineEl);
+    if (n === 0) return Math.max(n, pill);
+    if (!info || info.fromDisk || info.optimistic || info.capped) return Math.max(n, pill);
+    return n;
   }
 
   _scheduleTargetBadgeAuthoritativeRefine(state, seq, linesByGuid, guids) {
@@ -41010,33 +41896,29 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     //    mistaking an incomplete observed cache for an authoritative zero.
     let preCountMap = null;
     const uncachedSet = new Set(uncached);
+    const canUsePill = this._excludeCollections.size === 0;
     if (uncached.length > 0) {
       preCountMap = this._observedInboundCountMap(uncachedSet);
-
-      // Immediate-paint pass for registry-warm hits AND native-pill hits.
-      // v3.73.0: Thymer's native backlink pill carries the authoritative
-      // line/record backref count and is already in the DOM (~1.7s ahead of our
-      // async cascade on cold load). Take max(registry pre-count, native pill)
-      // so the badge paints at native speed. Gated to exclude-free mode — a
-      // collection filter needs the async recount to drop excluded sources.
-      const canUsePill = this._excludeCollections.size === 0;
-      for (const { lineEl, guid } of lines) {
-        if (!uncachedSet.has(guid)) continue;
-        const preCount = preCountMap.get(guid) || 0;
-        const pillCount = canUsePill ? this._nativePillCount(lineEl) : 0;
-        // v3.73.0: also honour a disk-seeded count so a target line with no
-        // native pill / cold registry still paints immediately from the
-        // persisted snapshot. All three are placeholders; the async pass refines.
-        const raw = this._countCache.get(guid);
-        const seededCount = (raw && (raw.fromDisk || raw.optimistic) && typeof raw.count === 'number') ? raw.count : 0;
-        const immediate = Math.max(preCount, pillCount, seededCount);
-        if (immediate <= 0) continue;
-        // Paint immediately (shown before async result arrives).
-        const preInfo = { count: immediate, capped: false };
-        if (!lineEl.isConnected) continue;
-        if (immediate >= this._minCount) {
-          this.upsertTargetBadge(lineEl, guid, preInfo);
-        }
+    }
+    // Immediate-paint pass for registry-warm hits AND native-pill hits.
+    // v3.73.0: Thymer's native backlink pill carries the authoritative
+    // line/record backref count and is already in the DOM (~1.7s ahead of our
+    // async cascade on cold load). Take max(registry pre-count, native pill)
+    // so the badge paints at native speed. Gated to exclude-free mode — a
+    // collection filter needs the async recount to drop excluded sources.
+    // v4.48.9: also run this for cached zeros — a stale 0 must not skip the
+    // live pill floor (the native control is still on the source line).
+    for (const { lineEl, guid } of lines) {
+      const preCount = (preCountMap && uncachedSet.has(guid)) ? (preCountMap.get(guid) || 0) : 0;
+      const pillCount = canUsePill ? this._nativePillCount(lineEl) : 0;
+      const raw = this._countCache.get(guid);
+      const seededCount = (raw && (raw.fromDisk || raw.optimistic) && typeof raw.count === 'number') ? raw.count : 0;
+      const cachedCount = counts.get(guid)?.count || 0;
+      const immediate = Math.max(preCount, pillCount, seededCount, cachedCount);
+      if (immediate <= 0) continue;
+      if (!lineEl.isConnected) continue;
+      if (immediate >= this._minCount) {
+        this.upsertTargetBadge(lineEl, guid, { count: immediate, capped: false });
       }
     }
 
@@ -41068,17 +41950,19 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       // until the cooperative refine completes, so preserve an existing badge
       // rather than repainting/removing it from an incomplete lower bound.
       let info = counts.get(guid);
-      if (!info && uncachedSet.has(guid)) {
+      const pillCount = canUsePill ? this._nativePillCount(lineEl) : 0;
+      if (!info && uncachedSet.has(guid) && pillCount < this._minCount) {
         const existing = this._ownTargetBadge(lineEl);
         if (existing) keep.add(existing);
         continue;
       }
       if (!info) info = { count: 0, capped: false };
-      if (info.count <= 0 || info.count < this._minCount) {
+      const count = Math.max(Number(info.count) || 0, pillCount);
+      if (count < this._minCount) {
         this.removeTargetBadgeFromLine(lineEl);
         continue;
       }
-      const wrap = this.upsertTargetBadge(lineEl, guid, info);
+      const wrap = this.upsertTargetBadge(lineEl, guid, { ...info, count });
       if (wrap) keep.add(wrap);
     }
     this.removeOrphanTargetBadges(editorRoot, keep);
@@ -41145,7 +42029,8 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
   }
 
   // The line's OWN content element (its segments render here) — never a child
-  // line's div and never one inside a nested transclusion.
+  // line's div and never one inside a nested transclusion. Check overlays stay
+  // here. The source-line COUNT is on the full-width row (resolveTargetCountHost).
   resolveTargetBadgeHost(lineEl) {
     const candidates = lineEl.querySelectorAll('.line-div, .line-check-div');
     let fallback = null;
@@ -41158,13 +42043,28 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     return fallback;
   }
 
+  // Native backlink-pill slot: the full-width `.listitem` row, so the count
+  // sits at the far right like Roam's `.rm-block__ref-count`, not after the
+  // last glyph of the shrink-wrapped `.line-div`.
+  resolveTargetCountHost(lineEl) {
+    return lineEl || null;
+  }
+
   upsertTargetBadge(lineEl, guid, info) {
     if (!this._lineHasMeaningfulContent(lineEl, guid)) {
       this.removeTargetBadgeFromLine(lineEl);
       return null;
     }
-    const host = this.resolveTargetBadgeHost(lineEl);
+    const host = this.resolveTargetCountHost(lineEl);
     if (!host || !host.isConnected) return null;
+
+    // v4.49.1: drop a leftover wrap that v4.49.0 parked on .line-div (glued to text).
+    const textHost = this.resolveTargetBadgeHost(lineEl);
+    if (textHost && textHost !== host) {
+      for (const el of textHost.querySelectorAll(':scope > .trc-target-badge-wrap')) {
+        try { el.remove(); } catch (e) {}
+      }
+    }
 
     let wrap = null;
     for (const el of host.querySelectorAll(':scope > .trc-target-badge-wrap')) {
@@ -41176,9 +42076,6 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       wrap.className = 'trc-target-badge-wrap';
       wrap.setAttribute('contenteditable', 'false');
       try { host.appendChild(wrap); } catch (e) { return null; }
-    } else if (wrap !== host.lastElementChild) {
-      // Anchored at the line's END — re-append when segments landed after it.
-      try { host.appendChild(wrap); } catch (e) {}
     }
 
     if (!wrap.classList.contains(this._fontScaleClass)) {
@@ -41846,7 +42743,29 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       if (!chips) { chips = []; byGuid.set(ref.guid, chips); }
       chips.push(chip);
     }
-    await this._mapWithConcurrency([...byGuid.keys()], 4, async (guid) => {
+    const guids = [...byGuid.keys()];
+    const cold = [];
+    for (const guid of guids) {
+      const cached = this._refChainCacheGet(guid, 4, 8);
+      if (cached) {
+        for (const chip of byGuid.get(guid) || []) {
+          if (chip?.isConnected === false) continue;
+          this._paintRefChainChip(chip, cached);
+        }
+      } else {
+        cold.push(guid);
+      }
+    }
+    const toResolve = cold.slice(0, 12);
+    const remaining = cold.slice(12);
+    if (remaining.length && state) {
+      const remainingGuids = new Set(remaining);
+      state.refChainScanRequest = {
+        refs: (refs || []).filter((ref) => remainingGuids.has(ref.guid)),
+        seq,
+      };
+    }
+    await this._mapWithConcurrency(toResolve, 4, async (guid) => {
       if (this._isUnloading || (state && state.scanSeq !== seq)) return;
       const chain = await this._resolveRefChain(guid, { maxDepth: 4, maxFanout: 8 });
       if (this._isUnloading || (state && state.scanSeq !== seq)) return;
@@ -44074,13 +44993,27 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     // of pending/TTL — the async refine replaces them with a fresh count and
     // clears the flag. A concurrent refine keeps the count on the placeholder,
     // so the badge never blanks mid-flight.
-    if (entry.fromDisk || entry.optimistic) return { count: entry.count, capped: entry.capped === true, sdkPropCount: entry.sdkPropCount || 0 };
+    if (entry.fromDisk || entry.optimistic) {
+      return {
+        count: entry.count,
+        capped: entry.capped === true,
+        sdkPropCount: entry.sdkPropCount || 0,
+        fromDisk: !!entry.fromDisk,
+        optimistic: !!entry.optimistic,
+      };
+    }
     if (entry.pending) return null;
     // Invalidation (not expiry) is the freshness mechanism; long TTL is a
     // backstop. Capped (hot) targets expire fast so they can't drift stale.
     const ttl = entry.capped === true ? this._cappedTtlMs : this._countTtlMs;
     if ((Date.now() - (entry.updatedAt || 0)) > ttl) return null;
-    return { count: entry.count, capped: entry.capped === true, sdkPropCount: entry.sdkPropCount || 0 };
+    return {
+      count: entry.count,
+      capped: entry.capped === true,
+      sdkPropCount: entry.sdkPropCount || 0,
+      fromDisk: false,
+      optimistic: false,
+    };
   }
 
   setCachedCountInfo(guid, info) {
@@ -44188,19 +45121,21 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       // "Source Line"). Deduped against the line-ref source records so a record
       // that both @linkto-references AND property-references the line counts
       // once. Zero-cost when the feature is off (empty index, no scan).
-      let combined = li.count;
+      const inline = li.count;
       // v3.68.0: run prop-ref count when named list OR autoLineRefs is active.
       const linePropActive = (this._lineRefProps && this._lineRefProps.length) || this._autoLineRefs;
+      let propOnly = 0;
       if (linePropActive && !li.capped) {
         const lp = await this.loadLinePropReferenceRecordCount(guid);
         for (const recGuid of lp.recordGuids) {
-          if (!li.sourceRecordGuids?.has(recGuid)) combined += 1;
+          if (!li.sourceRecordGuids?.has(recGuid)) propOnly += 1;
         }
       }
+      const visible = inline > 0 ? inline : propOnly;
       // Counts are strictly INBOUND. A record-level Source Line property may
       // connect the record to another line, but it never makes every body line
       // inside that record a referenced target.
-      return { count: combined, capped: li.capped };
+      return { count: visible, capped: li.capped, sdkPropCount: propOnly };
     }
 
     this._markRecordTargetKnown(guid);
@@ -44468,8 +45403,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
 
     // Fallback: searchByQuery (used when getBackReferences() is absent or the
     // owning record is not in the registry).
-    const query = `@linkto = "${guid}"`;
-    const result = await this.data.searchByQuery(query, this._maxResults);
+    const result = await this._sharedExactRefSearch(guid, this._maxResults);
     if (result?.error) {
       return { count: 0, capped: false, sourceRecordGuids: new Set() };
     }
@@ -45452,12 +46386,13 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
 
   _paintTargetEntriesNow(entries, guid, info) {
     if (!info || this._isUnloading || !this._enabled || !this._targetLineBadges) return;
-    const show = (this._showZero || info.count > 0) && info.count >= this._minCount;
     for (const entry of entries || []) {
       const lineEl = entry?.lineEl || entry;
       if (!lineEl?.isConnected) continue;
-      if (!show || info.count <= 0) this.removeTargetBadgeFromLine(lineEl);
-      else this.upsertTargetBadge(lineEl, guid, info);
+      const count = this._targetCountWithNativeFloor(lineEl, info.count, info);
+      const show = (this._showZero || count > 0) && count >= this._minCount;
+      if (!show) this.removeTargetBadgeFromLine(lineEl);
+      else this.upsertTargetBadge(lineEl, guid, { ...info, count });
     }
   }
 
