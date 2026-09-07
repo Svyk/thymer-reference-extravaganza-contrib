@@ -4035,7 +4035,7 @@ test('v4.43 general ref-chain resolver guards cycles and enforces depth/fanout c
 test('v4.48.6 public bridge keeps v4 bounded-chain and one-level resolution compatibility', async () => {
   const h = lineRefClickHarness();
   installU6ChainGraph(h);
-  assert.equal(h.window.__refx.version, '4.49.7');
+  assert.equal(h.window.__refx.version, '4.49.10');
   assert.equal(Object.hasOwn(h.window.__refx, 'refChainVersion'), false);
   assert.equal(h.window.__refx.resolveRefChainVersion, 4);
   assert.equal(typeof h.window.__refx.resolveRefChain, 'function');

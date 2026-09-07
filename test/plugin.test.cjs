@@ -1047,7 +1047,9 @@ test('reference appearance setting persists and switches body classes', () => {
 });
 
 test('styled reference modes do not replay Thymer color transitions on rebuilt chips', () => {
-  assert.match(source, /body\.refx-links-distinct \.refx-pageref-chip,\s*body\.refx-links-distinct \.refx-lineref-chip,\s*body\.refx-links-roam \.refx-pageref-chip,\s*body\.refx-links-roam \.refx-lineref-chip \{\s*transition: none !important;\s*\}/);
+  // v4.49.8 extends the group with the unclassified-chip fallback: a chip that
+  // has not been classified yet must also not animate from the native paint.
+  assert.match(source, /body\.refx-links-distinct \.refx-pageref-chip,\s*body\.refx-links-distinct \.refx-lineref-chip,\s*body\.refx-links-roam \.refx-pageref-chip,\s*body\.refx-links-roam \.refx-lineref-chip,\s*body\.refx-links-distinct \.lineitem-ref\[data-guid\]:not\(\.refx-lineref-chip\),\s*body\.refx-links-roam \.lineitem-ref\[data-guid\]:not\(\.refx-lineref-chip\) \{\s*transition: none !important;\s*\}/);
 });
 
 test('page creation always prefers Notes independently of selection-wrap config', async () => {

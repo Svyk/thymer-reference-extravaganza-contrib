@@ -33,9 +33,9 @@ test('reference hydration seeds all record identities before property-edge class
 
 test('runtime and manifest versions identify the current release', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'plugin.json'), 'utf8'));
-  assert.equal(manifest.version, '4.49.7');
-  assert.ok(source.startsWith('// v4.49.7'), 'first line must be // v4.49.7');
-  assert.match(source, /window\.__REFX_VERSION = "4\.49\.7"/);
+  assert.equal(manifest.version, '4.49.10');
+  assert.ok(source.startsWith('// v4.49.10'), 'first line must be // v4.49.9');
+  assert.match(source, /window\.__REFX_VERSION = "4\.49\.10"/);
 });
 
 test('reference expansion avoids whole-body probes and broad record-update discovery', () => {

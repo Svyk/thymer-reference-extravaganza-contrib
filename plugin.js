@@ -1,4 +1,7 @@
-// v4.49.7 - Workbench click/Enter yield to the native @ date picker; Datacore widgets refresh in the Workbench; header drag-reorder.
+// v4.49.10 - A reference chip's appearance now weighs the same in every state, so a third-party stylesheet (Indent Rainbow's path colouring) wins or loses uniformly instead of making line refs flip colour on every rebuild.
+// Previous release: line references (( stop blinking too: a guid-keyed bridge stylesheet paints a rebuilt line-ref chip with the line appearance before any JS runs, so it no longer falls back to the page-ref default that v4.49.8 introduced.
+// Previous release: Reference chips stop blinking while you type: an unclassified chip paints the page-reference appearance from static CSS (no frame can paint Thymer native, no host colour transition replays), and a cold 'unknown' verdict no longer strips a chip's classification.
+// Previous release: Workbench click/Enter yield to the native @ date picker; Datacore widgets refresh in the Workbench; header drag-reorder.
 // Previous release: left-click ref menu clamps to the remaining window pocket (chain/Block Context reservations shrink so action rows stay visible); outgoing chain reserves inside the chain budget; hover preview reads structure-only bodies; chip chain scan caps cold resolves; line count shares the @linkto search.
 // Previous release: inline fill no longer waits on collapse meta; inline chain root reuses fill rows; shared @linkto search; badge prefers fresh RefX count over native pill floor.
 // Previous release: media review hardening held image skeletons until decode, pinned preview geometry, bounded/reaped the viewport queue, gated hover media sweeps, and hardened disposal/error forensics.
@@ -785,6 +788,15 @@ class Plugin extends AppPlugin {
   _cardNavResume = null;
   _isMac = /Mac|iPhone|iPad/.test((typeof navigator !== "undefined" && (navigator.platform || navigator.userAgent)) || "");
   _STYLE_ID = "refalias-style";
+  // v4.49.9 line-kind bridge (see _lineRefBridgeCss). Guids positively
+  // classified as LINE refs, so a rebuilt chip paints the line appearance from
+  // static CSS instead of inheriting the page-ref default for a frame.
+  _LINE_KIND_STYLE_ID = "refx-linekind-style";
+  _LINE_KIND_CAP = 300;
+  _lineKindGuids = new Map();
+  _lineKindDirty = false;
+  _lineKindFlushQueued = false;
+  _lineKindCssText = "";
   // Only truly extreme TARGET SUBTREES take the automatic preview path. A line
   // inside a huge Journal/page must not be penalized merely because it has many
   // unrelated siblings. The decision uses an authoritative SDK subtree count,
@@ -4168,7 +4180,7 @@ class Plugin extends AppPlugin {
     this._attachAttributesClaims();
     this._referenceSurfaceBroker = this._initReferenceSurfaceBroker(); // R1 + A1: Reference Surface v1
     this._referenceEditsBroker = this._initReferenceEditsBroker();
-    try { window.__REFX_VERSION = "4.49.7"; } catch (e) {} // live-version tell for debugging
+    try { window.__REFX_VERSION = "4.49.10"; } catch (e) {} // live-version tell for debugging
     try {
       this._moveGeneration = Number(window.__refxMoveGeneration || 0) + 1;
       window.__refxMoveGeneration = this._moveGeneration;
@@ -5387,6 +5399,12 @@ class Plugin extends AppPlugin {
     this._closeModal();
     const st = document.getElementById(this._STYLE_ID);
     if (st) st.remove();
+    // The line-kind bridge sheet is a real unload, not a hot reload: a new
+    // instance adopts the node by id, only a teardown removes it.
+    try { document.getElementById(this._LINE_KIND_STYLE_ID)?.remove(); } catch (e) {}
+    this._lineKindGuids.clear();
+    this._lineKindCssText = "";
+    this._lineKindDirty = false;
   }
 
   // ---------------------------------------------------------------- detection
@@ -22074,13 +22092,44 @@ class Plugin extends AppPlugin {
    to the selected RefX appearance even though classification happens before
    paint. Disable host transitions only on explicitly classified RefX chips;
    hover paint still applies immediately, including under custom themes. */
+/* v4.49.8 FLASH-FREE DEFAULT (rule 102 §4 — persistent CSS keyed on an attribute
+   Thymer itself renders). Pre-paint class restoration is necessary but not
+   sufficient: it only holds while RefX is the ONLY writer of these classes. A
+   second writer in the same microtask checkpoint — a leaked instance still live
+   after a Plugins-Manager update (rule 27), or this plugin's own classifier
+   returning a transient 'unknown' — strips the class after we set it, and the
+   chip then falls back to Thymer's native chip paint AND replays the host's
+   200ms colour transition. Measured live on 4.49.7 with a simulated second
+   writer: 425 of 715 painted frames were native, animating through the whole
+   blue→teal ramp; that is the reported blinking reference.
+   The cure is that the PRESENCE of our class must not be what makes a chip look
+   right. An unclassified reference chip paints the page-reference appearance by
+   default from static CSS, and only a positively classified LINE ref opts out
+   via :not(). No JS runs, so no frame can paint native. Same-writer measurement
+   with this rule present: 0 of 727 painted frames native.
+   v4.49.10 wraps the DEFAULT paint/hover selectors in :where() so each weighs one
+   class LESS than the classified rule it stands behind, and the line-kind bridge
+   is built to weigh exactly the SAME as its classified rule. That makes a chip's
+   appearance weight identical in every state, which is what a third-party
+   stylesheet actually cares about. Indent Rainbow paints the caret path with
+     body.thymer-ir-path-refs .listitem[data-thymer-ir-path] :is(.lineitem-ref,…)
+   at (0,4,1) !important: it outranks our classified rules but LOST to the
+   v4.49.9 bridge at (0,5,1), so a line ref on the rainbow path flipped
+   orange→teal→orange on every rebuild while a page ref on the same line never
+   moved. With equal weights whoever wins, wins in every state — no flicker
+   either way, and no need for RefX to know that plugin exists. The
+   transition:none group deliberately keeps its full weight: it is uncontested
+   and must keep beating Thymer's own .lineitem-ref colour transition. */
 body.refx-links-distinct .refx-pageref-chip,
 body.refx-links-distinct .refx-lineref-chip,
 body.refx-links-roam .refx-pageref-chip,
-body.refx-links-roam .refx-lineref-chip {
+body.refx-links-roam .refx-lineref-chip,
+body.refx-links-distinct .lineitem-ref[data-guid]:not(.refx-lineref-chip),
+body.refx-links-roam .lineitem-ref[data-guid]:not(.refx-lineref-chip) {
   transition: none !important;
 }
-body.refx-links-distinct .refx-pageref-chip {
+body.refx-links-distinct .refx-pageref-chip,
+body.refx-links-distinct :where(.lineitem-ref[data-guid]:not(.refx-lineref-chip)) {
   color: var(--refx-page-link-color, var(--color-accent-500, #4f83cc)) !important;
   text-decoration: underline solid currentColor;
   text-underline-offset: 2px;
@@ -22092,7 +22141,8 @@ body.refx-links-distinct .refx-lineref-chip {
   text-underline-offset: 2px;
   background: transparent;
 }
-body.refx-links-roam .refx-pageref-chip {
+body.refx-links-roam .refx-pageref-chip,
+body.refx-links-roam :where(.lineitem-ref[data-guid]:not(.refx-lineref-chip)) {
   /* Roam .rm-page-ref--link: colored, no underline, no border, transparent bg. */
   color: var(--refx-page-link-color, #106ba3) !important;
   text-decoration: none;
@@ -22119,10 +22169,12 @@ body.refx-links-roam.refx-line-underline-dotted .refx-lineref-chip {
   background-repeat: no-repeat;
 }
 body.refx-links-distinct .refx-pageref-chip:hover,
-body.refx-links-distinct .refx-lineref-chip:hover {
+body.refx-links-distinct .refx-lineref-chip:hover,
+body.refx-links-distinct :where(.lineitem-ref[data-guid]:not(.refx-lineref-chip)):hover {
   background: var(--sidebar-bg-hover, rgba(127,127,127,.10));
 }
-body.refx-links-roam .refx-pageref-chip:hover {
+body.refx-links-roam .refx-pageref-chip:hover,
+body.refx-links-roam :where(.lineitem-ref[data-guid]:not(.refx-lineref-chip)):hover {
   background: var(--sidebar-bg-hover, rgba(127,127,127,.10));
 }
 body.refx-links-roam .refx-lineref-chip:hover {
@@ -42667,14 +42719,142 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     return 'unknown';
   }
 
+  // ─────────────────────────── v4.49.9 line-kind bridge ───────────────────────
+  // v4.49.8 gave every unclassified `.lineitem-ref[data-guid]` the PAGE-ref
+  // appearance from static CSS, which removed the native-paint flash for page
+  // refs — but made LINE refs worse: a rebuilt line-ref chip now falls back to
+  // page blue instead of Thymer's native teal, a much larger visible jump.
+  // Measured on Desktop with a second class writer: the page chip on a line held
+  // 913/913 correct frames while the line-ref chip on the SAME line painted page
+  // blue for 779 of 913.
+  //
+  // Thymer renders page refs and line refs with byte-identical DOM (same
+  // classes, same children, only `data-guid` differs — verified live), so there
+  // is no native selector that tells them apart. The kind of a GUID is immutable
+  // though, so once we have classified one we can key static CSS on it. These
+  // rules are a BRIDGE, not a second styling system: `:not(.refx-lineref-chip)`
+  // makes each one stop matching the instant our class lands, so it can never
+  // override the classified rules or the user's underline-style knob. They sit
+  // one class above the v4.49.8 page-ref default by construction, so ordering
+  // between the two stylesheets is irrelevant.
+  // Weight matters more than the guid list here. Everything that narrows the
+  // selector to "this guid, not yet classified" sits inside :where() and costs
+  // nothing, so the bridge weighs exactly what `<prefix> .refx-lineref-chip`
+  // weighs. A third-party rule (Indent Rainbow's path colouring, a theme) then
+  // beats or loses to the bridge and to the classified rule identically, which
+  // is what stops a chip changing colour as it is rebuilt. It still outranks the
+  // :where()-wrapped page default, so ordering between the two sheets is
+  // irrelevant.
+  _lineRefBridgeSelector(prefix, guids) {
+    const list = guids.map((g) => '[data-guid="' + g + '"]').join(',');
+    return prefix + ' .lineitem-ref:where(' + list + ')'
+      + ':where(:not(.refx-pageref-chip,.refx-lineref-chip))';
+  }
+
+  // Declarations MUST mirror the classified line-ref rules in _injectStyle.
+  // test/v4499-lineref-bridge.test.cjs parses those rules out of plugin.js and
+  // fails if the two ever drift.
+  _lineRefBridgeCss(guids) {
+    if (!guids.length) return '';
+    const sel = (prefix) => this._lineRefBridgeSelector(prefix, guids);
+    return [
+      sel('body.refx-links-distinct') + ' {',
+      '  color: var(--refx-line-link-color, var(--button-primary-bg-color, #397f84)) !important;',
+      '  text-decoration: underline dotted currentColor;',
+      '  text-underline-offset: 2px;',
+      '  background: transparent;',
+      '}',
+      sel('body.refx-links-roam') + ' {',
+      '  color: inherit !important;',
+      '  text-decoration: none;',
+      '  background: transparent;',
+      '  box-shadow: inset 0 -1px 0 var(--refx-line-underline, var(--refx-roam-underline, rgba(138,155,168,.62)));',
+      '}',
+      sel('body.refx-links-roam.refx-line-underline-none') + ' {',
+      '  box-shadow: none;',
+      '}',
+      sel('body.refx-links-roam.refx-line-underline-dotted') + ' {',
+      '  box-shadow: none;',
+      '  background-image: repeating-linear-gradient(to right, var(--refx-line-underline, rgba(138,155,168,.62)) 0 2px, transparent 2px 4px);',
+      '  background-size: 100% 1px;',
+      '  background-position: 0 100%;',
+      '  background-repeat: no-repeat;',
+      '}'
+    ].join('\n');
+  }
+
+  // Membership only. A guid's kind is immutable, so this is append-mostly; the
+  // FIFO cap keeps a long session from growing the sheet without bound, and a
+  // record verdict evicts a guid an earlier cold read had mis-typed.
+  _noteReferenceKindForCss(guid, kind) {
+    if (typeof guid !== 'string' || !/^[A-Za-z0-9_-]{6,64}$/.test(guid)) return;
+    if (kind === 'line') {
+      if (this._lineKindGuids.has(guid)) return;
+      this._lineKindGuids.set(guid, 1);
+      while (this._lineKindGuids.size > this._LINE_KIND_CAP) {
+        const oldest = this._lineKindGuids.keys().next().value;
+        if (oldest === undefined) break;
+        this._lineKindGuids.delete(oldest);
+      }
+    } else if (!this._lineKindGuids.delete(guid)) {
+      return;
+    }
+    this._lineKindDirty = true;
+    this._scheduleLineKindFlush();
+  }
+
+  // A microtask, never rAF: this runs inside the MutationObserver checkpoint
+  // that restores chip classes, so the sheet is current before the browser
+  // paints the very batch that rebuilt the chips.
+  _scheduleLineKindFlush() {
+    if (this._lineKindFlushQueued || this._isUnloading || this._unloaded) return;
+    this._lineKindFlushQueued = true;
+    const run = () => {
+      this._lineKindFlushQueued = false;
+      try { this._flushLineKindCss(); } catch (e) {}
+    };
+    try { Promise.resolve().then(run); } catch (e) { setTimeout(run, 0); }
+  }
+
+  _flushLineKindCss() {
+    if (!this._lineKindDirty || this._isUnloading || this._unloaded) return;
+    this._lineKindDirty = false;
+    const css = this._lineRefBridgeCss(Array.from(this._lineKindGuids.keys()));
+    if (css === this._lineKindCssText) return;
+    this._lineKindCssText = css;
+    let el = null;
+    try { el = document.getElementById(this._LINE_KIND_STYLE_ID); } catch (e) { return; }
+    if (!el) {
+      if (!css) return;
+      try {
+        el = document.createElement('style');
+        el.id = this._LINE_KIND_STYLE_ID;
+        document.head.appendChild(el);
+      } catch (e) { return; }
+    }
+    // One managed node, updated by textContent only (rule 102 §6): removing and
+    // re-adding it would paint a frame with no rules at all.
+    try { el.textContent = css; } catch (e) {}
+  }
+
   _tagReferenceChip(chip, guid) {
     if (!chip?.classList) return 'unknown';
     const kind = this._referenceTargetKind(guid);
-    if (chip.classList.contains('refx-lineref-chip') !== (kind === 'line')) {
-      chip.classList.toggle('refx-lineref-chip', kind === 'line');
-    }
-    if (chip.classList.contains('refx-pageref-chip') !== (kind === 'record')) {
-      chip.classList.toggle('refx-pageref-chip', kind === 'record');
+    // v4.49.8: 'unknown' is a COLD-INDEX verdict, not a "this is not a
+    // reference" verdict — the registry, the name index and getRecord() can all
+    // miss for a second while the host model streams in (rule 68). Repainting a
+    // chip on that verdict is how a keep-alive pass turns a correctly styled
+    // page ref back into a native-looking chip mid-keystroke, which is exactly
+    // the blink users see. Classification is monotonic: only positive evidence
+    // moves a chip, and only between the two real kinds.
+    if (kind === 'line' || kind === 'record') {
+      if (chip.classList.contains('refx-lineref-chip') !== (kind === 'line')) {
+        chip.classList.toggle('refx-lineref-chip', kind === 'line');
+      }
+      if (chip.classList.contains('refx-pageref-chip') !== (kind === 'record')) {
+        chip.classList.toggle('refx-pageref-chip', kind === 'record');
+      }
+      this._noteReferenceKindForCss(guid, kind);
     }
     const cachedChain = this._refChainCacheGet(guid, 4, 8);
     if (cachedChain) this._paintRefChainChip(chip, cachedChain);

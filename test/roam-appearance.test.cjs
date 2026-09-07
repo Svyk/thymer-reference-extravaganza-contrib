@@ -10,11 +10,21 @@ const vm = require('node:vm');
 const root = path.join(__dirname, '..');
 const source = fs.readFileSync(path.join(root, 'plugin.js'), 'utf8');
 const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-// A single-selector rule (the multi-selector transition group is skipped).
+// The rule whose selector LIST contains `selector`. v4.49.8 gave the page-ref
+// rules a second, guid-keyed fallback selector (an unclassified chip must paint
+// the page appearance without waiting on JS), so a selector is no longer
+// guaranteed to be the only one in its group. The pure transition-only group is
+// still skipped: a match must carry declarations other than `transition`.
 const rule = (selector) => {
-  const re = new RegExp('(?<!,)\\n' + selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ' \\{([^}]*)\\}');
-  const m = re.exec(stripComments(source));
-  return m ? m[1] : null;
+  const esc = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp('(?<![\\w-])' + esc + '(\\s*,[^{]*?)?\\s*\\{([^}]*)\\}', 'g');
+  const body = stripComments(source);
+  let m;
+  while ((m = re.exec(body))) {
+    const decls = m[2];
+    if (/[a-z-]+\s*:/.test(decls.replace(/transition\s*:[^;]*;?/g, ''))) return decls;
+  }
+  return null;
 };
 const manifest = JSON.parse(fs.readFileSync(path.join(root, 'plugin.json'), 'utf8'));
 
@@ -129,10 +139,10 @@ function instance() {
   return { ...h, plugin, calls };
 }
 
-test('version locks 4.49.3', () => {
-  assert.equal(manifest.version, '4.49.7');
-  assert.ok(source.startsWith('// v4.49.7'), 'first line must be // v4.49.7');
-  assert.match(source, /window\.__REFX_VERSION = "4\.49\.7"/);
+test('version locks 4.49.8', () => {
+  assert.equal(manifest.version, '4.49.10');
+  assert.ok(source.startsWith('// v4.49.10'), 'first line must be // v4.49.9');
+  assert.match(source, /window\.__REFX_VERSION = "4\.49\.10"/);
 });
 
 test('settings modal scrolls when the window is short', () => {
@@ -185,7 +195,9 @@ test('distinct and native presets still exist', () => {
   assert.equal(plugin.normalizeReferenceStyle('distinct'), 'distinct');
   assert.equal(plugin.normalizeReferenceStyle('native'), 'native');
   assert.equal(plugin.normalizeReferenceStyle('roam'), 'roam');
-  assert.match(source, /body\.refx-links-distinct \.refx-pageref-chip \{[^}]*text-decoration: underline solid currentColor;/);
+  const distinctPage = rule('body.refx-links-distinct .refx-pageref-chip');
+  assert.ok(distinctPage, 'distinct pageref rule present');
+  assert.match(distinctPage, /text-decoration: underline solid currentColor;/);
   assert.match(source, /body\.refx-links-distinct \.refx-lineref-chip \{[^}]*text-decoration: underline dotted currentColor;/);
 });
 

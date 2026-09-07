@@ -224,7 +224,7 @@ test('v4.49.5 source guards', () => {
   assert.match(source, /_resolveCanonicalLineGuid\(/);
   assert.match(source, /_wbPreserveQueryHost\(/);
   assert.match(source, /_wbTargetLabel\(/);
-  assert.equal(manifest.version, '4.49.7');
-  assert.ok(source.startsWith('// v4.49.7'));
-  assert.ok(source.includes('window.__REFX_VERSION = "4.49.7"'));
+  assert.equal(manifest.version, '4.49.10');
+  assert.ok(source.startsWith('// v4.49.10'));
+  assert.ok(source.includes('window.__REFX_VERSION = "4.49.10"'));
 });

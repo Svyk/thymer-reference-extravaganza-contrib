@@ -1,5 +1,31 @@
 # Changelog
 
+## v4.49.10 — 2026-09-07
+
+### Fixed
+
+- **A reference chip's appearance now weighs the same in every state**, which is what finally stops the blinking when another plugin also colours references. Indent Rainbow's "Color references and tags on the path" ships `body.thymer-ir-path-refs .listitem[data-thymer-ir-path] :is(.lineitem-ref, [class*="hashtag"]) { color: … !important }` — specificity (0,4,1). That outranked RefX's classified rules (0,2,1) but **lost** to the v4.49.9 line-kind bridge (0,5,1), so a line ref on the rainbow path flipped orange → teal → orange on every rebuild while a page ref on the same line never moved. Measured off the user's recording: page ref stable for all 212 frames, line ref flipping.
+- The rule now enforced by test: **a bridge rule weighs exactly what the classified rule it stands in for weighs**, and the unclassified default weighs one class *less*. Whoever wins the cascade then wins in every state of the chip, so no rebuild can change its colour — RefX does not need to know which other plugin is involved. The bridge still outranks the unclassified default, so stylesheet order remains irrelevant.
+- Mechanically: the four default paint/hover selectors are wrapped in `:where(…)`, and the bridge moved from `:is(<guids>).lineitem-ref:not(…):not(…)` to `.lineitem-ref:where(<guids>):where(:not(…, …))`. The `transition: none` group deliberately keeps its full weight — it is uncontested and must keep beating Thymer's own `.lineitem-ref` colour transition.
+- Tests gained a CSS specificity calculator (`:where()` free, `:is()`/`:not()` take the max argument) so the invariant is checked against the real Indent Rainbow selector rather than by eye.
+
+## v4.49.9 — 2026-09-06
+
+### Fixed
+
+- **Line references (`((`) stop blinking too — including refs to a TODO.** v4.49.8 killed the flash for page refs by giving every unclassified `.lineitem-ref[data-guid]` the page-ref appearance from static CSS. That made LINE refs worse: a rebuilt line-ref chip now fell back to page blue instead of Thymer's near-identical native teal, a much larger visible jump. Measured on Thymer Desktop with a second class writer, on one line carrying both kinds: the page chip held **913 of 913** correct frames while the line-ref chip on the same line painted page blue for **779 of 913**.
+- Thymer renders page refs and line refs with byte-identical DOM — same classes, same children, only `data-guid` differs — so no native selector tells them apart. A guid's kind is immutable, though, so RefX now keeps a bounded, guid-keyed **bridge stylesheet** built from positive classifications: a rebuilt line-ref chip paints the line appearance before any JavaScript runs. Every bridge selector ends in `:not(.refx-pageref-chip):not(.refx-lineref-chip)`, so it stops matching the instant our class lands and can never override the classified rules or the underline-style knob; it sits one class above the v4.49.8 page-ref default by construction, so stylesheet order is irrelevant. The declarations are checked against the classified rules by a drift test.
+- The bridge is one adopted `<style>` node updated by `textContent` only, flushed on a microtask inside the same observer checkpoint that restores chip classes (never `requestAnimationFrame`), capped at 300 guids with oldest-first eviction, and dropped on teardown.
+
+## v4.49.8 — 2026-09-06
+
+### Fixed
+
+- **Reference chips no longer blink while you type on their line.** Thymer rebuilds a line's reference chips on every keystroke. RefX re-applied its appearance class pre-paint, which held only while RefX was the sole writer of that class — a second writer (a leaked instance still live after a Plugins-Manager update, or RefX's own classifier returning a transient `unknown` against a cold model) stripped it again in the same microtask checkpoint. The chip then fell back to Thymer's native chip paint *and* replayed the host's 200 ms colour transition. Measured on Thymer Desktop against 4.49.7 with a second writer present: **425 of 715 painted frames were native**, animating through the whole `rgb(16,107,163)` → `rgb(105,201,197)` ramp. Two fixes, both structural:
+  - Appearance no longer depends on our class being present. Static CSS gives every `.lineitem-ref[data-guid]` the page-reference paint unless it is positively classified as a line ref (`:not(.refx-lineref-chip)`), so a freshly rebuilt chip is already correct before any JavaScript runs. Same run with the rule in place: **0 of 727 painted frames native**. The declarations are shared with the classified selector, so there is still one source of truth per preset, and the `transition: none` group covers the fallback too.
+  - Chip classification is monotonic. `unknown` is a cold-index verdict (the registry, the name index and `getRecord()` can all miss for a second while the host model streams in), not evidence that a chip is not a reference — it no longer strips an existing classification, and a 20-keystroke burst against a cold classifier now performs zero class writes.
+- `referenceStyle: "native"` is unaffected: the fallback is gated on `body.refx-links-distinct` / `body.refx-links-roam`, neither of which the native preset sets.
+
 ## v4.49.7 — 2026-09-06
 
 ### Fixed

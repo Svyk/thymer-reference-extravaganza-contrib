@@ -16,15 +16,15 @@ const source = fs.readFileSync(path.join(root, 'plugin.js'), 'utf8');
 
 test('R6 manifest version is 4.48.6', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(root, 'plugin.json'), 'utf8'));
-  assert.equal(manifest.version, '4.49.7');
+  assert.equal(manifest.version, '4.49.10');
 });
 
 test('plugin.js header declares v4.48.6', () => {
-  assert.ok(source.startsWith('// v4.49.7'), 'first line must be // v4.49.7');
+  assert.ok(source.startsWith('// v4.49.10'), 'first line must be // v4.49.9');
 });
 
 test('__REFX_VERSION runtime tell is 4.48.6', () => {
-  assert.ok(source.includes('window.__REFX_VERSION = "4.49.7"'), '__REFX_VERSION must be 4.49.7');
+  assert.ok(source.includes('window.__REFX_VERSION = "4.49.10"'), '__REFX_VERSION must be 4.49.7');
 });
 
 test('CHANGELOG.md has v3.90.0 entry (A3)', () => {
