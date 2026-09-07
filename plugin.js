@@ -1,4 +1,4 @@
-// v4.49.11 - Default no reserved space after ref chips; Settings "Space after reference" (None/Tight/Snug/Wide).
+// v4.49.12 - Count badge sits after the chip when the reserved slot is too small (default 0), so the digit no longer paints on the last letters.
 // Previous release: line references (( stop blinking too: a guid-keyed bridge stylesheet paints a rebuilt line-ref chip with the line appearance before any JS runs, so it no longer falls back to the page-ref default that v4.49.8 introduced.
 // Previous release: Reference chips stop blinking while you type: an unclassified chip paints the page-reference appearance from static CSS (no frame can paint Thymer native, no host colour transition replays), and a cold 'unknown' verdict no longer strips a chip's classification.
 // Previous release: Workbench click/Enter yield to the native @ date picker; Datacore widgets refresh in the Workbench; header drag-reorder.
@@ -4180,7 +4180,7 @@ class Plugin extends AppPlugin {
     this._attachAttributesClaims();
     this._referenceSurfaceBroker = this._initReferenceSurfaceBroker(); // R1 + A1: Reference Surface v1
     this._referenceEditsBroker = this._initReferenceEditsBroker();
-    try { window.__REFX_VERSION = "4.49.11"; } catch (e) {} // live-version tell for debugging
+    try { window.__REFX_VERSION = "4.49.12"; } catch (e) {} // live-version tell for debugging
     try {
       this._moveGeneration = Number(window.__refxMoveGeneration || 0) + 1;
       window.__refxMoveGeneration = this._moveGeneration;
@@ -40790,6 +40790,18 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
   // to chips on M distinct lines cost M _editorLineEl queries, not N whole-doc
   // querySelectorAll calls — the same O(chips)-not-O(chips²) win the keep-alive
   // already banks (:10680). Scoped per-line passes skip it (each touches one line).
+  _overlayDigitLeftVp(cr, dw, slot, gap, checkShift) {
+    const slotW = Number(slot) || 0;
+    const g = Number(gap) || 0;
+    const extra = Number(checkShift) || 0;
+    const width = Number(dw) || 0;
+    if (g + extra + width > Math.max(0, slotW - 2)) return cr.right + g + extra;
+    let leftVp = cr.right - slotW + g + extra;
+    if (leftVp + width > cr.right - 2) leftVp = cr.right - 2 - width;
+    if (leftVp < cr.left) leftVp = cr.left;
+    return leftVp;
+  }
+
   _positionOverlay(e, cache) {
     // Back-compat single-entry wrapper (see _positionCheckOverlay). Measure→apply.
     const plan = this._measureOverlay(e, cache, this._overlayFrameReads());
@@ -40838,14 +40850,9 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       if (node._rx === undefined) { return { node, display: 'none' }; }
       return { node, display: '' };
     }
-    // v3.40.0 CONSISTENT DISTANCE: LEFT-align the digit at a fixed gap after the
-    // chip's TEXT end (= chip.right - slotWidth, since the reserved slot is
-    // padding on the chip) so every badge hugs its chip by the SAME amount —
-    // then CLAMP the right edge to chip.right so a line-end chip's badge never
-    // overhangs/collides (the old "Lori Boyd 55" case). The gap is user-tunable
-    // (_overlayGap, "Badge distance" setting). Digit width is measured once per
-    // count value (cached on the node) so the clamp is exact without a per-frame
-    // read. width:auto + margin-left:0 (CSS) let the digit paint from `left`.
+    // Digit LEFT: after the chip text. When the reserved slot is big enough the
+    // digit sits in that padding; when it is not (default slot 0) it overflows
+    // past chip.right instead of clamping onto the last letters.
     // Digit width. In the OLD inline path the node's display:'' was restored
     // BEFORE this read, so a re-showing culled node measured its real width. Here
     // the display write is deferred to the apply phase, so a node that is STILL
@@ -40866,18 +40873,10 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       if (!remeasure) { node._dw = dw; node._dwT = node.textContent; } // cache only the exact width
     }
     const gap = (this._overlayGap != null ? this._overlayGap : 6);
-    const slotStart = cr.right - this._badgeSlot; // chip text end
-    let leftVp = slotStart + gap;
-    // v3.47.0: a task chip's checkbox overlay occupies the slot start -- shift
-    // the digit right past it (16px box + 2px breathing room).
-    // v3.49.0: only shift when the checkbox is TRAILING (e.leading !== true);
-    // a leading checkbox lives left of the chip text and does not use the slot.
-    // e.leading was set THIS frame by the check-overlay measure pass (which runs
-    // before all badge measures), so this reads a same-frame-fresh value.
     const ck = this._decoKey(e.lineGuid, e.targetGuid, e.ordinal);
     const ckEntry = this._liveCheckOverlays.size && this._liveCheckOverlays.get(ck);
-    if (ckEntry && ckEntry.leading !== true) leftVp += 18;
-    if (leftVp + dw > cr.right - 2) leftVp = cr.right - 2 - dw; // clamp: never overhang chip.right
+    const checkShift = (ckEntry && ckEntry.leading !== true) ? 18 : 0;
+    const leftVp = this._overlayDigitLeftVp(cr, dw, this._badgeSlot, gap, checkShift);
     const bx = Math.round(leftVp - rr.left);
     const by = Math.round(cr.top - rr.top - 2);
     return { node, display: '', bx, by, lineGuid: e.lineGuid, remeasure };

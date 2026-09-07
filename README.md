@@ -1,10 +1,10 @@
 # Reference Extravaganza
 
-## Current release (v4.49.11)
+## Current release (v4.49.12)
 
-Reference chips default to no reserved trailing space (caret flush); Settings
-**Space after reference** offers None/Tight/Snug/Wide, with Wide restoring the
-old 36px count slot.
+Count badges sit after the chip at the default (no reserved slot) instead of
+on the last letters. Settings **Space after reference** is still
+None/Tight/Snug/Wide.
 
 Source-line counts sit at the far right of the row (Thymer's native
 backlink-pill slot, like Roam's block ref-count). The Settings modal body

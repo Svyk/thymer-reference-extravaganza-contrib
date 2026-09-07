@@ -140,9 +140,9 @@ function instance() {
 }
 
 test('version locks 4.49.8', () => {
-  assert.equal(manifest.version, '4.49.11');
-  assert.ok(source.startsWith('// v4.49.11'), 'first line must be // v4.49.9');
-  assert.match(source, /window\.__REFX_VERSION = "4\.49\.11"/);
+  assert.equal(manifest.version, '4.49.12');
+  assert.ok(source.startsWith('// v4.49.12'), 'first line must be // v4.49.9');
+  assert.match(source, /window\.__REFX_VERSION = "4\.49\.12"/);
 });
 
 test('settings modal scrolls when the window is short', () => {

@@ -326,7 +326,7 @@ test('v4.49.3 fill completion repaints line badge from section rows', async () =
 });
 
 test('version locks 4.49.3', () => {
-  assert.equal(manifest.version, '4.49.11');
-  assert.ok(source.startsWith('// v4.49.11'), 'first line must be // v4.49.9');
-  assert.ok(source.includes('window.__REFX_VERSION = "4.49.11"'), '__REFX_VERSION must be 4.49.7');
+  assert.equal(manifest.version, '4.49.12');
+  assert.ok(source.startsWith('// v4.49.12'), 'first line must be // v4.49.9');
+  assert.ok(source.includes('window.__REFX_VERSION = "4.49.12"'), '__REFX_VERSION must be 4.49.7');
 });

@@ -153,6 +153,22 @@ test('setBadgeSlot does not rewrite overlay gap', () => {
   assert.equal(plugin._overlayGap, 14);
 });
 
+test('slot 0 places the count after the chip, not on the last letters', () => {
+  const { plugin } = counterPlugin();
+  const cr = { left: 100, right: 180, top: 10, width: 80 };
+  const left = plugin._overlayDigitLeftVp(cr, 16, 0, 6, 0);
+  assert.equal(left, 186);
+  assert.ok(left >= cr.right);
+});
+
+test('wide slot 36 still parks the digit inside the reserved padding', () => {
+  const { plugin } = counterPlugin();
+  const cr = { left: 100, right: 236, top: 10, width: 136 };
+  const left = plugin._overlayDigitLeftVp(cr, 16, 36, 6, 0);
+  assert.equal(left, 206);
+  assert.ok(left + 16 <= cr.right);
+});
+
 test('custom.counter.badgeSlot seeds when storage empty; stored value wins over config', () => {
   const { plugin: seeded, bodyStyle: seededBody } = counterPlugin({
     custom: { counter: { badgeSlot: 36 } }

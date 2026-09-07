@@ -1,5 +1,11 @@
 # Changelog
 
+## v4.49.12 — 2026-09-07
+
+### Fixed
+
+- **Count no longer paints on the last letters of a `[[` / `((` chip** when Space after reference is None (the default). The overlay was still clamping the digit inside `chip.right`, so a 3 sat on `of`. If the reserved slot cannot hold gap + digit, the count now sits after the chip. Wide (36) still parks it in the padding. Layout padding is unchanged, so the wrap-to-empty-line bug stays gone.
+
 ## v4.49.11 — 2026-09-07
 
 ### Changed
