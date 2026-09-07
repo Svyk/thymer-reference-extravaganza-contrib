@@ -1,4 +1,4 @@
-// v4.49.10 - A reference chip's appearance now weighs the same in every state, so a third-party stylesheet (Indent Rainbow's path colouring) wins or loses uniformly instead of making line refs flip colour on every rebuild.
+// v4.49.11 - Default no reserved space after ref chips; Settings "Space after reference" (None/Tight/Snug/Wide).
 // Previous release: line references (( stop blinking too: a guid-keyed bridge stylesheet paints a rebuilt line-ref chip with the line appearance before any JS runs, so it no longer falls back to the page-ref default that v4.49.8 introduced.
 // Previous release: Reference chips stop blinking while you type: an unclassified chip paints the page-reference appearance from static CSS (no frame can paint Thymer native, no host colour transition replays), and a cold 'unknown' verdict no longer strips a chip's classification.
 // Previous release: Workbench click/Enter yield to the native @ date picker; Datacore widgets refresh in the Workbench; header drag-reorder.
@@ -4180,7 +4180,7 @@ class Plugin extends AppPlugin {
     this._attachAttributesClaims();
     this._referenceSurfaceBroker = this._initReferenceSurfaceBroker(); // R1 + A1: Reference Surface v1
     this._referenceEditsBroker = this._initReferenceEditsBroker();
-    try { window.__REFX_VERSION = "4.49.10"; } catch (e) {} // live-version tell for debugging
+    try { window.__REFX_VERSION = "4.49.11"; } catch (e) {} // live-version tell for debugging
     try {
       this._moveGeneration = Number(window.__refxMoveGeneration || 0) + 1;
       window.__refxMoveGeneration = this._moveGeneration;
@@ -28392,7 +28392,12 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     // count digit (px). Kept < _badgeSlot so the digit stays within the reserved
     // slot; _positionOverlay clamps the right edge to the chip so it never
     // overhangs. Settings "Badge distance" select maps to a px value.
-    this._badgeSlot = 36; // MUST match the .lineitem-ref padding-right CSS above
+    // v4.49.11: reserved trailing slot on ref chips — default 0 (caret flush);
+    // Settings "Space after reference" selects {0,10,18,36}. Stored value wins
+    // over custom.counter.badgeSlot.
+    this._storageKeyBadgeSlot = 'refx_badge_slot_v1';
+    this._badgeSlot = this.coerceBadgeSlot(this.loadStringSetting(this._storageKeyBadgeSlot) || (custom.badgeSlot != null ? String(custom.badgeSlot) : ''), 0);
+    this._applyBadgeSlotVar();
     this._storageKeyOverlayGap = 'refx_overlay_gap_v1';
     this._overlayGap = this.coerceBadgeGap(this.loadStringSetting(this._storageKeyOverlayGap) || (custom.overlayGap != null ? String(custom.overlayGap) : ''), 6);
 
@@ -28498,6 +28503,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     }
 
     this.injectCounterCss();
+    this._applyBadgeSlotVar();
     this.registerCounterCommands();
     this.registerCounterEventHandlers();
 
@@ -29253,6 +29259,34 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     return Math.max(0, Math.min(this._badgeSlot ? this._badgeSlot - 8 : 20, Math.round(n)));
   }
 
+  // v4.49.11: reserved trailing slot on ref chips — nearest of {0,10,18,36}.
+  coerceBadgeSlot(value, fallback) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return fallback;
+    const allowed = [0, 10, 18, 36];
+    let nearest = allowed[0];
+    let minDist = Math.abs(n - nearest);
+    for (const v of allowed) {
+      const d = Math.abs(n - v);
+      if (d < minDist) { minDist = d; nearest = v; }
+    }
+    return nearest;
+  }
+
+  _applyBadgeSlotVar() {
+    try { document.body.style.setProperty('--refx-badge-slot', this._badgeSlot + 'px'); } catch (e) {}
+  }
+
+  setBadgeSlot(value) {
+    const s = this.coerceBadgeSlot(value, this._badgeSlot);
+    if (s === this._badgeSlot) return;
+    this._badgeSlot = s;
+    this.saveStringSetting(this._storageKeyBadgeSlot, String(s));
+    this._applyBadgeSlotVar();
+    try { for (const [, e] of (this._liveOverlayBadges || [])) { if (e && e.node) { e.node._rx = null; } } } catch (e2) {}
+    this._scheduleOverlayReposition(null);
+  }
+
   setOverlayGap(value) {
     const g = this.coerceBadgeGap(value, this._overlayGap);
     if (g === this._overlayGap) return;
@@ -29479,6 +29513,18 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         distSel.addEventListener('change', () => this.setOverlayGap(distSel.value));
         distRow.append(distSel);
         body.append(distRow);
+
+        const slotRow = this._el('div', 'refx-modal-row');
+        slotRow.append(this._el('div', 'refx-modal-label', 'Space after reference'));
+        const slotSel = this._el('select', 'refalias-input');
+        for (const d of [['0', 'None'], ['10', 'Tight'], ['18', 'Snug'], ['36', 'Wide']]) {
+          const o = this._el('option', null, d[1]); o.value = d[0];
+          if (Number(d[0]) === this._badgeSlot) o.selected = true;
+          slotSel.append(o);
+        }
+        slotSel.addEventListener('change', () => this.setBadgeSlot(slotSel.value));
+        slotRow.append(slotSel);
+        body.append(slotRow);
 
         const modeRow = this._el('div', 'refx-modal-row');
         modeRow.append(this._el('div', 'refx-modal-label', 'Count mode'));
@@ -29762,7 +29808,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
          end edge — the same place the digits overflow to. */
       body.trc-zerolayout .line-div .lineitem-ref,
       body.trc-zerolayout .line-check-div .lineitem-ref {
-        padding-right: 36px; /* quiet 3-digit count + click target; kept in sync with this._badgeSlot */
+        padding-right: var(--refx-badge-slot, 0px);
       }
 
       /* The old extra chain-arrow glyph is retired: the clickable count itself

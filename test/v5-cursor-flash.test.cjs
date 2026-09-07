@@ -239,7 +239,7 @@ test('V7 wrapped target fixture measures the old 24px obstruction and restores a
     rest: inFlowWidth(rule), hover: inFlowWidth(rule), midTyping: inFlowWidth(rule),
   }]));
   assert.deepEqual(evidence, {
-    nativeRefSlot: { rest: 36, hover: 36, midTyping: 36 },
+    nativeRefSlot: { rest: 0, hover: 0, midTyping: 0 },
     nativeTargetHost: { rest: 0, hover: 0, midTyping: 0 },
     chainMarker: { rest: 0, hover: 0, midTyping: 0 },
     refCountWrap: { rest: 0, hover: 0, midTyping: 0 },

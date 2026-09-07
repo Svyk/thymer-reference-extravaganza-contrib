@@ -1,5 +1,15 @@
 # Changelog
 
+## v4.49.11 — 2026-09-07
+
+### Changed
+
+- **Default no reserved space after `[[` / `((` chips.** The old 36px `padding-right` on every `.lineitem-ref` wrapped the last word and parked the caret after a large gap. Settings now offers **Space after reference**: None (0, default), Tight (10), Snug (18), Wide (36 — the previous behaviour). Count digits still paint as zero-width overflow; Badge distance is unchanged.
+
+### Fixed
+
+- Mid-line reference chips no longer wrap their last word into empty trailing space; the caret sits against the last glyph unless you opt into Wide.
+
 ## v4.49.10 — 2026-09-07
 
 ### Fixed

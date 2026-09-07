@@ -1,10 +1,10 @@
 # Reference Extravaganza
 
-## Current release (v4.49.3)
+## Current release (v4.49.11)
 
-Inline linked-reference fill no longer waits on collapse-meta reads; the chain
-root reuses settled direct rows, and line badges prefer fresh RefX counts over
-the native pill floor.
+Reference chips default to no reserved trailing space (caret flush); Settings
+**Space after reference** offers None/Tight/Snug/Wide, with Wide restoring the
+old 36px count slot.
 
 Source-line counts sit at the far right of the row (Thymer's native
 backlink-pill slot, like Roam's block ref-count). The Settings modal body

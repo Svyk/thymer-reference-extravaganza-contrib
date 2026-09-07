@@ -1306,16 +1306,16 @@ test('R5 v4.26.1: 10k cold breadcrumb builds perform zero SDK or body reads', ()
 
 test('R5 manifest version is 4.48.6', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(root, 'plugin.json'), 'utf8'));
-  assert.equal(manifest.version, '4.49.10');
+  assert.equal(manifest.version, '4.49.11');
 });
 
 test('R5 plugin.js header declares v4.48.6', () => {
   const firstLine = source.split('\n')[0];
-  assert.ok(firstLine.includes('v4.49.10'), `Expected header to contain v4.49.10, got: ${firstLine}`);
+  assert.ok(firstLine.includes('v4.49.11'), `Expected header to contain v4.49.11, got: ${firstLine}`);
 });
 
 test('R5 __REFX_VERSION runtime tell is 4.48.6', () => {
-  assert.ok(source.includes('window.__REFX_VERSION = "4.49.10"'), 'Expected __REFX_VERSION = "4.49.10" in source');
+  assert.ok(source.includes('window.__REFX_VERSION = "4.49.11"'), 'Expected __REFX_VERSION = "4.49.11" in source');
 });
 
 test('R5 CHANGELOG.md has a v4.28.0 entry', () => {

@@ -4035,7 +4035,7 @@ test('v4.43 general ref-chain resolver guards cycles and enforces depth/fanout c
 test('v4.48.6 public bridge keeps v4 bounded-chain and one-level resolution compatibility', async () => {
   const h = lineRefClickHarness();
   installU6ChainGraph(h);
-  assert.equal(h.window.__refx.version, '4.49.10');
+  assert.equal(h.window.__refx.version, '4.49.11');
   assert.equal(Object.hasOwn(h.window.__refx, 'refChainVersion'), false);
   assert.equal(h.window.__refx.resolveRefChainVersion, 4);
   assert.equal(typeof h.window.__refx.resolveRefChain, 'function');
@@ -6032,8 +6032,6 @@ test('v4.48.4 chain chip marker uses only the compact pre-reserved zero-layout s
   assert.equal(h.chip.classList.contains('refx-has-chain'), false);
   assert.match(source, /body\.trc-zerolayout \.lineitem-ref\.refx-has-chain::after \{[\s\S]*?position: absolute;[\s\S]*?pointer-events: none;/);
   assert.doesNotMatch(source, /\.lineitem-ref\.refx-has-chain\s*\{[^}]*(padding|margin|width)\s*:/);
-  assert.match(source, /this\._badgeSlot = 36;/);
-  assert.match(source, /body\.trc-zerolayout \.line-div \.lineitem-ref,[\s\S]*?padding-right: 36px;/);
   h.plugin.onUnload();
 });
 

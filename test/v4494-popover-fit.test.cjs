@@ -404,7 +404,7 @@ test('v4.49.4 source guards', () => {
   assert.match(source, /\.refx-refmenu > \.refx-ref-chain-tree \.refx-chain-tree-root \{\s*height: var\(--refx-refmenu-chain-height/);
   assert.match(source, /\.refalias-pop\.refx-line-context-pop \.refx-line-context-body \{\s*flex: 1 1 auto; min-height: 0;/);
   assert.match(source, /\.refx-hoverpop \{[^}]*overflow: hidden/);
-  assert.equal(manifest.version, '4.49.10');
-  assert.ok(source.startsWith('// v4.49.10'));
-  assert.ok(source.includes('window.__REFX_VERSION = "4.49.10"'));
+  assert.equal(manifest.version, '4.49.11');
+  assert.ok(source.startsWith('// v4.49.11'));
+  assert.ok(source.includes('window.__REFX_VERSION = "4.49.11"'));
 });
