@@ -28389,9 +28389,9 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     this._excludeCollections = this.normalizeNameSet(custom.excludeCollections);
 
     // v3.40.0: overlay badge distance — the gap between the chip text and the
-    // count digit (px). Kept < _badgeSlot so the digit stays within the reserved
-    // slot; _positionOverlay clamps the right edge to the chip so it never
-    // overhangs. Settings "Badge distance" select maps to a px value.
+    // count digit (px). Independent of the trailing slot; _positionOverlay still
+    // clamps the digit to the chip edge. Settings "Badge distance" select maps
+    // to a px value.
     // v4.49.11: reserved trailing slot on ref chips — default 0 (caret flush);
     // Settings "Space after reference" selects {0,10,18,36}. Stored value wins
     // over custom.counter.badgeSlot.
@@ -29251,12 +29251,12 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     this.refreshAllPanels({ force: true, reason: 'set-font-scale' });
   }
 
-  // v3.40.0: badge distance (px gap from chip text to the overlay digit). Clamp
-  // to a sane range; keep it below the reserved slot so the digit fits.
+  // v3.40.0: badge distance (px gap from chip text to the overlay digit).
+  // Independent of Space after reference (v4.49.11); Settings options are 2/6/10/14.
   coerceBadgeGap(value, fallback) {
     const n = Number(value);
     if (!Number.isFinite(n)) return fallback;
-    return Math.max(0, Math.min(this._badgeSlot ? this._badgeSlot - 8 : 20, Math.round(n)));
+    return Math.max(0, Math.min(20, Math.round(n)));
   }
 
   // v4.49.11: reserved trailing slot on ref chips — nearest of {0,10,18,36}.

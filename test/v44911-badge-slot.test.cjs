@@ -134,6 +134,25 @@ test('coerceBadgeSlot rounds to nearest allowed value', () => {
   assert.equal(plugin.coerceBadgeSlot('nope', 0), 0);
 });
 
+test('stored overlay gap 14 survives Tight slot 10 on init', () => {
+  const { plugin, storage } = counterPlugin();
+  storage.set('refx_overlay_gap_v1', '14');
+  storage.set('refx_badge_slot_v1', '10');
+  plugin._counterInit({});
+  assert.equal(plugin._badgeSlot, 10);
+  assert.equal(plugin._overlayGap, 14);
+});
+
+test('setBadgeSlot does not rewrite overlay gap', () => {
+  const { plugin } = counterPlugin();
+  plugin._counterInit({});
+  plugin.setOverlayGap(14);
+  plugin.setBadgeSlot(10);
+  assert.equal(plugin._overlayGap, 14);
+  plugin.setBadgeSlot(0);
+  assert.equal(plugin._overlayGap, 14);
+});
+
 test('custom.counter.badgeSlot seeds when storage empty; stored value wins over config', () => {
   const { plugin: seeded, bodyStyle: seededBody } = counterPlugin({
     custom: { counter: { badgeSlot: 36 } }
