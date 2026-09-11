@@ -437,35 +437,3 @@ test('BENCH-6: 100 per-keystroke broker.edges() calls at 10k inbound — <2000ms
   );
 });
 
-// ── BENCHMARK 7: facet snapshot (_r7FacetSnapshot) at 10k edges ──────────────
-// Single O(n) pass over inEdges. Should be <50ms. Threshold: 200ms.
-
-test('BENCH-7: _r7FacetSnapshot (10k edges, single O(n) pass) — <200ms', async () => {
-  const { broker, plugin } = makeBroker();
-
-  const HOT_TARGET = 'HOT_RECORD_GUID_0007';
-  const N_INBOUND = 10000;
-
-  seedInboundEdges(plugin, HOT_TARGET, N_INBOUND);
-  await new Promise(r => setTimeout(r, 50));
-
-  // Install broker at window for _r7FacetSnapshot to find it.
-  plugin._context.window.__thymerReferenceSurfaceV1 = broker;
-
-  const start = Date.now();
-  let snapshot = null;
-  try {
-    snapshot = plugin._r7FacetSnapshot(HOT_TARGET);
-  } catch (e) {
-    process.stderr.write(`  BENCH-7: _r7FacetSnapshot threw: ${e.message}\n`);
-  }
-  const elapsed = Date.now() - start;
-
-  process.stderr.write(
-    `  BENCH-7: _r7FacetSnapshot (${N_INBOUND} edges) = ${elapsed}ms\n`
-  );
-
-  assert.ok(elapsed < 200,
-    `_r7FacetSnapshot took ${elapsed}ms (threshold: 200ms).`
-  );
-});

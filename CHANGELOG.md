@@ -1,3 +1,211 @@
+## v4.57.2 — 2026-09-10
+
+### Fixed
+
+- **MO storm filter host markers (WO-23)** — The MutationObserver storm filter treated RefX marker classes on native Thymer hosts (`refx-ovl-host` on `.line-div`, ref chips on `.lineitem-ref`, appearance switches on `<body>`) as RefX-owned DOM, so Thymer's per-keystroke removal of a reference count badge from the marked host was discarded before the pre-paint keep-alive could restore it; badges vanished while typing and returned only when the caret left the line.
+
+## v4.57.1 — 2026-09-10
+
+### Fixed
+
+- **Containment hops in path search (WO-22)** — "Show path to…" from a line to its owning record no longer reports "No path within 3 hops" when the line has no outbound reference edges but `rguid` matches the destination. The connection index now builds `ownerByLine` and `childrenByLine` in the same registry pass; path search admits `contains` hops (line→record and bounded record→lines), ranks them below pure reference chains, and renders trivial single-containment pairs as a plain sentence (`… is a line on …`) instead of a one-hop trail. Child-carried references (`via child`, two generations, fan-out 50) and shared-owner context in `_connSharedNeighbours` (`both on …`) are included.
+
+Verification: `node --check plugin.js`; `node --test test/v455-connections.test.cjs test/v455-evidence.test.cjs test/v456-strength.test.cjs test/v454-workbench.test.cjs test/plugin.test.cjs`; live on Thymer Desktop — line on MCU Watch Order page finds containment path to that record.
+
+## v4.57.0 — 2026-09-10
+
+### Added
+
+- **Workbench trail strip** — `.refx-wb-trail` after the tab bar lists the last eight hops from `window.__refxTrail` (newest last), with a `…` control for the full 50-hop ring, hop clicks via `_bridgeJump`, and fingerprinted paint from `_wbLiveRefresh` only. Toggle with `custom.workbench.trail` (default true). Persisted per workspace at `refx_trail_v1:<workspaceGuid>` (loaded at first Workbench paint, debounced write, hot-reload adopts the window stash).
+- **Save trail as stack** — distinct resolvable record guids in walk order become a named Workbench stack (`⇩ Save trail as stack`).
+- **Replay** — walks the ring oldest → newest with ~900 ms gaps; cancellable (click again or Escape); generation-token guarded.
+
+Verification: `node --check plugin.js`; `node --test test/v457-trails.test.cjs test/v456-strength.test.cjs test/v455-evidence.test.cjs test/v454-workbench.test.cjs test/plugin.test.cjs`; live on Thymer Desktop — trail strip after tabs, hop jump, save-as-stack, replay/cancel, clear two-press.
+
+## v4.56.0 — 2026-09-10
+
+### Added
+
+- **Traversal strength** — persisted hop counts (`refx_traversal_v1:<workspace>`) now rank picker rows, path tie-breaks, related chips, and chain rows via `_connHopWeight` (decayed, capped at 60). Toggle with `custom.connections.strength` (default true).
+- **Behavioural co-occurrence** — the connection-index registry pass extracts ref pairs on the same line, parent, and journal day (skips >8-ref lines; store capped at 5000, debounced persist to `refx_cooccur_v1:<workspace>`). Feeds shared-neighbour scoring and related-strip evidence (`never linked · appears with this on N days`).
+- **Shared-neighbours strip** — Workbench `.refx-wb-shared` lists up to five records all open shelf items reference in common (`custom.workbench.shared=false` to hide).
+
+Verification: `node --check plugin.js`; `node --test test/v456-strength.test.cjs test/v455-evidence.test.cjs test/v455-connections.test.cjs test/v453-memory.test.cjs test/li2-line-index-picker.test.cjs test/r5-picker.test.cjs test/a3-alias-picker.test.cjs test/v454-workbench.test.cjs test/plugin.test.cjs`; live on Thymer Desktop — traversal boost reorders familiar targets, co-occurrence evidence on related chips, shared strip appears with two+ shelf items.
+
+## v4.55.0 — 2026-09-10
+
+### Added
+
+- **Connection engine (WO-17/18 carry)** — shared stamped index with a forward direction, bidirectional path search, and shared-neighbour scoring.
+- **Show path to…** on the reference menu and **Paths among these items** in the Workbench.
+- **Evidence labels** — Workbench related chips and deep-connection suggestions show cache-only context (`N refs · last Tue · in Time Block`) beside the edge reason, without changing `chip.reason`.
+- **Traversal recording** — hops are written to `refx_traversal_v1:<workspace>` and `window.__refxTrail` (write-only this release; ranking unchanged until WO-20).
+- **`custom.connections`** — `{ enabled: true, maxDepth: 3 }` gates path UI and sets `_connPathsBetween` depth.
+
+Verification: `node --check plugin.js`; `node --test test/v455-evidence.test.cjs test/v455-connections.test.cjs test/v454-workbench.test.cjs test/a3-alias-picker.test.cjs test/v453-memory.test.cjs test/r5-picker.test.cjs test/plugin.test.cjs`; live on Thymer Desktop — related chips show evidence without altering reasons, path picker respects depth, traversal store fills on jumps/picks/zoom/expand.
+
+## v4.54.3 — 2026-09-09
+
+### Fixed
+
+- **MutationObserver hang (WO-16)** — animated widgets (e.g. Nautilus Time Block SVG wedge) could deliver enormous mutation batches that pegged the renderer at 100% CPU. Every RefX observer now applies five defenses by construction: batch cap (1500 → debounced whole-surface rescan), cheap svg/nautilus/refx-node and identical-value attribute rejects before any `closest()`, 8 ms per-callback time budget, tightened observe options (no `characterData`; attribute filters only where needed), and a per-observer storm breaker (200 callbacks / 100 ms → 2 s pause; three trips / minute → session pause + toast). Diagnostics live at `window.__refxMoStats`.
+
+Verification: `node --check plugin.js`; `node --test test/v4543-mo-storm.test.cjs test/v5-cursor-flash.test.cjs test/v4498-ref-chip-flash.test.cjs test/plugin.test.cjs test/performance-guards.test.cjs`; live on Thymer Desktop — journal page with Nautilus Time Block stays responsive.
+
+## v4.54.2 — 2026-09-09
+
+### Fixed
+
+- **Related strip canonical guids** — journal synthetic `S-…` guids and underlying record guids collapse to one key; V-guids remap via `_resolveCanonicalLineGuid` like `_wbAdd`.
+- **No self-suggestion** — main-panel record and shelf targets excluded by canonical key; same display name on a different guid form is skipped.
+- **Navigation refresh** — `panel.navigated` schedules related-strip refresh (~400 ms debounce) so chips follow the main panel; cache key includes the canonical main-record key.
+
+Verification: `node --check plugin.js`; `node --test test/v454-workbench.test.cjs test/plugin.test.cjs`; live on Thymer Desktop — journal page no longer suggests itself, duplicate guid forms dedupe to one chip, navigating main panel updates the related strip.
+
+## v4.54.1 — 2026-09-09
+
+### Fixed
+
+- **Refresh-storm breaker** — coalesced Workbench refresh with 250 ms spacing, sliding-window backoff, and hard shutdown after 60 runs in 30 s (plus boot adoption watchdog).
+- **Observer scope** — MutationObserver ignores tabs, related strip, filter bar, menus, and header chrome; re-entrancy guarded.
+- **Scroll handler** — tab-strip scroll only toggles `is-active` classes (passive, one rAF), never schedules refresh.
+- **Tabs/related paint** — fingerprint skip when shelf layout or chip set is unchanged.
+- **Kill switch** — `refx_wb_disable=1` or `custom.workbench.enabled=false` no-ops open/adopt/toggle; palette enable/disable commands.
+- **Related strip** — excludes main-panel record and shelf targets; dedupes by record guid.
+- **Stack menu** — save/delete invalidates stack list cache; single popover, dismiss on outside click or Escape.
+
+Verification: `node --check plugin.js`; `node --test test/v454-workbench.test.cjs test/v4495-wb-query.test.cjs test/performance-guards.test.cjs test/plugin.test.cjs`; live on Thymer Desktop — no refresh storm with panel open, kill switch blocks open, related strip skips self/shelf dupes, stack save lists immediately.
+
+## v4.54.0 — 2026-09-09
+
+### Added
+
+- **Workbench stacks** — save/load named shelf layouts as `Workbench Stack:` records; ▤ menu, Ctrl/Cmd+Shift+1–9.
+- **Reopen closed** — last ten removed items in localStorage; ↶ button and Ctrl/Cmd+Shift+T.
+- **Tab strip** — sticky tabs mirror shelf order; click scrolls, drag reorders; Alt+↑/↓/Enter/W panel shortcuts.
+- **Related strip** — up to five suggestion chips after the shelf (pages referencing your open items or the main panel); `custom.workbench.related=false` to hide.
+- **Header count → shelf item** — click an item's linked-reference count to open linked references as a separate Workbench item.
+- **Recall filter box** — Workbench ⌕ filter uses the shared recall scorer from v4.53.0.
+
+Verification: `node --check plugin.js`; `node --test test/v454-workbench.test.cjs test/v453-recall.test.cjs test/v4495-wb-query.test.cjs test/performance-guards.test.cjs test/plugin.test.cjs test/a2-alias-ux.test.cjs`; live on Thymer Desktop — stacks save/load, reopen closed, tab strip scroll, related strip chips, header count opens linked-refs item.
+
+## v4.53.0 — 2026-09-09
+
+### Added
+
+- **Recall matcher** — any-order tokens by default, abbreviations (`s3` ↔ `season 3`), initialisms, typo tolerance (never on numbers), labelled close matches.
+- **Pick memory** — a pick teaches the picker its query; learned rows surface on empty `((`.
+- **Current-page boost** — lines on the page you are editing rank higher in the line picker.
+- **Shared scorer** — Navigator, drill filter, Workbench ⌕ filter, and inline ⌕ filter all use `_searchMatchFromKey`.
+
+### Fixed
+
+- BENCH-PICKER-3 extension clause relaxed to the measured floor (median × 1.5 self-calibration).
+
+Verification: `node --check plugin.js`; `node --test test/v453-memory.test.cjs test/v453-recall.test.cjs test/r5-picker.test.cjs test/a3-alias-picker.test.cjs test/li2-line-index-picker.test.cjs test/v427-reference-navigator.test.cjs test/plugin.test.cjs`; live on Thymer Desktop — `((` any-order recall, pick memory on empty query, `s3` filters Workbench and inline ⌕ rows titled `season 3`.
+
+## v4.52.2 — 2026-09-09
+
+### Fixed
+
+- RefX renders reference rows itself when the Backreferences bridge is absent: refs, hashtags, dates and mentions become real chips inside rows and zoomed trees, so chips navigate and carry nested counts on every install.
+
+Verification: `node --check plugin.js`; `node --test test/v452-renderer.test.cjs test/v452-zoom.test.cjs test/v452-chips.test.cjs test/v451-roam-rows.test.cjs test/v4492-bc-layout.test.cjs test/plugin.test.cjs`; live on Thymer Desktop 4.52.1 — linked-reference rows and zoomed trees show `.lineitem-ref` chips without `window.__thymerBackrefs.renderSegments`, chip click zooms, nested count attaches.
+
+## v4.52.1 — 2026-09-09
+
+### Fixed
+
+- **Chips inside zoom trees.** Child-tree lines now render through `_renderRefLineText`, so reference chips inside a zoomed page are clickable and carry nested counts.
+- **Hint above the scroll body.** The widget hint is a sibling before `.refx-zoom-body`, so scrolling to the highlighted line no longer pushes it out of view.
+- **Open-live action always available when zoomed.** Zoom actions show `⤓` Open live below (or `◧` Open in side panel without a host) on every zoomed row; the hint uses the same glyph.
+- **Home row placeholder.** `_buildRefHomeLine` returns empty segments when nothing resolves, so the row shows "Loading reference…" until `_hydrateColdRefLineText` fills it from the source tree.
+- **Node cap on page zoom.** Page zoom renders up to 1,500 nodes at depth 12 (was 400); the truncation note is unchanged when the cap is hit.
+
+Verification: `node --check plugin.js`; `node --test test/v452-zoom.test.cjs test/v452-chips.test.cjs test/v451-roam-rows.test.cjs test/v4492-bc-layout.test.cjs test/v5-cursor-flash.test.cjs test/plugin.test.cjs`; live on Thymer Desktop 4.52.0 — MCU Watch Order page zoom renders fully, hint stays visible above the body, chips inside the tree navigate, `⤓` opens live below.
+
+## v4.52.0 — 2026-09-09
+
+### Added
+
+- **The path is a scrubber.** Clicking any crumb in a linked-reference row re-roots the row in place: the page crumb renders the whole page inside the row, an ancestor crumb renders its subtree, with the referencing line highlighted, its ancestors unfolded, and the body scrolled to it. Dots zoom too. `‹` steps back, `⤺` returns to the reference. Shift+click on a crumb or dot opens the side panel; Cmd/Ctrl+click and the hover ↗ navigate.
+- **Home row.** For a line target the first row is the line itself in its own page context (Roam's original block), followed by the referencing rows.
+- **Chips inside rows navigate.** A reference chip inside rendered content zooms the row to its target (line → the line in its home page; page → the page). Chips carry a small reference count; clicking it opens nested references inside the row (two levels deep, 30 rows).
+- **Live widgets.** A zoomed block that renders a widget (`#nautilus` / `#TimeBlock`, images) shows a hint and a `⤵` that mounts the real transclusion under the host line, where Nautilus and media render natively.
+
+### Fixed
+
+- The row creation stamp no longer paints over the hover action glyphs; it is the ▾ twisty's tooltip.
+
+Verification: `node --check plugin.js`; `node --test test/*.cjs`; live on Thymer Desktop CDP :9333 after a full relaunch — count click on the `33. Watch Agents…` chip shows the home row `MCU Watch Order › … › 33. Watch Agents…`, clicking `MCU Watch Order` renders the page inside the row with line 33 highlighted, `⤺` restores the row.
+
+## v4.51.5 — 2026-09-08
+
+### Fixed
+
+- **Popover title without the native pill count.** The trailing digit was Thymer's own `lineitem-backlink-pill`, not a RefX badge; the host-line read now strips native pills and `line-button` elements as well as plugin decorators.
+
+Verification: `node --check plugin.js`; `node --test test/*.cjs`; live on Thymer Desktop CDP :9333 after a full relaunch — Shift+click title is exactly `References to <the referenced line’s own text>`.
+
+## v4.51.4 — 2026-09-08
+
+### Fixed
+
+- **Popover title without the badge digit.** The host-line read strips every `trc-*` / `refx-*` decorator from a detached clone, so the count badge nested inside its wrap no longer leaks a trailing "1" into `References to …`.
+
+Verification: `node --check plugin.js`; `node --test test/*.cjs`; live on Thymer Desktop CDP :9333 after a full relaunch — Shift+click title is `References to <the referenced line’s own text>`.
+
+## v4.51.3 — 2026-09-08
+
+### Fixed
+
+- **Popover title and one-line path, verified on a fresh launch.** v4.51.2's title fell back to the guid because the line-text resolver is cold right after launch; the popover now reads the badge's own host line from the DOM. The row's creation stamp moved inside the hover-only actions overlay, so it no longer takes ~120px beside the path and the path stays on one line.
+
+Verification: `node --check plugin.js`; `node --test test/*.cjs`; live on Thymer Desktop CDP :9333 after a full relaunch — Shift+click shows `References to <the referenced line’s own text>` and a one-line path.
+
+## v4.51.2 — 2026-09-08
+
+### Fixed
+
+- **The Shift+click popover reads like the inline row.** Its title names a line target by the line's text instead of the raw guid, and the popover is 380px wide so a path like `Tue Sep 8 › thymer/comments › @Svy › ○` stays on one line instead of wrapping the ○ onto its own line.
+
+Verification: `node --check plugin.js`; `node --test test/*.cjs`; live on Thymer Desktop CDP :9333 — Shift+click on the badge shows the title text and a one-line path.
+
+## v4.51.1 — 2026-09-08
+
+### Fixed
+
+- **Small sections show their path immediately.** Right after launch every linked-reference row hid its `Tue Sep 8 › thymer/comments › @Svy › ○` path behind a "▸ context" click, because the v4.7.2 cold-source probe deferred context whenever the registry or name cache was not warm. The path is the row now, so only section size (12 rows or 8 sources) defers; the drain queue still fills rows across frames.
+
+Verification: `node --check plugin.js`; `node --test test/*.cjs`; live on Thymer Desktop CDP :9333 after a full relaunch — count click renders the full path without a loader.
+
+## v4.51.0 — 2026-09-08
+
+### Changed
+
+- **Reference rows read like Roam's.** Every linked-reference row (inline section, Shift+click popover, Workbench "Linked refs", and the reference menu's context) is now one muted clickable path followed by the content: `Tue Sep 8 › thymer/comments › @Svy › ○` then the comment at body size. Crumbs render by kind (page ref, date, @mention) and a crumb that repeats the previous one or the page is dropped. A referencing line that is nothing but a reference to the target collapses into the trailing ○ and its children render directly, so a comment shows the comment, not the line you just clicked. One ▾ per row folds the whole row.
+- **Task-reference checkbox spacing matches native.** The leading slot a task reference reserves for its checkbox is 23.4px instead of 20px, so the box-to-text gap is 5.4px, the same distance as Thymer's own checkbox.
+- **The inline section is header plus rows.** The header holds the count and `⌕ ⇅ ⧉ 📌 ✕`; the filter box and page/hashtag chips sit behind ⌕. Rows are flat (Roam's inline references); the Workbench view keeps per-page groups (Roam's sidebar). Timestamps and row actions show on hover.
+
+### Removed
+
+- Block Context strip, the Reference/Authored/Journal facet pills, the "Unlinked mentions — scan" row, the "All reference paths" box on the inline surface, the "CHILDREN (N)" heading, the collapse-all button, and the vertical fold-outline row mode (`custom.rowPath`, `refx_row_path_v1`, `refx_ctx_start_collapsed_v1`, `custom.counter.facetBar`, `custom.unlinkedMentions` are gone).
+- The Remarks-collection subsystem (remark chips in context rows, Remarks-filtered chain rows, `custom.remarksCollection`). thymer-remark now writes ordinary lines whose thread root is a plain reference, which RefX already counts natively. `custom.lineRefProperties` defaults to `[]`; the property index and auto-detect stay for other plugins.
+
+Verification: `node --check plugin.js`; `node --test test/*.cjs`; live on Thymer Desktop CDP :9333 — count click on a commented line renders one row `Tue Sep 8 › thymer/comments › @Svy › ○` with the comment beneath and zero Block Context / facet / unlinked / paths nodes.
+
+## v4.50.1 — 2026-09-08
+
+- Mention segments render as @DisplayName in crumbs/rows (the author group in a roam/comments-style path showed the raw user guid).
+
+## v4.50.0 — 2026-09-08
+
+- Reference rows (count-badge popup + inline linked-references) now default to a
+  Roam-style flat path breadcrumb in the row header — `Page › roam/comments ›
+  date › author` — instead of relocating the row into the vertical fold outline.
+  The outline remains available: Settings → "Flat path breadcrumb on reference
+  rows" (per-client) or `custom.rowPath = false` (kill-switch).
+
 # Changelog
 
 ## v4.49.12 — 2026-09-07

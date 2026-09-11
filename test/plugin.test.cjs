@@ -1764,7 +1764,7 @@ test('task leading-slot CSS keys to native chip identity and survives plugin-hos
 
   assert.ok(style);
   assert.match(style.textContent, /\.line-div \.lineitem-ref\[data-guid="TASK_GUID"\]/);
-  assert.match(style.textContent, /padding-inline-start:20px!important/);
+  assert.match(style.textContent, /padding-inline-start:23\.4px!important/);
   assert.doesNotMatch(style.textContent, /refx-ovl-host|:has\(/);
 });
 
@@ -2152,7 +2152,7 @@ function stubDeferredContextRow(makeEl, line, rows) {
   return row;
 }
 
-test('adaptive inline context defers large or cold sets and preserves small warm eager context', () => {
+test('adaptive inline context defers large sets only; small sections keep eager context', () => {
   const { plugin, context } = instance();
   plugin._recordNameCache = new Map();
   plugin._eagerContext = false;
@@ -2160,13 +2160,13 @@ test('adaptive inline context defers large or cold sets and preserves small warm
 
   const small = Array.from({ length: 3 }, (_, i) => ({ guid: 'SMALL_' + i, record: { guid: 'WARM_' + i } }));
   context.window.g_universe = null;
-  assert.equal(plugin._shouldDeferRefContext(small), true, 'an unavailable registry is cold even for a small section');
+  assert.equal(plugin._shouldDeferRefContext(small), false, 'an unavailable registry no longer defers a small section (the path is the row)');
 
   context.window.g_universe = { itemsByGuid: { SENTINEL: { guid: 'SENTINEL' } } };
   for (const line of small) plugin._recordNameCache.set(line.record.guid, line.record.guid);
   assert.equal(plugin._shouldDeferRefContext(small), false, 'small warm sections retain eager context');
   plugin._recordNameCache.delete(small[0].record.guid);
-  assert.equal(plugin._shouldDeferRefContext(small), true, 'a source absent from both name cache and registry is cold');
+  assert.equal(plugin._shouldDeferRefContext(small), false, 'a cold source no longer defers a small section');
   plugin._recordNameCache.set(small[0].record.guid, small[0].record.guid);
 
   const large = Array.from({ length: 12 }, (_, i) => ({ guid: 'LARGE_' + i, record: { guid: 'WARM_' + (i % 3) } }));
@@ -2524,7 +2524,7 @@ test('collapse-all populates every current source once and expand-all clears onc
   const makeEl = installRefGroupRenderDom(context);
   const entry = {
     collapsedGroups: new Set(), collapseDefaultSeen: new Set(),
-    currentGroupGuids: new Set(['SOURCE_A', 'SOURCE_B']), collapseAllEl: makeEl('button'), bodyEl: makeEl('div'),
+    currentGroupGuids: new Set(['SOURCE_A', 'SOURCE_B']), bodyEl: makeEl('div'),
   };
   let writes = 0;
   plugin._writeCollapsedGroupsMeta = async () => { writes++; return true; };
@@ -2533,13 +2533,11 @@ test('collapse-all populates every current source once and expand-all clears onc
   await Promise.resolve();
   assert.deepEqual([...entry.collapsedGroups].sort(), ['SOURCE_A', 'SOURCE_B']);
   assert.equal(writes, 1, 'collapse-all persists the complete set in one write');
-  assert.equal(entry.collapseAllEl.textContent, '⊞');
 
   plugin._toggleAllInlineRefGroups(entry);
   await Promise.resolve();
   assert.equal(entry.collapsedGroups.size, 0);
   assert.equal(writes, 2, 'expand-all clears with one additional write');
-  assert.equal(entry.collapseAllEl.textContent, '⊟');
 });
 
 test('collapsed inline-group default starts every discovered source collapsed', () => {
@@ -2555,7 +2553,7 @@ test('collapsed inline-group default starts every discovered source collapsed', 
   ];
   const entry = {
     collapsedGroups: new Set(), collapseDefaultSeen: new Set(), collapseStateFromMeta: false,
-    currentGroupGuids: new Set(), collapseAllEl: makeEl('button'), bodyEl: makeEl('div'),
+    currentGroupGuids: new Set(), bodyEl: makeEl('div'),
   };
 
   plugin._prepareInlineRefsGroupCollapse(entry, lines);

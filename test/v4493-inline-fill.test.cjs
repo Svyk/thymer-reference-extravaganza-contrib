@@ -148,17 +148,14 @@ function loadPlugin() {
   plugin._renderRefsGroups = async () => {};
   plugin._yieldMacrotask = async () => {};
   plugin._ensureCardObserver = () => {};
-  plugin._paintInlineRefsCollapseAll = () => {};
   plugin._applyInlineRefsFilter = () => {};
   plugin._applyInlineRefsGroupCollapse = () => {};
   plugin._paintPinButton = () => {};
   plugin._isPinned = () => false;
-  plugin._hydrateRefRowContext = async () => {};
   plugin._recordRefxError = () => {};
   plugin._yieldPreviewPaint = async () => {};
   plugin._refLevelLineText = (g) => g;
   plugin._refLevelRecordName = () => 'Page';
-  plugin._refLevelRemarkRows = () => [];
   plugin._refLevelCacheStamp = () => 1;
   plugin._refLevelCacheSet = () => {};
   plugin._applyRefChainTreeFilter = () => {};
@@ -213,41 +210,6 @@ test('v4.49.3 chain abort does not reject shared inbound search promise', async 
   release({ lines: [{ guid: 'SRC', record: { guid: 'REC' } }], error: null });
   const result = await pending;
   assert.ok(Array.isArray(result.lines));
-});
-
-test('v4.49.3 inline fill settles chain root without timeout error', async () => {
-  const { plugin, body } = loadPlugin();
-  const resolveCalls = [];
-  plugin._resolveRefLevel = async (guid, opts) => {
-    resolveCalls.push(guid);
-    return Object.freeze([]);
-  };
-  plugin._queryRefLines = async () => ([{
-    guid: 'SRC_LINE', record: { guid: 'REC' }, segments: [{ type: 'text', text: 'ref' }],
-  }]);
-  plugin._queryPropertyRefRecords = async () => [];
-  plugin._refLevelIncomingRow = (line) => ({
-    guid: line.guid, isLine: true, title: 'row', text: 'row',
-    sourceRecordGuid: line.record?.guid || '', sourceRecordName: 'Page', via: 'in',
-  });
-  plugin._refLevelRowsFromCandidates = (guid, rows) => Object.freeze(rows);
-  plugin._settleRefChainTreeResolution = (state, job, level) => {
-    job.container.dataset.refxResolved = '1';
-    job.container.replaceChildren(new FakeEl('div'));
-    return true;
-  };
-  const host = new FakeEl('div');
-  host.className = 'listitem';
-  host.setAttribute('data-guid', 'HOST_LINE');
-  body.appendChild(host);
-  await plugin._buildInlineRefsSection(null, 'TARGET_LINE', host, 'HOST_LINE');
-  await tick(0);
-  await tick(0);
-  const section = body.querySelector('.refx-inline-refs');
-  const tree = section?.querySelector('.refx-chain-tree-root');
-  assert.equal(tree?.dataset?.refxResolved, '1');
-  assert.equal(resolveCalls.includes('TARGET_LINE'), false, 'root guid is not resolved via _resolveRefLevel');
-  assert.equal(tree?.querySelector?.('.refx-chain-level-error'), null);
 });
 
 test('v4.49.3 hung root resolve is replaced when fill succeeds', async () => {
@@ -326,7 +288,7 @@ test('v4.49.3 fill completion repaints line badge from section rows', async () =
 });
 
 test('version locks 4.49.3', () => {
-  assert.equal(manifest.version, '4.49.12');
-  assert.ok(source.startsWith('// v4.49.12'), 'first line must be // v4.49.9');
-  assert.ok(source.includes('window.__REFX_VERSION = "4.49.12"'), '__REFX_VERSION must be 4.49.7');
+  assert.equal(manifest.version, '4.57.2');
+  assert.ok(source.startsWith('// v4.57.2'), 'first line must be // v4.49.9');
+  assert.ok(source.includes('window.__REFX_VERSION = "4.57.2"'), '__REFX_VERSION must be 4.49.7');
 });

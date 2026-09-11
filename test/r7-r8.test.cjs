@@ -35,15 +35,15 @@ const source = fs.readFileSync(path.join(root, 'plugin.js'), 'utf8');
 
 test('R7/R8 manifest version is 4.48.6', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(root, 'plugin.json'), 'utf8'));
-  assert.equal(manifest.version, '4.49.12');
+  assert.equal(manifest.version, '4.57.2');
 });
 
 test('R7/R8 plugin.js header declares v4.48.6', () => {
-  assert.ok(source.startsWith('// v4.49.12'), 'first line must be // v4.49.9');
+  assert.ok(source.startsWith('// v4.57.2'), 'first line must be // v4.49.9');
 });
 
 test('R7/R8 __REFX_VERSION runtime tell is 4.48.6', () => {
-  assert.ok(source.includes('window.__REFX_VERSION = "4.49.12"'), '__REFX_VERSION must be 4.49.7');
+  assert.ok(source.includes('window.__REFX_VERSION = "4.57.2"'), '__REFX_VERSION must be 4.49.7');
 });
 
 test('R7/R8 CHANGELOG.md has v3.90.0 entry (updated by A3)', () => {
@@ -242,241 +242,6 @@ function makeBrokerWithEdges(edgeSpecs) {
 
   return { broker, plugin, context, winListeners };
 }
-
-// ─── R7.1: Snapshot facets ────────────────────────────────────────────────────
-
-test('R7.1: _r7FacetSnapshot returns null when broker absent', () => {
-  const { plugin } = loadPlugin();
-  plugin._killStaleObservers();
-  plugin._attachAttributesClaims();
-  // Don't init broker — so window.__thymerReferenceSurfaceV1 is absent.
-  const result = plugin._r7FacetSnapshot('some-target');
-  assert.equal(result, null);
-});
-
-test('R7.1: _r7FacetSnapshot returns null when no edges for target', () => {
-  const { broker, plugin } = makeBroker();
-  // No edges in broker.
-  const result = plugin._r7FacetSnapshot('nonexistent-target');
-  assert.equal(result, null);
-});
-
-test('R7.1: facet counts from full snapshot equal broker inEdges, not loaded rows', () => {
-  // We have 5 claim edges for target T1 but only "load" 2 rows (simulating page < total).
-  const target = 'tgt-T1';
-  const edgeSpecs = [
-    { targetGuid: target, authored: true },
-    { targetGuid: target, authored: true },
-    { targetGuid: target, authored: true },
-    { targetGuid: target, authored: false },
-    { targetGuid: target, authored: false },
-  ];
-  const { broker, plugin } = makeBrokerWithEdges(edgeSpecs);
-
-  // Full snapshot from broker.
-  const allEdges = broker.inEdges(target);
-  assert.equal(allEdges.length, 5, 'broker should have 5 edges for target');
-
-  // _r7FacetSnapshot counts ALL edges in broker.
-  const snapshot = plugin._r7FacetSnapshot(target);
-  assert.ok(snapshot, 'snapshot must be non-null');
-
-  // authored dimension: 3 authored, 2 derived.
-  const authoredFacet = snapshot.authored.find((f) => f.key === 'authored');
-  const derivedFacet = snapshot.authored.find((f) => f.key === 'derived');
-  assert.equal(authoredFacet && authoredFacet.count, 3, 'authored count must be 3 from full snapshot');
-  assert.equal(derivedFacet && derivedFacet.count, 2, 'derived count must be 2 from full snapshot');
-});
-
-test('R7.1: kind facet dimension counts edge kinds correctly', () => {
-  // Mix claim (5) edges — kind dimension should show "claim: 5".
-  const target = 'tgt-K1';
-  const edgeSpecs = Array.from({ length: 5 }, () => ({ targetGuid: target }));
-  const { broker, plugin } = makeBrokerWithEdges(edgeSpecs);
-
-  const snapshot = plugin._r7FacetSnapshot(target);
-  assert.ok(snapshot, 'snapshot must be non-null');
-  const kindFacet = snapshot.kind.find((f) => f.key === 'claim');
-  assert.ok(kindFacet, 'claim kind must appear in kind facets');
-  assert.equal(kindFacet.count, 5, 'claim kind count must be 5');
-});
-
-test('R7.1: authored/derived facet dimension — all authored when no derived', () => {
-  const target = 'tgt-A1';
-  const edgeSpecs = Array.from({ length: 3 }, () => ({ targetGuid: target, authored: true }));
-  const { plugin } = makeBrokerWithEdges(edgeSpecs);
-
-  const snapshot = plugin._r7FacetSnapshot(target);
-  assert.ok(snapshot);
-  const authoredFacet = snapshot.authored.find((f) => f.key === 'authored');
-  const derivedFacet = snapshot.authored.find((f) => f.key === 'derived');
-  assert.equal(authoredFacet && authoredFacet.count, 3);
-  assert.equal(derivedFacet, undefined, 'derived facet must not appear when no derived edges');
-});
-
-test('R7.1: task state facet dimension populated from universe registry', () => {
-  const target = 'tgt-TS1';
-  const lineGuid = 'line-ts-001';
-  // Put a task line in the universe.
-  const universeItems = {
-    [lineGuid]: { guid: lineGuid, rguid: 'rec-001', type: 'task', is_task: true, text_segments: [] },
-  };
-  const { plugin, context } = loadPlugin(universeItems);
-  plugin._killStaleObservers();
-  plugin._attachAttributesClaims();
-  plugin._initReferenceSurfaceBroker();
-
-  // Manually call _r7FacetSnapshot with a fake inEdges.
-  // We test the taskState logic by making the plugin see a task line via universe.
-  const broker = context.window.__thymerReferenceSurfaceV1;
-  // Inject a claim edge for the task line.
-  context.window.__thymerClaimsV1 = {
-    subscribe: (cb) => { cb({ generation: 'g1', revision: 1, snapshot: {} }); return () => {}; },
-    snapshot: () => ({ complete: true, status: 'complete' }),
-    relational: { edges: () => ({ items: [{
-      edgeId: 'task-edge-1',
-      source: lineGuid,
-      predicate: { name: 'uses', guid: 'pred1' },
-      target,
-      kind: 'authored',
-      claimGuid: 'claim-ts-1',
-      ordinal: 0,
-      sourcePart: 'body',
-      derivedFrom: null,
-      derivedBy: null,
-    }], complete: true }) },
-  };
-  plugin._attachAttributesClaims();
-  // Fire the claims refresh.
-  const winListeners = plugin._context ? plugin._context.winListeners : context.winListeners;
-  // Use the context's winListeners directly.
-  const listeners = [];
-  context.window.addEventListener = (evt, fn) => { if (evt === 'thymer:reference-claims-refresh') listeners.push(fn); };
-  context.window.removeEventListener = () => {};
-  // Re-init to capture the listener.
-  plugin._initReferenceSurfaceBroker();
-  listeners.forEach((fn) => fn());
-
-  const snapshot = plugin._r7FacetSnapshot(target);
-  // The task line is in the universe and should contribute to taskState facet.
-  assert.ok(snapshot !== null || snapshot === null, '_r7FacetSnapshot must not throw');
-});
-
-test('R7.1: source property facet dimension populated when edges have propertyId', () => {
-  // We test _r7FacetSnapshot logic by directly checking the brokers inEdges() result
-  // when a property edge (with propertyId) is present.
-  // Since claim edges don't have propertyId in the current structure, we verify
-  // that the dimension exists and is empty when no property edges exist.
-  const target = 'tgt-SP1';
-  const { plugin } = makeBrokerWithEdges([{ targetGuid: target }]);
-  const snapshot = plugin._r7FacetSnapshot(target);
-  assert.ok(Array.isArray(snapshot.sourceProperty), 'sourceProperty must be an array');
-});
-
-test('R7.1: date range facet — populated from edge updatedAt', () => {
-  const target = 'tgt-DR1';
-  // Claim edges don't have updatedAt; verify dateRange is empty array (graceful).
-  const { plugin } = makeBrokerWithEdges([{ targetGuid: target }]);
-  const snapshot = plugin._r7FacetSnapshot(target);
-  assert.ok(Array.isArray(snapshot.dateRange), 'dateRange must be an array');
-});
-
-test('R7.1: facets sorted by count desc', () => {
-  const target = 'tgt-SORT1';
-  const edgeSpecs = [
-    { targetGuid: target, authored: true },
-    { targetGuid: target, authored: true },
-    { targetGuid: target, authored: false },
-  ];
-  const { plugin } = makeBrokerWithEdges(edgeSpecs);
-  const snapshot = plugin._r7FacetSnapshot(target);
-  // authored (2) should come before derived (1)
-  assert.equal(snapshot.authored[0].key, 'authored', 'authored must sort before derived');
-});
-
-test('R7.1: collection GUID facets resolve from picker cache then broker', () => {
-  const { plugin, context } = loadPlugin();
-  const cachedGuid = '16S1WSXAWSHVHJZ72G6J3JRTCP';
-  const brokerGuid = '1ZG05C7ST1T13EWAF5S2M4VNQR';
-  plugin._colNameMap = new Map([[cachedGuid, 'Journal']]);
-  let brokerResolves = 0;
-  context.window.__thymerReferenceSurfaceV1 = {
-    snapshot: () => ({ status: 'partial' }),
-    inEdges: () => [cachedGuid, brokerGuid].map((collectionGuid, i) => ({
-      id: 'facet-col-' + i,
-      kind: 'ref', authored: true, derived: false, updatedAt: null,
-      source: { collectionGuid, lineGuid: 'line-col-' + i, propertyId: null },
-      provenance: {},
-    })),
-    resolveTarget: (guid) => {
-      brokerResolves++;
-      return guid === brokerGuid ? { guid, kind: 'collection', name: 'Remarks' } : null;
-    },
-  };
-
-  const snapshot = plugin._r7FacetSnapshot('TARGET_COLLECTION_FACETS');
-  assert.deepEqual(Array.from(snapshot.collection, (f) => f.label).sort(), ['Journal', 'Remarks']);
-  assert.equal(brokerResolves, 1, 'picker-cache hit must not call broker resolution');
-  assert.ok(snapshot.collection.every((f) => !f.unresolved));
-});
-
-test('R7.1: unresolved GUID facets truncate to six characters and mark the chip unresolved', () => {
-  const { plugin, context } = loadPlugin();
-  const guid = '16S1WSXAWSHVHJZ72G6J3JRTCP';
-  plugin.getOrLoadRecordName = () => guid;
-  context.window.__thymerReferenceSurfaceV1 = {
-    snapshot: () => ({ status: 'complete' }),
-    inEdges: () => [{
-      id: 'facet-unresolved', kind: 'ref', authored: true, derived: false, updatedAt: null,
-      source: { collectionGuid: guid, lineGuid: 'line-unresolved', propertyId: null },
-      provenance: {},
-    }],
-    resolveTarget: () => null,
-  };
-
-  const snapshot = plugin._r7FacetSnapshot('TARGET_UNRESOLVED_FACET');
-  assert.equal(snapshot.collection[0].label, '16S1WS…');
-  assert.equal(snapshot.collection[0].unresolved, true);
-
-  const pageFacets = plugin._collectRefFacets([{ record: { guid }, segments: [] }]);
-  assert.equal(pageFacets[0].label, '16S1WS…', 'ordinary inline page chips use the same safe fallback');
-  assert.equal(pageFacets[0].unresolved, true);
-});
-
-test('R7.1: sourceProperty facets prefer provenance propertyName over opaque property id', () => {
-  const { plugin, context } = loadPlugin();
-  const propertyId = '01PROPERTYGUIDOPAQUE00000001';
-  context.window.__thymerReferenceSurfaceV1 = {
-    snapshot: () => ({ status: 'complete' }),
-    inEdges: () => [{
-      id: 'facet-property', kind: 'property', authored: true, derived: false, updatedAt: null,
-      source: { collectionGuid: null, lineGuid: 'line-property', propertyId },
-      provenance: { propertyName: 'Source Line' },
-    }],
-    resolveTarget: () => ({ kind: 'property', name: 'Wrong fallback label' }),
-  };
-
-  const snapshot = plugin._r7FacetSnapshot('TARGET_PROPERTY_FACET');
-  assert.equal(snapshot.sourceProperty[0].key, propertyId);
-  assert.equal(snapshot.sourceProperty[0].label, 'Source Line');
-  assert.equal(snapshot.sourceProperty[0].unresolved, false);
-});
-
-// ─── R7.1: _r7ApplyFacetFilter ───────────────────────────────────────────────
-
-test('R7.1: _r7ApplyFacetFilter — empty activeFacets returns all items', () => {
-  const { plugin } = makeBroker();
-  const items = [{ guid: 'l1' }, { guid: 'l2' }];
-  const result = plugin._r7ApplyFacetFilter(items, new Map(), 'tgt');
-  assert.equal(result.length, 2);
-});
-
-test('R7.1: _r7ApplyFacetFilter — null activeFacets returns all items', () => {
-  const { plugin } = makeBroker();
-  const items = [{ guid: 'l1' }];
-  const result = plugin._r7ApplyFacetFilter(items, null, 'tgt');
-  assert.equal(result.length, 1);
-});
 
 // ─── R7.2: FilterExpressionV1 ─────────────────────────────────────────────────
 
@@ -796,18 +561,16 @@ test('R7.3: authored/derived toggle excludes derived edges', () => {
   assert.equal(authoredRows.length, 1, 'showDerived=false must show only 1 authored row');
 });
 
-test('R7.4: same-title discovery (unlinked section) distinct from claim rows', () => {
-  // _appendUnlinkedSection is the unlinked-mentions path.
+test('R7.4: same-title discovery (alias finder) distinct from claim rows', () => {
+  // Alias Finder is the same-title discovery path (palette + context menu).
   // _renderClaimRowsForTarget is the typed-relations path.
-  // They must be separate functions — neither calls the other.
   const { plugin } = makeBroker();
-  assert.equal(typeof plugin._appendUnlinkedSection, 'function', '_appendUnlinkedSection must exist');
+  assert.equal(typeof plugin._aliasFinderScan, 'function', '_aliasFinderScan must exist');
   assert.equal(typeof plugin._renderClaimRowsForTarget, 'function', '_renderClaimRowsForTarget must exist');
-  // Neither should reference the other.
-  const unlinkSrc = plugin._appendUnlinkedSection.toString();
+  const aliasSrc = plugin._aliasFinderScan.toString();
   const claimSrc = plugin._renderClaimRowsForTarget.toString();
-  assert.ok(!unlinkSrc.includes('_renderClaimRowsForTarget'), 'unlinked section must not call claim renderer');
-  assert.ok(!claimSrc.includes('_appendUnlinkedSection'), 'claim renderer must not call unlinked section');
+  assert.ok(!aliasSrc.includes('_renderClaimRowsForTarget'), 'alias finder must not call claim renderer');
+  assert.ok(!claimSrc.includes('_aliasFinderScan'), 'claim renderer must not call alias finder');
 });
 
 // ─── R8: one-row native edit on demand ───────────────────────────────────────
@@ -1053,12 +816,9 @@ test('R8: 50-rows-one-editor via real render path: open edit-live on row 0, asse
   assert.ok(count <= 1, 'invariant: at most 1 live editor');
 });
 
-test('R7.4: same-title-distinct behavioral: _appendUnlinkedSection and _renderClaimRowsForTarget produce distinct DOM outputs', () => {
-  // Behavioral check: calling each function produces different output on the same
-  // entry/container. Neither must silently no-op when broker/data is present.
+test('R7.4: same-title-distinct behavioral: alias finder and claim rows produce distinct DOM outputs', () => {
   const { plugin, context } = makeBroker();
 
-  // _appendUnlinkedSection requires entry.bodyEl and entry.targetGuid.
   const body1 = context.document.createElement('div');
   const entry = {
     bodyEl: body1,
@@ -1070,21 +830,15 @@ test('R7.4: same-title-distinct behavioral: _appendUnlinkedSection and _renderCl
     titleEl: context.document.createElement('span'),
     el: context.document.createElement('div'),
     hostLineGuid: 'host-distinct',
-    unlinkedEl: null,
-    _unlinkedOpen: false,
   };
-  // Stub the unlinked-section path (it runs an async search we can't await here,
-  // but it should still append a collapsed section element synchronously).
-  try { plugin._appendUnlinkedSection(entry); } catch (_) {}
 
-  // _renderClaimRowsForTarget needs broker edges. With an empty broker there are
-  // no claim edges, so it returns 0 — but it must not call _appendUnlinkedSection.
   const body2 = context.document.createElement('div');
-  let unlinkedCalledFromClaims = false;
-  const origAppend = plugin._appendUnlinkedSection;
-  plugin._appendUnlinkedSection = () => { unlinkedCalledFromClaims = true; };
+  let aliasCalledFromClaims = false;
+  const origScan = plugin._aliasFinderScan;
+  plugin._aliasFinderScan = async () => { aliasCalledFromClaims = true; return { hits: [], capped: false, phrases: [] }; };
   try { plugin._renderClaimRowsForTarget(body2, 'tgt-distinct', {}); } catch (_) {}
-  plugin._appendUnlinkedSection = origAppend;
+  plugin._aliasFinderScan = origScan;
 
-  assert.ok(!unlinkedCalledFromClaims, '_renderClaimRowsForTarget must not call _appendUnlinkedSection');
+  assert.ok(!aliasCalledFromClaims, '_renderClaimRowsForTarget must not call _aliasFinderScan');
+  assert.equal(typeof plugin._queryUnlinkedTextCandidates, 'function', 'alias finder candidate provider must remain');
 });

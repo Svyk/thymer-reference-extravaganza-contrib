@@ -93,36 +93,10 @@ test('v4.49.3 line-target headline uses inline count and property suffix only', 
   assert.doesNotMatch(block, /inline/);
 });
 
-test('v4.49.3 settings default collapsed uses refx_ctx_start_collapsed_v1', () => {
-  assert.match(source, /loadBoolSetting\('refx_ctx_start_collapsed_v1', true\)/);
-  assert.match(source, /mkCheckRow\('Block context starts collapsed', this\.loadBoolSetting\('refx_ctx_start_collapsed_v1', true\)/);
-  assert.doesNotMatch(source, /refx_ctx_collapsed_v1/);
-});
-
-test('v4.49.3 strip chrome CSS guards collapsed border and hides group count', () => {
-  assert.match(source, /\.refx-inline-refs-context:has\(> \.refx-inline-refs-context-label-row\.refx-ctxstrip-collapsed\)/);
-  assert.match(source, /\.trc-ref-popover-context:has\(> \.trc-ref-popover-context-label-row\.refx-ctxstrip-collapsed\)/);
-  assert.match(source, /\.refx-inline-refs-context-rows \.refx-inline-refs-group-count,\s*\n\s*\.refx-inline-refs-context-rows \.refx-inline-refs-group-header-actions/);
-});
-
-test('v4.49.3 sibling builder uses viewport autoLoadImage and resolveLine', () => {
-  const start = source.indexOf('_buildRefSiblingList(siblings, ctx, excludeGuid');
-  const end = source.indexOf('async _fillRefContextRow(ctx, line, crumbEl, childBox)');
+test('v4.49.3 child builder avoids timers and extra tree reads', () => {
+  const start = source.indexOf('_buildRefChildTree(target, ctx, opts = {}) {');
+  const end = source.indexOf('\n  _beginTreeLineEdit(ctx, lineEl, txtEl, c)', start);
   assert.ok(start > 0 && end > start);
-  const block = source.slice(start, end);
-  assert.match(block, /autoLoadImage:\s*"viewport"/);
-  assert.match(block, /resolveLine:\s*\(\)\s*=>\s*this\._resolveMediaLineByGuid/);
-  assert.doesNotMatch(block, /setTimeout|setInterval|MutationObserver|getLineItems/);
-});
-
-test('v4.49.3 ancestor media rows render compact preview cards', () => {
-  assert.match(source, /refx-ref-outline-label refx-ref-outline-media/);
-  assert.match(source, /_renderPreviewLineItem\(aEl, anc, \{[\s\S]*?autoLoadImage:\s*"viewport"/);
-});
-
-test('v4.49.3 child/sibling builders avoid timers and extra tree reads', () => {
-  const start = source.indexOf('_buildRefSiblingList(siblings, ctx, siblingSelfGuid)');
-  const end = source.indexOf('_buildRefChildTree(target, ctx)');
-  const block = source.slice(start, end);
+  const block = source.slice(start, end).replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
   assert.doesNotMatch(block, /setTimeout|setInterval|MutationObserver|getLineItems/);
 });

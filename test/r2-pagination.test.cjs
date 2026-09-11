@@ -59,7 +59,9 @@ function loadPlugin(universeItems = {}, workspaceGuid = 'WEJ9EZW6ADT58SJC3EQMNET
       addEventListener: (evt, fn) => { if (!docListeners[evt]) docListeners[evt] = []; docListeners[evt].push(fn); },
       removeEventListener: (evt, fn) => { if (docListeners[evt]) docListeners[evt] = docListeners[evt].filter((h) => h !== fn); },
       dispatchEvent: (e) => { (docListeners[e.type] || []).forEach((h) => { try { h(e); } catch (err) {} }); return true; },
-      createElement: (tag) => ({
+      createElement: (tag) => {
+        const classes = new Set();
+        const el = {
         tagName: tag.toUpperCase(),
         className: '',
         textContent: '',
@@ -67,6 +69,16 @@ function loadPlugin(universeItems = {}, workspaceGuid = 'WEJ9EZW6ADT58SJC3EQMNET
         children: [],
         childNodes: [],
         style: {},
+        classList: {
+          add(...names) { names.forEach((name) => classes.add(name)); },
+          remove(...names) { names.forEach((name) => classes.delete(name)); },
+          contains(name) { return classes.has(name); },
+          toggle(name, force) {
+            if (force === undefined) force = !classes.has(name);
+            if (force) classes.add(name); else classes.delete(name);
+            return force;
+          },
+        },
         setAttribute() {},
         getAttribute() { return null; },
         addEventListener(evt, fn) { if (!this._listeners) this._listeners = {}; if (!this._listeners[evt]) this._listeners[evt] = []; this._listeners[evt].push(fn); },
@@ -77,7 +89,16 @@ function loadPlugin(universeItems = {}, workspaceGuid = 'WEJ9EZW6ADT58SJC3EQMNET
         querySelector(sel) { return this.children.find((c) => c.className && c.className.includes(sel.replace('.', ''))) || null; },
         querySelectorAll(sel) { return this.children.filter((c) => c.className && c.className.includes(sel.replace('.', ''))); },
         getBoundingClientRect() { return { top: 0, bottom: 0, height: 0 }; },
-      }),
+      };
+        Object.defineProperty(el, 'className', {
+          get: () => [...classes].join(' '),
+          set: (value) => {
+            classes.clear();
+            String(value || '').split(/\s+/).filter(Boolean).forEach((name) => classes.add(name));
+          },
+        });
+        return el;
+      },
     },
     CustomEvent: class CustomEvent {
       constructor(type, opts) { this.type = type; this.detail = (opts && opts.detail) || null; }
@@ -817,7 +838,6 @@ function makePluginWithLines(lines, maxResults) {
   plugin._queryRefLines = async () => lines;
   plugin._queryPropertyRefRecords = async () => [];
   plugin._querySdkPropertyBackrefs = async () => [];
-  plugin._appendUnlinkedSection = () => {};
   plugin._appendDeepConnectionsSection = () => {};
   plugin._applyChipFilterToItems = (items) => items;
   plugin._applyGlobalFilterToItems = (items) => items;
@@ -880,13 +900,13 @@ test('R2-review F2: page-2 groups are inside linksContainer (not after footers)'
   assert.ok(listeners && listeners.length, 'Show-more must have click listener');
   listeners[0]({ preventDefault() {}, stopPropagation() {} });
 
-  // After click: groups from page 2 still inside linksContainer
-  const groupsAfter = lc.querySelectorAll('refx-inline-refs-group');
-  assert.ok(groupsAfter.length > 0, 'page-2 groups must be inside linksContainer after click');
-  const directGroups = entry.bodyEl._children.filter(
-    (c) => c.className && c.className.includes('refx-inline-refs-group')
+  // After click: page-2 rows still inside linksContainer (flat mode has no group wrappers)
+  const rowsAfter = lc.querySelectorAll('refx-inline-refs-row');
+  assert.ok(rowsAfter.length > 30, 'page-2 rows must be inside linksContainer after click');
+  const directRows = entry.bodyEl._children.filter(
+    (c) => c.className && c.className.includes('refx-inline-refs-row')
   );
-  assert.equal(directGroups.length, 0, 'no groups as direct bodyEl children — all inside linksContainer');
+  assert.equal(directRows.length, 0, 'no rows as direct bodyEl children — all inside linksContainer');
 });
 
 // F3 — Show-more click does not remove the property-overflow note

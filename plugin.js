@@ -1,4 +1,19 @@
-// v4.49.12 - Count badge sits after the chip when the reserved slot is too small (default 0), so the digit no longer paints on the last letters.
+// v4.57.2 - MO storm filter: marker classes on native hosts no longer blind keep-alive (WO-23).
+// v4.57.1 - Path search: containment hops, child-carried refs, trivial line-on-page sentences (WO-22).
+// v4.56.0 - Traversal strength ranking, behavioural co-occurrence, Workbench shared-neighbours strip (WO-20).
+// v4.54.2 - Related strip: canonical guids, no self-suggestion, refresh on navigation (WO-15).
+// v4.54.1 - Workbench hotfix: refresh-storm breaker, kill switch, related dedupe, stack list cache (WO-14).
+// v4.54.0 - Workbench stacks, reopen closed, tab strip, related strip, header count → linked-refs item (WO-13).
+// v4.53.0 - Recall matcher, pick memory, context boost, shared scorer.
+// v4.52.1 - Zoom fix-ups: chips inside trees, hint above the body, open-live action, home row text, 1500-node pages.
+// v4.52.0 - Row zoom scrubber: crumbs zoom in place, home row, chips navigate nested counts, live-widget hint mounts real transclusions.
+// v4.51.5 - Popover title also strips the native backlink pill and line-buttons from the host-line read.
+// v4.51.4 - Popover title strips nested decorators (the count badge no longer leaks a trailing digit into the title).
+// v4.51.3 - Popover title reads the host line text when the resolver is cold; the row timestamp rides inside the hover actions overlay so the path never wraps around it.
+// v4.51.2 - Popover names a line target by its text instead of its guid and is wide enough (380px) for a four-crumb path on one line.
+// v4.51.1 - Small linked-reference sections never defer their row context: the path is the row, so only section size (12 rows / 8 sources) defers to "▸ context".
+// v4.51.0 - Roam-clear reference rows: one muted clickable path then content at body size; inline section is header + flat rows; Block Context, facet bar, remark chips, and legacy outline mode removed.
+// Previous release: Mention segments render as @DisplayName in every crumb/row (no raw user guids). v4.50.0: Roam-style flat path breadcrumb (Page › … › parent) is the default reference-row header in popups and inline groups; the v3.35 foldable outline remains available via Settings ('Flat path breadcrumb on reference rows') or custom.rowPath=false. Count badge sits after the chip when the reserved slot is too small (default 0), so the digit no longer paints on the last letters.
 // Previous release: line references (( stop blinking too: a guid-keyed bridge stylesheet paints a rebuilt line-ref chip with the line appearance before any JS runs, so it no longer falls back to the page-ref default that v4.49.8 introduced.
 // Previous release: Reference chips stop blinking while you type: an unclassified chip paints the page-reference appearance from static CSS (no frame can paint Thymer native, no host colour transition replays), and a cold 'unknown' verdict no longer strips a chip's classification.
 // Previous release: Workbench click/Enter yield to the native @ date picker; Datacore widgets refresh in the Workbench; header drag-reorder.
@@ -8,7 +23,7 @@
 // v4.45.0 - Media renders inside references: image/file lines in linked-reference rows, child subtrees, block-context outlines, and chain rows paint real lazy previews (viewport-gated, reserved skeleton box, fail-closed filename chip, cold rows rehydrated to a blob-capable line by guid), and a chip whose target is an image/file line shows a small lazy thumbnail under the hover-popup title. Forensics via window.__REFX_MEDIA_STATS.
 // v4.44.0 - Reference chains include bounded child-subtree refs with provenance; popup sections are lifecycle-safe; cold-owner cycle checks converge through rendered/live fallbacks; contentless titles and property-reference breadcrumbs stay honest.
 // v4.42.0 - Truthful cycle refusals with owner warm-retry and diagnostics; copy-reference/transclusion row actions with real transclusion paste; rule-99 zero-layout target badges and reserved hover actions; cached-model context-menu fitting; plain-line menu extensions.
-// v4.41.0 - Remarks in Block Context: a referencing line's context row (and sibling rows) now show a pen-colored chip per remark attached to that line (org-remark "Source Line"), with the remark's first body line and click-to-open. The Block Context strip is collapsible beside its label, persisted per-device, default expanded. The SourceLine → remark map builds lazily on first context render (never at onLoad), refreshes only from Remarks-collection record events, and reads remark bodies lazily per rendered remark.
+// v4.41.0 - Remarks in Block Context: a referencing line's context row (and sibling rows) now show a pen-colored chip per remark attached to that line (org-remark "line-guid property"), with the remark's first body line and click-to-open. The Block Context strip is collapsible beside its label, persisted per-device, default expanded. The SourceLine → remark map builds lazily on first context render (never at onLoad), refreshes only from Remarks-collection record events, and reads remark bodies lazily per rendered remark.
 // v4.40.1 - Block Context above linked references renders as a normal reference row (source-record group header, foldable ancestor outline, children, row actions) instead of a fixed-height drill outline; the action menu's compact strip is unchanged.
 // v4.40.0 - Linked references for a line target open with the original block's context above them: the same bounded Block Context strip in the inline section and the floating badge popover, sharing the action menu's model and cache.
 // v4.39.0 - Bare line-reference clicks open the action menu with bounded block context above immediately available actions; popover/off remain configurable.
@@ -106,7 +121,7 @@
 // v3.89.0 - A2 alias creation and management UX: keyboard-complete `RefX: Aliases for this record…` modal mounted from palette, record-ref menu, and editable property cards; tier-labeled add/remove/queue-atomic rename; [[ picker secondary Tab action writes the query as a record alias before inserting a guid ref with the typed title while Enter retains insert/create semantics; per-reference display-alias popover offers explicit promotion once with bounded per-device dismissal memory; optional default-on, absolutely-positioned active-panel alias chips use cached pre-paint reinsertion with zero MutationObserver layout reads and zero document-line mutation. 5 A2 production-path tests; 467 total tests before version guards.
 // v3.88.0 - A1 alias data layer: RefX-owned AliasSetV1 indexes hydrated in the existing time-sliced record-name walk; exact multi-value text `Aliases` property adoption via values() and label writes; native synced `RefX Alias Registry` fallback with SDK-faithful line segments, 2,000-record truthful cap, per-record promise queues, verification/retry convergence for concurrent clients, property-wins migration after verified reread, collision-preserving synchronous get/resolve/all/subscribe APIs, additive Reference Surface `supportsAliases`/`aliases` and resolveTarget.aliases, window.__refx.aliases write bridge, payload-first debounced record.updated maintenance, schema self-heal on focus, hot-reload disposal, and truthful `RefX: Provision Aliases property…` command. 16 A1 tests including real onLoad mount, two-client writes, migration, cap, event path, and 10k lookup budget.
 // v3.87.0 - R10: resolved Markdown export — bounded walk (5000 nodes / 512 KB), explicit cycle markers (<!-- cycle: name (guid) — not re-expanded -->), explicit truncation markers (<!-- truncated: ... -->), deterministic byte-identical output, palette command 'RefX: Export as Markdown…', Export action in R4 selection surface, modal with scope/options/preview/Copy/Save-to-file; segment fidelity: headings (# levels), tasks (- [ ] / - [x] + non-binary status), nested lists, code blocks, external links, ref segments (alias or resolved text, thymer-ref:// when preserving), datetimes (formatted text), properties (key: value block); expansion at depth N (0–3, default 1), visited set across records and lines, node+byte budgets configurable via R10_NODE_BUDGET / R10_BYTE_BUDGET constants; saved-view scope reads via referenceViews.get(). 6 new methods: _r10ExportMarkdown / _r10WalkLine / _r10WalkRecord / _r10SegsToMd / _r10OpenExportModal / _r10RegisterCommands. 50 tests in test/r10-export.test.cjs.
-// v3.86.1 - R7/R8 review fixes: (R7R8-2) edit-live is now document-neutral — no _bridgeCreateEmbed call; shows a read-only preview strip + "Open to edit ↗" jump, avoiding permanent leaked transclusions on every open/close; (R7R8-1) wire facet bar (r7FacetBarEl), claim rows (_renderClaimRowsForTarget), and edit-live action into the real _fillInlineRefs render path (were unreachable dead code); (R7R8-3) _r8SettleRerender re-reads current line state from g_universe instead of frozen closure segments; handleLineItemUpdated marks open editor entries dirty via _r8OpenEditors registry; close() deregisters from registry; (R7R8-4) _r7FacetSnapshot reads broker.snapshot().status and sets partial flag; _renderR7FacetBar labels counts as "≥N" with tooltip note when broker is still loading; (R7R8-5) sourceProperty facet dimension excludes lineGuid-less edges so chip counts match filtered-row populations; (R7R8-6) _r7ApplyFacetFilter hoists single inEdges() call + builds lineGuid→edge Map before the row loop (O(rows+edges) vs O(rows×edges)); (R7R8-7) replace tautological 50-rows test with real render-path test (tracks real .refx-r8-live div creation, opens edit-live on row 0, asserts _r8AssertSingleEditor returns 1); also add behavioral same-title-distinct test; (R7R8-8) broker.edges(): when both filterExpr and flat filter present, AND them instead of dropping flat filter predicates; (R7R8-9) close() already guards scroll-anchor restore with reason!=='replaced'.
+// v3.86.1 - R7/R8 review fixes: (R7R8-2) edit-live is now document-neutral — no _bridgeCreateEmbed call; shows a read-only preview strip + "Open to edit ↗" jump, avoiding permanent leaked transclusions on every open/close; (R7R8-1) wire facet bar (r7FacetBarEl), claim rows (_renderClaimRowsForTarget), and edit-live action into the real _fillInlineRefs render path (were unreachable dead code); (R7R8-3) _r8SettleRerender re-reads current line state from g_universe instead of frozen closure segments; handleLineItemUpdated marks open editor entries dirty via _r8OpenEditors registry; close() deregisters from registry; (R7R8-4) facet snapshot reads broker.snapshot().status and sets partial flag; facet bar renderer labels counts as "≥N" with tooltip note when broker is still loading; (R7R8-5) sourceProperty facet dimension excludes lineGuid-less edges so chip counts match filtered-row populations; (R7R8-6) facet filter hoists single inEdges() call + builds lineGuid→edge Map before the row loop (O(rows+edges) vs O(rows×edges)); (R7R8-7) replace tautological 50-rows test with real render-path test (tracks real .refx-r8-live div creation, opens edit-live on row 0, asserts _r8AssertSingleEditor returns 1); also add behavioral same-title-distinct test; (R7R8-8) broker.edges(): when both filterExpr and flat filter present, AND them instead of dropping flat filter predicates; (R7R8-9) close() already guards scroll-anchor restore with reason!=='replaced'.
 // v3.86.0 - R7/R8: snapshot facets (collection/kind/authored-derived/taskState/dateRange/sourceProperty), FilterExpressionV1 (nested AND/OR over FilterV1 leaves — superset, broker gains supportsFilterExpr:true capability flag, apiVersion stays 1, additive v1.1 section in reference-surface-v1.md), claim edges as first-class typed rows (predicate name, authored/derived badge, provenance qualifiers/confidence/evidence, navigable to source), same-title discovery kept distinct from typed relations, Datacore adapter canonical names updated. R8: 'Edit live' row-level transclusion action (replaces chosen row inline with _bridgeCreateEmbed, 1-active-editor invariant, scroll-anchor + filter-state preserved on open/close, remote-update settles then lightweight-rerenders from current data, generation-guarded). 50-rows-1-editor structural invariant. New test file test/r7-r8.test.cjs (54 tests).
 // v3.85.1 - R6 review fixes: (F1) _r6AppendRevision: real SDK signature createLineItem(null,null,'ulist',[{type:'text',text}],null) — was passing JSON as parentItem arg (dead in production); _r6ReadRevisions: extract text by joining text-type segments (li.segments), not li.text (SDK-faithful); mock fixed to real signature; (F2) _r6AppendRevision: only delete surplus when over-cap (not unconditionally); re-read lines at delete time; per-viewGuid write serialization via this._r6WriteQueues promise chain; (F3) _r6MigrateExistingPins: don't set done-flag when _pins is empty (defer until a real pin walk has run); (F4) list()/get(): conflict → return null config + conflict:true marker instead of LWW newest head; (F5) save(): when parentRevisionId omitted and exactly one head exists, default parent to that head; (F6) no code change — backreferences shipped in thymer-backreferences v0.25.0 commit 0fe8446; (F7) onUnload: instance-identity guard before disposing window.__refxSavedViews; (F8) revisionId now includes _r6ClientId() suffix for cross-client collision resistance; (F9) compaction: sort by savedAt before slicing; abort drop if it changes derived head set; (F10) dead _r6ResolveViewRecord deleted.
 // v3.85.0 - R6: synced saved Reference Views — ReferenceViewV1 schema (targets, edgeKinds, filterExpression, sort, contextDepth, descendantMentions, displayMode, pageSize, inboxStateSync); append-only ReferenceViewRevisionV1 revision log per view (content-hash ID, parentRevisionIds, bounded to 50); head derivation (unreferenced = current); multi-head conflict detection + explicit merge; views persisted as named records in the Settings/Examples collection (Workbench native-record pattern, PluginCollectionAPI.createRecord — no data.createNewRecord(), no localStorage for synced state); window.__refx.referenceViews API (list/get/save/heads/resolveConflict/subscribe/_dispose); hot-reload-safe singleton (window.__refxSavedViews, swept in _killStaleObservers); pins migrate idempotently to view GUIDs (per-client localStorage migration-complete flag); per-device presentation prefs stay in localStorage. 40 tests in test/r6-reference-views.test.cjs.
@@ -271,6 +286,18 @@
 // rebuilds, but mutation work is limited to changed reference subtrees and affected
 // lines. There is no polling or perpetual rAF loop; rAF is bounded to host-arrival
 // retries and geometry work.
+
+// v4.57.2: NATIVE Thymer elements. RefX never creates one; it only MARKS them
+// (refx-ovl-host on .line-div for position:relative, refx-lineref-chip /
+// trc-ref-anchor on .lineitem-ref, the appearance switches on <body>). A
+// refx-/trc- class on one of these is host state, not ownership.
+const REFX_NATIVE_HOST_CLASSES = new Set([
+  'listitem', 'line-div', 'listview-items', 'listview',
+  'line-check-div', 'line-chrome-ulist', 'line-chrome-olist',
+  'lineitem-ref', 'lineitem-linkobj', 'lineitem-text', 'lineitem-datetime',
+  'lineitem-hashtag', 'lineitem-mention', 'lineitem-backlink-pill',
+  'listitem-transclusion', 'transclusion-container-div', 'panel',
+]);
 
 class Plugin extends AppPlugin {
   // Instance state as class fields (Thymer may call onUnload on an instance
@@ -615,6 +642,14 @@ class Plugin extends AppPlugin {
   _wbSyncT = 0; // debounce timer for the synced write
   _WB_META_KEY = "refx_workbench";
   _WB_STATE_RECORD = "Reference Workbench State";
+  _WB_STACK_PREFIX = "Workbench Stack: ";
+  _wbStackListCache = null; // cleared each _wbLiveRefresh
+  _wbTabsEl = null;
+  _wbTabsScrollEl = null;
+  _wbTabsScrollFn = null;
+  _wbTabsScrollT = 0;
+  _wbStackDeleteArm = null; // stack guid awaiting delete confirm
+  _wbStackOverwriteArm = null; // stack guid awaiting overwrite confirm
   // ── v3.15.0+: the backing record's BODY is a list of native `transclusion`
   // lines (one per item), opened in a rightmost edit_panel, so every item is
   // NATIVELY EDITABLE (Roam's editable sidebar). Our chrome is a decorator
@@ -636,6 +671,46 @@ class Plugin extends AppPlugin {
   _wbFilterBar = null; // the filter/count/clear decorator bar
   _wbMigrated = false;
   _wbLiveRefreshT = 0;
+  _wbStormTripped = false;
+  _wbRefreshRunTimes = []; // sliding-window timestamps for storm breaker
+  _wbRefreshLastAt = 0;
+  _wbRefreshStormBackoffUntil = 0;
+  _wbLiveObsBusy = false; // re-entrancy guard for keep-alive observer callback
+  // WO-16: MutationObserver batch defenses (shared across all RefX observers).
+  _MO_BATCH_CAP = 1500;
+  _MO_TIME_BUDGET_MS = 8;
+  _MO_STORM_WINDOW_MS = 100;
+  _MO_STORM_CALLBACK_LIMIT = 200;
+  _MO_STORM_PAUSE_MS = 2000;
+  _MO_STORM_TRIP_MINUTE_MS = 60000;
+  _MO_STORM_MAX_TRIPS = 3;
+  _MO_COALESCE_MS = 250;
+  _moStormBuckets = null;
+  _moCoalesceT = null;
+  _wbTabsFingerprint = "";
+  _wbRelatedPaintFp = "";
+  _wbAdoptBootAt = 0;
+  _wbAdoptBootRuns = 0;
+  _wbEnabled = true; // custom.workbench.enabled (default true)
+  _wbRelatedEl = null; // suggestion strip after the last shelf item
+  _wbRelatedGen = 0; // stale-fetch guard for async related refresh
+  _wbRelatedT = 0; // debounced related-strip refresh timer
+  _wbRelatedCache = null; // fingerprint+mainRec -> {chips, ts}
+  _wbRelatedEnabled = true; // custom.workbench.related (default true)
+  _wbSharedPaintFp = "";
+  _wbSharedEl = null;
+  _wbSharedGen = 0;
+  _wbSharedT = 0;
+  _wbSharedCache = null;
+  _wbSharedEnabled = true; // custom.workbench.shared (default true)
+  _wbTrailEnabled = true; // custom.workbench.trail (default true)
+  _wbTrailEl = null; // hop ring strip after the tab bar
+  _wbTrailPaintFp = "";
+  _wbTrailLoaded = false; // refx_trail_v1 read once at first Workbench paint
+  _wbTrailClearArmTs = 0; // two-press clear confirm
+  _wbTrailReplayGen = 0; // supersedes an in-flight replay
+  _wbTrailReplayActive = false;
+  _wbTrailReplayBtn = null;
   _wbDatacorePokeT = 0; // throttle handle for the post-decorate Datacore refresh poke
   _wbDrag = null; // {lineGuid} while a Workbench header drag-reorder is in flight
   _wbPendingCollapse = null; // lineGuid -> {collapsed, until}: optimistic fold state until meta read-back confirms
@@ -650,6 +725,29 @@ class Plugin extends AppPlugin {
   _sidebarChord = "workbench"; // custom.sidebarChord: Ctrl/Cmd+Shift+O → "workbench" | "panel"
   _DEEP_MAX_PATHS = 40;        // v3.60.1: class-level cap for deep-paths BFS
   _DEEP_MAX_INTERMEDIATES = 15; // v3.60.1: class-level cap for hop1 intermediates
+  _CONN_INDEX_TTL_MS = 60000;  // v4.55.0 WO-17: staleness net for shared connection indexes
+  _CONN_MAX_CONCURRENCY = 2;   // v4.55.0 WO-17: parallel path-search jobs
+  _CONN_JOB_TIMEOUT_MS = 3000;   // v4.55.0 WO-17: per path-search job budget
+  _connIndexCache = null;      // v4.55.0 WO-17: stamped {reverseRefIndex, rguidIndex, forwardRefIndex, builtAt, stamp}
+  _connIndexBuildQueued = false;
+  _connIndexBuildStamp = null;
+  _connIndexBuildGeneration = 0;
+  _connIndexReadyPromise = null;
+  _connIndexReadyStamp = null;
+  _connDiagnostics = null;
+  _connEnabled = true; // custom.connections.enabled (default true)
+  _connMaxDepth = 3; // custom.connections.maxDepth (default 3)
+  _connStrengthEnabled = true; // custom.connections.strength (default true)
+  _connTraversalCache = null;
+  _connTraversalCacheKey = null;
+  _connCooccurCache = null;
+  _connCooccurCacheKey = null;
+  _connCooccurPersistT = 0;
+  _connCooccurStoreMax = 5000;
+  _connTrailPersistT = 0;
+  _connJobQueue = null;
+  _connActiveJobs = null;
+  _connJobGeneration = 0;
   // BUG D fix: capture mousedown on the WB panel to restore focused-component
   // when Thymer splits caret focus between the WB and the main panel.
   _wbFocusFix = (e) => {
@@ -668,7 +766,7 @@ class Plugin extends AppPlugin {
     if (!e.target || !e.target.closest) return;
     if (this._isNativePickerNode(e.target, true)) return;
     if (!e.target.closest(".editor-panel.refx-wb-live")) return;
-    if (e.target.closest(".refx-wb-hdr, .refx-propcard, .refx-wb-filterbar, .refx-wb-vmenu")) return;
+    if (e.target.closest(".refx-wb-hdr, .refx-propcard, .refx-wb-filterbar, .refx-wb-vmenu, .refx-wb-tabs, .refx-wb-trail, .refx-wb-related, .refx-wb-shared")) return;
     if (!e.target.closest(".transclusion-container-div")) return;
     // After the click settles, check for the split-focus state: WB has
     // focused-component but the caret (flowythymer-thread-target) is in a
@@ -1376,9 +1474,14 @@ class Plugin extends AppPlugin {
         if (nav.scope === 'branch' && nav.branchGuid && row.guid !== nav.branchGuid && !nav.branchSet?.has(row.guid)) return;
       }
       const key = this._searchKey(row.text || '');
-      const score = plan ? this._searchScoreFromKey(key, plan) : 500;
-      if (score < 0) return;
-      const next = { ...row, score: score + this._r5FrecencyBoost(row.guid) };
+      let score = 500, matchTier = 'strict';
+      if (plan) {
+        const match = this._searchMatchFromKey(key, plan);
+        if (match.score < 0) return;
+        score = match.score;
+        matchTier = match.tier;
+      }
+      const next = { ...row, score: score + this._r5FrecencyBoost(row.guid) + this._connHopWeight(nav.origin?.lineGuid, row.guid), matchTier };
       if (nav.mode === 'blocks') {
         if (pool.size >= this._BLOCK_RESULT_POOL_CAP) nav.poolCapped = true;
         this._addBoundedSearchResult(pool, row.guid, next, { maxSize: this._BLOCK_RESULT_POOL_CAP });
@@ -2239,7 +2342,7 @@ class Plugin extends AppPlugin {
         for (const guid of local?.recordGuids || []) addPropertySource(guid);
       } catch (e) {}
     } else {
-      // Optional configured line-GUID properties (for example Source Line)
+      // Optional configured line-GUID properties (for example line-guid property)
       // are the only property mentions available for a line target.
       try {
         const guids = await this._queryPropertyRefRecords(result.guid, lineSourceGuids);
@@ -2418,11 +2521,23 @@ class Plugin extends AppPlugin {
         // exception is its success contract; only itemGuid navigation returns
         // the Promise<boolean> that can be verified.
         panel.navigateTo(route);
-        if (isRecord) return true;
+        if (isRecord) {
+          try {
+            let fromGuid = null;
+            try { fromGuid = this.ui.getActivePanel?.()?.getActiveRecord?.()?.guid || null; } catch (e) {}
+            this._connRecordHop(fromGuid, result.guid, "jump");
+          } catch (e) {}
+          return true;
+        }
         // A cold/streamed line may not resolve until after the owner editor is
         // mounted. The direct owner route already succeeded; highlighting is a
         // best-effort refinement and must not tear that useful panel back down.
         try { await panel.navigateTo({ itemGuid: result.guid, highlight: true }); } catch (e) {}
+        try {
+          let fromGuid = null;
+          try { fromGuid = this.ui.getActivePanel?.()?.getActiveRecord?.()?.guid || null; } catch (e) {}
+          this._connRecordHop(fromGuid, result.guid, "jump");
+        } catch (e) {}
         return true;
       }
 
@@ -2431,11 +2546,23 @@ class Plugin extends AppPlugin {
           type: 'edit_panel', rootId: recordGuid, subId: null,
           workspaceGuid,
         });
+        try {
+          let fromGuid = null;
+          try { fromGuid = this.ui.getActivePanel?.()?.getActiveRecord?.()?.guid || null; } catch (e) {}
+          this._connRecordHop(fromGuid, result.guid, "jump");
+        } catch (e) {}
         return true;
       }
 
       // Existing editor panels support the native action-time line jump.
-      if ((await panel.navigateTo({ itemGuid: result.guid, highlight: true })) === true) return true;
+      if ((await panel.navigateTo({ itemGuid: result.guid, highlight: true })) === true) {
+        try {
+          let fromGuid = null;
+          try { fromGuid = this.ui.getActivePanel?.()?.getActiveRecord?.()?.guid || null; } catch (e) {}
+          this._connRecordHop(fromGuid, result.guid, "jump");
+        } catch (e) {}
+        return true;
+      }
       // If a streamed/off-screen line was not yet addressable, fall back to an
       // explicit owner route with the same native highlight state.
       if (recordGuid) {
@@ -2445,6 +2572,11 @@ class Plugin extends AppPlugin {
           state: { highlightLines: [result.guid] },
         });
         try { await panel.navigateTo({ itemGuid: result.guid, highlight: true }); } catch (e) {}
+        try {
+          let fromGuid = null;
+          try { fromGuid = this.ui.getActivePanel?.()?.getActiveRecord?.()?.guid || null; } catch (e) {}
+          this._connRecordHop(fromGuid, result.guid, "jump");
+        } catch (e) {}
         return true;
       }
       closeCreated();
@@ -4127,6 +4259,15 @@ class Plugin extends AppPlugin {
         abandonedActive: 0, abandonedTotal: 0, abandonedSettled: 0,
       };
     }
+    try {
+      const existingTrail = window.__refxTrail;
+      this._refxTrail = existingTrail && typeof existingTrail === "object" && Array.isArray(existingTrail.ring)
+        ? existingTrail
+        : { ring: [], cap: 50 };
+      window.__refxTrail = this._refxTrail;
+    } catch (e) {
+      this._refxTrail = { ring: [], cap: 50 };
+    }
     this._refChainTreeDiagnostics = {
       version: 2,
       rootsStarted: 0,
@@ -4156,6 +4297,27 @@ class Plugin extends AppPlugin {
       window.__REFX_CHAIN_DIAG = this._refChainTreeDiagnostics;
       window.__refxCancelChainTrees = this._refChainCancelHook;
     } catch (e) {}
+    try {
+      const adoptedConn = window.__REFX_CONN_DIAG;
+      if (adoptedConn && typeof adoptedConn === "object" && adoptedConn.version === 1) {
+        this._connDiagnostics = adoptedConn;
+      } else {
+        this._connDiagnostics = {
+          version: 1,
+          indexBuilds: 0,
+          indexHits: 0,
+          indexCold: 0,
+          pathJobs: 0,
+          pathsFound: 0,
+          pathTimeouts: 0,
+          pathBudgetHits: 0,
+          sharedQueries: 0,
+          active: 0,
+          maxConcurrent: 0,
+        };
+      }
+      window.__REFX_CONN_DIAG = this._connDiagnostics;
+    } catch (e) {}
     this._initInlineMediaRuntime();
     // v4.27.4: serialize every whole-workspace warm-up behind one cooperative,
     // input-aware queue.  RefX used to let broker hydration, title/alias indexing,
@@ -4180,7 +4342,7 @@ class Plugin extends AppPlugin {
     this._attachAttributesClaims();
     this._referenceSurfaceBroker = this._initReferenceSurfaceBroker(); // R1 + A1: Reference Surface v1
     this._referenceEditsBroker = this._initReferenceEditsBroker();
-    try { window.__REFX_VERSION = "4.49.12"; } catch (e) {} // live-version tell for debugging
+    try { window.__REFX_VERSION = "4.57.2"; } catch (e) {} // live-version tell for debugging
     try {
       this._moveGeneration = Number(window.__refxMoveGeneration || 0) + 1;
       window.__refxMoveGeneration = this._moveGeneration;
@@ -4369,6 +4531,14 @@ class Plugin extends AppPlugin {
       allowExternalImages: navRaw.allowExternalImages === true,
       nativeContext: !(navRaw.nativeContext === false || navRaw.nativeContext === 'off'),
     });
+    const pickerRaw = custom.picker && typeof custom.picker === 'object' ? custom.picker : {};
+    const abbrevRaw = pickerRaw.abbreviations && typeof pickerRaw.abbreviations === 'object' ? pickerRaw.abbreviations : {};
+    this._pickerAbbrevConfig = {};
+    for (const [key, vals] of Object.entries(abbrevRaw)) {
+      if (!Array.isArray(vals)) continue;
+      this._pickerAbbrevConfig[String(key).toLowerCase()] = vals.map((v) => String(v).toLowerCase());
+    }
+    this._searchAbbrevBuilt = null;
     const explicitDrill = Object.prototype.hasOwnProperty.call(custom, 'drillShortcut')
       && typeof custom.drillShortcut === 'string' && custom.drillShortcut.trim();
     this._navigatorHotkeys = explicitDrill
@@ -4411,11 +4581,12 @@ class Plugin extends AppPlugin {
     window.addEventListener("keydown", this._handleRefChord, true);
     window.addEventListener("keydown", this._handleDrillKey, true);
     window.addEventListener("keydown", this._handleFnKey, true); // v4.22.1
+    window.addEventListener("keydown", this._onWbPanelKey, true);
     // Window-singleton stash of the always-on handlers: a hot-reload re-runs onLoad
     // on the SAME document without disposing the prior instance, so without this
     // every update stacks another copy of all the capture listeners (and the old
     // ones' stopImmediatePropagation can starve the live instance).
-    window.__refxKeyHandlers = [this._handleKeydown, this._handleBracketKey, this._handleExpandKey, this._handleWbEnter, this._handleCardNavTrigger, this._handleRefChord, this._handleDrillKey, this._handleFnKey];
+    window.__refxKeyHandlers = [this._handleKeydown, this._handleBracketKey, this._handleExpandKey, this._handleWbEnter, this._handleCardNavTrigger, this._handleRefChord, this._handleDrillKey, this._handleFnKey, this._onWbPanelKey];
     // Right-click on a reference chip → the reference menu (Shift+right-click
     // falls through to the browser/native menu).
     window.addEventListener("contextmenu", this._handleContextMenu, true);
@@ -4493,6 +4664,15 @@ class Plugin extends AppPlugin {
     // Reference Workbench (Roam's editable right sidebar): opened as a native
     // edit_panel of the backing record — no custom panel type to register.
     this._sidebarChord = (cfg.custom && cfg.custom.sidebarChord === "panel") ? "panel" : "workbench";
+    const wbCfgRaw = custom.workbench && typeof custom.workbench === "object" ? custom.workbench : {};
+    this._wbRelatedEnabled = !(wbCfgRaw.related === false || wbCfgRaw.related === "off");
+    this._wbSharedEnabled = !(wbCfgRaw.shared === false || wbCfgRaw.shared === "off");
+    this._wbTrailEnabled = !(wbCfgRaw.trail === false || wbCfgRaw.trail === "off");
+    this._wbEnabled = !(wbCfgRaw.enabled === false || wbCfgRaw.enabled === "off");
+    const connCfgRaw = custom.connections && typeof custom.connections === "object" ? custom.connections : {};
+    this._connEnabled = !(connCfgRaw.enabled === false || connCfgRaw.enabled === "off");
+    this._connMaxDepth = Math.max(1, Math.min(12, Math.floor(Number(connCfgRaw.maxDepth) || 3)));
+    this._connStrengthEnabled = !(connCfgRaw.strength === false || connCfgRaw.strength === "off");
     this._workbenchCmd = this.ui.addCommandPaletteCommand({
       label: "Open Reference Workbench",
       icon: "ti-stack",
@@ -4516,6 +4696,22 @@ class Plugin extends AppPlugin {
         if (!guid) { const info = this._caretInfo(); guid = (info && info.pageGuid) || null; } // journal pages return no active record
         if (!guid) return this._toast("Couldn't resolve the current page.");
         this._wbAdd(guid);
+      },
+    });
+    this._wbDisableCmd = this.ui.addCommandPaletteCommand({
+      label: "Disable Reference Workbench (safe mode)",
+      icon: "ti-stack",
+      onSelected: () => {
+        try { localStorage.setItem("refx_wb_disable", "1"); } catch (e) {}
+        this._toast("Workbench disabled by refx_wb_disable");
+      },
+    });
+    this._wbEnableCmd = this.ui.addCommandPaletteCommand({
+      label: "Enable Reference Workbench",
+      icon: "ti-stack",
+      onSelected: () => {
+        try { localStorage.removeItem("refx_wb_disable"); } catch (e) {}
+        this._toast("Reference Workbench enabled");
       },
     });
     // v3.63.0 F4: Block View palette command — only registered when enabled.
@@ -4697,7 +4893,6 @@ class Plugin extends AppPlugin {
     this._patchRecordNameIndex(recordGuid, ev?.record || null);
     this._aliasScheduleEnrich(recordGuid, 'record.updated');
     this._schedulePickerMetadataRefresh({ recordGuid });
-    this._remarksRecordEvent(recordGuid, ev, 'created');
   }
 
   _onRecordUpdated(ev) {
@@ -4761,7 +4956,6 @@ class Plugin extends AppPlugin {
       if (ev?.trashed === true) this._wbInvalidateBacking('trashed', { clearPersisted: true, teardown: true });
       else this._wbLiveScheduleRefresh();
     }
-    if (g) this._remarksRecordEvent(g, ev, 'updated');
   }
 
   _onRecordMoved(ev) {
@@ -4778,7 +4972,6 @@ class Plugin extends AppPlugin {
     if (recordGuid === this._wbBackingGuid) {
       this._wbInvalidateBacking('moved', { clearPersisted: true, teardown: true });
     }
-    this._remarksRecordEvent(recordGuid, ev, 'moved', collectionGuid);
   }
 
   _onCollectionMetadataChanged(ev) {
@@ -4841,13 +5034,6 @@ class Plugin extends AppPlugin {
     this._fieldMeta = null;
     this._colByGuid = null;
     this._cardFieldsCache.clear();
-    // Re-index replaces record facades; the remark map + body cache must not
-    // retain pre-reload handles. The next context render rebuilds lazily. The
-    // generation bump fences any build still in flight across the reload.
-    this._remarksIndex = null;
-    this._remarksIndexPromise = null;
-    this._remarksGeneration = (this._remarksGeneration || 0) + 1;
-    this._remarkBodyCache?.clear?.();
     if (this._fieldTypesRebuildT) { try { clearTimeout(this._fieldTypesRebuildT); } catch (e) {} }
     this._fieldTypesRebuildT = setTimeout(() => {
       this._fieldTypesRebuildT = 0;
@@ -5169,10 +5355,14 @@ class Plugin extends AppPlugin {
       if (window.__REFX_CHAIN_DIAG === this._refChainTreeDiagnostics) {
         window.__REFX_CHAIN_DIAG = null;
       }
+      if (window.__REFX_CONN_DIAG === this._connDiagnostics) {
+        window.__REFX_CONN_DIAG = null;
+      }
       if (window.__refxCancelChainTrees === this._refChainCancelHook) {
         window.__refxCancelChainTrees = null;
       }
     } catch (e) {}
+    this._connJobGeneration++;
     this._refChainCancelHook = null;
     this._disposeBackgroundWorkCoordinator();
     try { document.body.classList.remove('refx-hide-native-open'); } catch (e) {}
@@ -5262,6 +5452,7 @@ class Plugin extends AppPlugin {
     window.__refxWbPress = null;
     try { window.removeEventListener("mousedown", this._wbFocusFix, true); } catch (e) {}
     window.__refxWbFocusFix = null;
+    try { window.removeEventListener("keydown", this._onWbPanelKey, true); } catch (e) {}
     try { window.removeEventListener("click", this._chipTaskClick, true); } catch (e) {}
     try { for (const t of ["pointerdown", "mousedown", "pointerup", "mouseup"]) window.removeEventListener(t, this._chipTaskPress, true); } catch (e) {}
     window.__refxChipTaskClick = null;
@@ -5270,6 +5461,11 @@ class Plugin extends AppPlugin {
     if (this._wbStatusItem) { try { this._wbStatusItem.remove(); } catch (e) {} this._wbStatusItem = null; }
     this._wbLiveTeardownObserver(); // live headers + panel observer + filter bar
     if (this._wbLiveRefreshT) { try { clearTimeout(this._wbLiveRefreshT); } catch (e) {} this._wbLiveRefreshT = 0; }
+    if (this._wbRelatedT) { try { clearTimeout(this._wbRelatedT); } catch (e) {} this._wbRelatedT = 0; }
+    this._wbRelatedGen++;
+    if (this._wbSharedT) { try { clearTimeout(this._wbSharedT); } catch (e) {} this._wbSharedT = 0; }
+    this._wbSharedGen++;
+    this._wbTrailStopReplay();
     if (this._wbDatacorePokeT) { try { clearTimeout(this._wbDatacorePokeT); } catch (e) {} this._wbDatacorePokeT = 0; }
     this._wbBackingRecord = null;
     this._wbBackingGuid = null;
@@ -5358,11 +5554,8 @@ class Plugin extends AppPlugin {
     this._refChainPending.clear();
     this._refChainGeneration++;
     this._refLevelCache.clear();
+    this._connIndexCache = null;
     this._refLevelPending.clear();
-    this._remarksIndex = null;
-    this._remarksIndexPromise = null;
-    this._remarksGeneration = (this._remarksGeneration || 0) + 1;
-    this._remarkBodyCache?.clear?.();
     for (const ticket of this._lineRefContextPending.values()) ticket.invalidated = true;
     this._lineRefContextPending.clear();
     this._lineRefContextGeneration++;
@@ -10346,6 +10539,16 @@ class Plugin extends AppPlugin {
     // record, (re)inject the per-item decorator headers there. Scoped by the
     // record guid, not a panel === (the event hands a fresh wrapper each time).
     this._wbLiveScheduleRefresh();
+    try {
+      if (this._wbRelatedEnabled && this._wbLivePanel()) {
+        this._wbRelatedPaintFp = "";
+        this._wbRelatedScheduleRefresh();
+      }
+      if (this._wbSharedEnabled && this._wbLivePanel()) {
+        this._wbSharedPaintFp = "";
+        this._wbSharedScheduleRefresh();
+      }
+    } catch (e) {}
     this._aliasMountPanelRows();
   }
 
@@ -11519,6 +11722,49 @@ class Plugin extends AppPlugin {
     this._exitWbNav();
   };
 
+  // v4.54.0: Workbench-panel keyboard shortcuts (stacks, reopen, tab navigation).
+  _onWbPanelKey = (e) => {
+    if (this._modal || this._link || this._cardEditing) return;
+    const t = e.target;
+    if (!t || !t.closest) return;
+    if (!t.closest(".refx-wb-live")) return;
+    if (t.closest("input, textarea, select, [contenteditable='true']")) return;
+    const mod = this._isMac ? e.metaKey : e.ctrlKey;
+    if (mod && e.shiftKey && !e.altKey && (e.key === "t" || e.key === "T")) {
+      e.preventDefault(); e.stopImmediatePropagation();
+      this._wbReopenLast().catch(() => {});
+      return;
+    }
+    if (mod && e.shiftKey && !e.altKey && e.key >= "1" && e.key <= "9") {
+      e.preventDefault(); e.stopImmediatePropagation();
+      this._wbStackLoadByIndex(parseInt(e.key, 10) - 1).catch(() => {});
+      return;
+    }
+    if (!e.altKey || mod) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault(); e.stopImmediatePropagation();
+      this._wbLiveMoveActive(1);
+      return;
+    }
+    if (e.key === "ArrowUp") {
+      e.preventDefault(); e.stopImmediatePropagation();
+      this._wbLiveMoveActive(-1);
+      return;
+    }
+    if (e.key === "Enter") {
+      e.preventDefault(); e.stopImmediatePropagation();
+      const it = this._wbLiveActiveItem();
+      if (it) this._wbLiveSwapToMain(it).catch(() => {});
+      return;
+    }
+    if (e.key === "w" || e.key === "W") {
+      if (e.shiftKey) return;
+      e.preventDefault(); e.stopImmediatePropagation();
+      const it = this._wbLiveActiveItem();
+      if (it) this._wbLiveRemove(it).catch(() => {});
+    }
+  };
+
   _wbNavClickAway = (e) => {
     if (!this._wbNav) return;
     try { if (e.target && e.target.closest && e.target.closest(".refx-wb-live")) return; } catch (e2) {}
@@ -12675,20 +12921,24 @@ class Plugin extends AppPlugin {
   _ensureThemeObserver() {
     if (this._themeObs || this._unloaded) return;
     try {
-      const obs = new MutationObserver(() => {
-        setTimeout(() => {
-          if (this._unloaded) return;
-          for (const [lineGuid] of this._cards) {
-            try {
-              const node = this._transclusionNode(lineGuid);
-              const card = node && node.querySelector(":scope > ." + this._CARD_CLASS);
-              if (card) { card.style.backgroundColor = ""; card.style.borderColor = ""; }
-              this._alignCardToBody(lineGuid, node);
-            } catch (e) {}
-          }
-        }, 50); // let the new theme's styles apply before re-reading computed colours
+      const target = document.documentElement;
+      const options = { attributes: true, attributeFilter: ["data-theme"], attributeOldValue: true };
+      const obs = new MutationObserver((muts) => {
+        this._moGuardCallback('theme', muts || [], { obs, target, options, ctx: {} }, () => {
+          setTimeout(() => {
+            if (this._unloaded) return;
+            for (const [lineGuid] of this._cards) {
+              try {
+                const node = this._transclusionNode(lineGuid);
+                const card = node && node.querySelector(":scope > ." + this._CARD_CLASS);
+                if (card) { card.style.backgroundColor = ""; card.style.borderColor = ""; }
+                this._alignCardToBody(lineGuid, node);
+              } catch (e) {}
+            }
+          }, 50); // let the new theme's styles apply before re-reading computed colours
+        });
       });
-      obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+      obs.observe(target, options);
       this._themeObs = obs;
       window.__refxThemeObs = obs;
     } catch (e) {}
@@ -12962,19 +13212,212 @@ class Plugin extends AppPlugin {
     return changed.length > 0 && changed.every((node) => this._isNativePickerNode(node, true));
   }
 
+  // WO-16: cheap svg/nautilus/refx-node reject before any closest() walk.
+  _moStats(name) {
+    try {
+      const root = window.__refxMoStats || (window.__refxMoStats = {});
+      let s = root[name];
+      if (!s) {
+        s = { name, callbacks: 0, maxBatch: 0, skippedSvg: 0, skippedIdentical: 0, capped: 0, trips: 0 };
+        root[name] = s;
+      }
+      return s;
+    } catch (e) {
+      return { name, callbacks: 0, maxBatch: 0, skippedSvg: 0, skippedIdentical: 0, capped: 0, trips: 0 };
+    }
+  }
+
+  _moStormBucket(name) {
+    if (!this._moStormBuckets) this._moStormBuckets = new Map();
+    let b = this._moStormBuckets.get(name);
+    if (!b) {
+      b = { times: [], tripTimes: [], paused: false, reconnectT: 0, warned: false };
+      this._moStormBuckets.set(name, b);
+    }
+    return b;
+  }
+
+  _moClassSkippable(className) {
+    if (!className || typeof className !== 'string') return false;
+    return className.includes('nautilus') || className.includes('np-') || className.includes('refx-') || className.includes('trc-');
+  }
+
+  // True when `el` is DOM Thymer owns (or <body>/<html>). Defensive about the
+  // shapes the tests use: className may be a plain string, classList and
+  // matches may be absent.
+  _moNativeHost(el) {
+    if (!el || el.nodeType !== 1) return false;
+    const tag = el.tagName;
+    if (tag === 'BODY' || tag === 'HTML') return true;
+    const cn = typeof el.className === 'string' ? el.className : '';
+    if (!cn) return false;
+    for (const tok of cn.split(/\s+/)) if (tok && REFX_NATIVE_HOST_CLASSES.has(tok)) return true;
+    return false;
+  }
+
+  _moNodeSkippable(node, stats) {
+    if (!node || node.nodeType !== 1) return false;
+    const tag = node.tagName;
+    if (tag === 'SVG' || tag === 'CANVAS') { if (stats) stats.skippedSvg++; return true; }
+    let cur = node;
+    while (cur && cur.nodeType === 1) {
+      if (cur.tagName === 'SVG' || cur.tagName === 'CANVAS') { if (stats) stats.skippedSvg++; return true; }
+      // v4.57.2 root cause of "reference badges vanish while typing": a refx-/trc-
+      // class on a native host is a MARKER, never ownership. Evaluating it made
+      // Thymer's own removal of our overlay from the marked .line-div invisible to
+      // the pre-paint keep-alive (measured 769/1117 absent painted frames).
+      if (!this._moNativeHost(cur) && this._moClassSkippable(cur.className)) { if (stats) stats.skippedSvg++; return true; }
+      if (cur.classList?.contains?.('listitem') || cur.tagName === 'BODY' || cur.tagName === 'HTML') break;
+      cur = cur.parentElement;
+    }
+    return false;
+  }
+
+  _moRecordSkippable(m, stats) {
+    if (!m) return true;
+    if (this._moNodeSkippable(m.target, stats)) return true;
+    if (m.type === 'attributes' && m.target?.nodeType === 1) {
+      const attr = m.attributeName;
+      if (attr && m.oldValue !== null && m.oldValue === m.target.getAttribute(attr)) {
+        if (stats) stats.skippedIdentical++;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  _moBudgetExceeded(budgetStart) {
+    return budgetStart && performance.now() - budgetStart > this._MO_TIME_BUDGET_MS;
+  }
+
+  _scheduleCoalescedRescan(kind, ctx) {
+    if (!this._moCoalesceT) this._moCoalesceT = {};
+    const key = kind + (ctx?.state?.panelId || ctx?.panelId || '');
+    if (this._moCoalesceT[key]) return;
+    this._moCoalesceT[key] = setTimeout(() => {
+      delete this._moCoalesceT[key];
+      if (this._unloaded || this._isUnloading) return;
+      try {
+        if (kind === 'card') {
+          if (!this._cardRaf) this._cardRaf = requestAnimationFrame(() => { this._cardRaf = 0; this._onCardMutation(); });
+        } else if (kind === 'panel' && ctx?.state) {
+          this.scheduleScan(ctx.state, { reason: 'mo-coalesce' });
+        } else if (kind === 'wb') {
+          this._wbLiveScheduleRefresh(60);
+        } else if (kind === 'overlay') {
+          this._scheduleOverlayReposition(null);
+        } else if (kind === 'theme') {
+          for (const [lineGuid] of this._cards) {
+            try {
+              const node = this._transclusionNode(lineGuid);
+              const card = node && node.querySelector(":scope > ." + this._CARD_CLASS);
+              if (card) { card.style.backgroundColor = ""; card.style.borderColor = ""; }
+              this._alignCardToBody(lineGuid, node);
+            } catch (e) {}
+          }
+        }
+      } catch (e) {}
+    }, this._MO_COALESCE_MS);
+  }
+
+  _moStormDisconnect(bucket, stormCtx) {
+    const obs = stormCtx?.obs;
+    if (obs) { try { obs.disconnect(); } catch (e) {} }
+    if (bucket.reconnectT) { try { clearTimeout(bucket.reconnectT); } catch (e) {} bucket.reconnectT = 0; }
+  }
+
+  _moStormReconnect(bucket, stormCtx) {
+    const obs = stormCtx?.obs;
+    const target = stormCtx?.target;
+    const options = stormCtx?.options;
+    if (!obs || !target || bucket.paused) return;
+    try { obs.observe(target, options); } catch (e) {}
+  }
+
+  _moStormTrip(name, bucket, stormCtx) {
+    const stats = this._moStats(name);
+    stats.trips++;
+    const now = Date.now();
+    bucket.tripTimes.push(now);
+    const cutoff = now - this._MO_STORM_TRIP_MINUTE_MS;
+    bucket.tripTimes = bucket.tripTimes.filter((t) => t >= cutoff);
+    this._moStormDisconnect(bucket, stormCtx);
+    if (bucket.tripTimes.length >= this._MO_STORM_MAX_TRIPS) {
+      bucket.paused = true;
+      if (!bucket.warned) {
+        bucket.warned = true;
+        try { console.warn('[RefX] Mutation storm — observer paused for session:', name); } catch (e) {}
+        this._toast('RefX paused an observer (mutation storm)');
+      }
+      return;
+    }
+    bucket.reconnectT = setTimeout(() => {
+      bucket.reconnectT = 0;
+      this._moStormReconnect(bucket, stormCtx);
+    }, this._MO_STORM_PAUSE_MS);
+  }
+
+  // Shared batch-cap / filter / storm-breaker entry for every MutationObserver callback.
+  _moGuardCallback(name, muts, stormCtx, handler) {
+    const stats = this._moStats(name);
+    const bucket = this._moStormBucket(name);
+    if (bucket.paused) return;
+    stats.callbacks++;
+    const len = muts?.length || 0;
+    if (len > stats.maxBatch) stats.maxBatch = len;
+    const now = performance.now();
+    bucket.times.push(now);
+    const winCut = now - this._MO_STORM_WINDOW_MS;
+    while (bucket.times.length && bucket.times[0] < winCut) bucket.times.shift();
+    if (bucket.times.length > this._MO_STORM_CALLBACK_LIMIT) {
+      this._moStormTrip(name, bucket, stormCtx);
+      return;
+    }
+    if (len > this._MO_BATCH_CAP) {
+      stats.capped++;
+      this._scheduleCoalescedRescan(name, stormCtx?.ctx);
+      return;
+    }
+    const budgetStart = now;
+    const filtered = [];
+    for (let i = 0; i < len; i++) {
+      if (performance.now() - budgetStart > this._MO_TIME_BUDGET_MS) {
+        this._scheduleCoalescedRescan(name, stormCtx?.ctx);
+        handler(filtered, budgetStart);
+        return;
+      }
+      const m = muts[i];
+      if (this._moRecordSkippable(m, stats)) continue;
+      filtered.push(m);
+    }
+    handler(filtered, budgetStart);
+  }
+
   _committedMutationLine(node) {
     const isElement = typeof Element !== 'undefined' && node instanceof Element;
     const el = node && ((node.nodeType === 1 || isElement) ? node : node.parentElement);
     if (!el || this._isNativePickerNode(el)) return null;
-    const li = el.closest?.('.listitem[data-guid]') || null;
-    if (!li || li.isConnected === false || this._isNativePickerNode(li)) return null;
-    return li;
+    let cur = el;
+    while (cur && cur.nodeType === 1) {
+      if (this._moNodeSkippable(cur, null)) return null;
+      const guid = cur.getAttribute?.('data-guid');
+      if (cur.classList?.contains?.('listitem') && guid) {
+        if (cur.isConnected === false || this._isNativePickerNode(cur)) return null;
+        return cur;
+      }
+      cur = cur.parentElement;
+    }
+    try {
+      const li = el.closest?.('.listitem[data-guid]') || null;
+      if (li && li.isConnected !== false && !this._isNativePickerNode(li) && !this._moNodeSkippable(li, null)) return li;
+    } catch (e) {}
+    return null;
   }
 
   // The committed .listitem[data-guid] guids a mutation batch touched — the
   // scoped keep-alive's hot set. target covers a removed chip (its old parent
   // line-div is still connected); addedNodes covers a re-rendered chip.
-  _mutatedLineGuids(mutations) {
+  _mutatedLineGuids(mutations, budgetStart) {
     const set = new Set();
     const add = (n) => {
       const li = this._committedMutationLine(n);
@@ -12982,9 +13425,13 @@ class Plugin extends AppPlugin {
       if (guid) set.add(guid);
     };
     for (const m of mutations || []) {
+      if (this._moBudgetExceeded(budgetStart)) break;
       if (!m || this._pickerOnlyMutation(m)) continue;
       add(m.target);
-      for (const a of (m.addedNodes || [])) if (!this._isNativePickerNode(a, true)) add(a);
+      for (const a of (m.addedNodes || [])) {
+        if (this._moBudgetExceeded(budgetStart)) break;
+        if (!this._isNativePickerNode(a, true)) add(a);
+      }
     }
     return set;
   }
@@ -13080,11 +13527,13 @@ class Plugin extends AppPlugin {
     // (e.g. after a reload with a search panel focused). Cheap-first guards below
     // keep this idle-free whenever no embeds are open.
     const target = document.body;
+    const options = { childList: true, subtree: true };
     const obs = new MutationObserver((mutations) => {
+      this._moGuardCallback('card', mutations || [], { obs, target, options, ctx: {} }, (muts, budgetStart) => {
       // The native picker can render hundreds of suggestion-row mutations in
       // one microtask. Reject a pure picker batch before enumerating any live
       // badge/card registry; otherwise RefX competes with Thymer's first @ paint.
-      if (mutations?.length && mutations.every((m) => this._pickerOnlyMutation(m))) return;
+      if (muts?.length && muts.every((m) => this._pickerOnlyMutation(m))) return;
       // NO blanket _cardEditing early-return here (upstream v3.1.0 fix): the
       // cached-node re-inserts below run even while a POPUP editor is open — a
       // relation write re-renders the whole transclusion node and wiped the card
@@ -13096,10 +13545,11 @@ class Plugin extends AppPlugin {
       // lines so the registry survives a reaped/missed registration (record-ref
       // badges on attribute lines). Cheap: scoped to dirty lines, no-op without
       // ref chips. Computed once here and reused by the re-insert loops below.
-      const dirty = this._mutatedLineGuids(mutations);
+      const dirty = this._mutatedLineGuids(muts, budgetStart);
       const mutationTouches = (host) => {
         if (!host) return false;
-        for (const m of mutations || []) {
+        for (const m of muts || []) {
+          if (this._moBudgetExceeded(budgetStart)) break;
           const nodes = [m?.target, ...(m?.addedNodes || []), ...(m?.removedNodes || [])];
           for (const n of nodes) {
             if (!n) continue;
@@ -13111,11 +13561,11 @@ class Plugin extends AppPlugin {
         }
         return false;
       };
-      let aliasRelevant = !mutations?.length && this._aliasPanelRows.size > 0;
+      let aliasRelevant = !muts?.length && this._aliasPanelRows.size > 0;
       for (const entry of this._aliasPanelRows.values()) {
         if (mutationTouches(entry.host || entry.node?.parentElement)) { aliasRelevant = true; break; }
       }
-      let queryRelevant = !mutations?.length && this._queryEmbeds.size > 0;
+      let queryRelevant = !muts?.length && this._queryEmbeds.size > 0;
       for (const qe of this._queryEmbeds.values()) {
         if (mutationTouches(qe.row) || mutationTouches(qe.node)) { queryRelevant = true; break; }
       }
@@ -13299,8 +13749,10 @@ class Plugin extends AppPlugin {
         this._queryRaf = 0;
         for (const [g, qe] of this._queryEmbeds) if (!qe.parked) this._placeQueryEmbed(g, qe.resultRealGuid, 0);
       });
+      if (this._moBudgetExceeded(budgetStart)) this._scheduleCoalescedRescan('card', {});
+      });
     });
-    try { obs.observe(target, { childList: true, subtree: true }); } catch (e) {}
+    try { obs.observe(target, options); } catch (e) {}
     this._cardObs = obs; this._cardObsTarget = target;
     window.__refxCardObs = obs;
   }
@@ -13550,10 +14002,13 @@ class Plugin extends AppPlugin {
     // without this every hot-reload stacks another icon).
     try { if (window.__refxWbStatusItem && window.__refxWbStatusItem.remove) window.__refxWbStatusItem.remove(); } catch (e) {}
     window.__refxWbStatusItem = null;
+    try { if (window.__refxTrailReplayKey) window.removeEventListener("keydown", window.__refxTrailReplayKey, true); } catch (e) {}
+    window.__refxTrailReplayKey = null;
+    try { if (window.__refxTrailReplayGen != null) window.__refxTrailReplayGen = (Number(window.__refxTrailReplayGen) || 0) + 1; } catch (e) {}
     // Live Workbench: a hot-reload-leaked panel observer + orphaned headers.
     try { if (window.__refxWbLiveObs && window.__refxWbLiveObs.disconnect) window.__refxWbLiveObs.disconnect(); } catch (e) {}
     window.__refxWbLiveObs = null;
-    try { document.querySelectorAll(".refx-wb-hdr, .refx-wb-slot, .refx-wb-filterbar, .refx-wb-vmenu").forEach((n) => n.remove()); } catch (e) {}
+    try { document.querySelectorAll(".refx-wb-hdr, .refx-wb-slot, .refx-wb-filterbar, .refx-wb-vmenu, .refx-wb-tabs, .refx-wb-trail, .refx-wb-related, .refx-wb-shared").forEach((n) => n.remove()); } catch (e) {}
     // ... and its Workbench chip collectors (same press-swallow shape).
     try { if (window.__refxWbClick) window.removeEventListener("click", window.__refxWbClick, true); } catch (e) {}
     window.__refxWbClick = null;
@@ -15087,6 +15542,7 @@ class Plugin extends AppPlugin {
     this._pendingMentionsPin = null;
     this._pendingEmbedHost = null;
     this._pendingConnect = null;
+    this._pendingConnPath = null;
     // R5 F12: clear the scope stack when the picker closes (the doc-comment says
     // "Cleared when the picker closes" but this was missing; _enterLinkMode resets
     // it too, but a cross-open leak would be possible if that order ever changed).
@@ -15273,8 +15729,8 @@ class Plugin extends AppPlugin {
     if (plan) {
       for (const row of children) {
         const key = this._searchKey(row.text || '');
-        const score = this._searchScoreFromKey(key, plan);
-        if (score >= 0) scored.push({ ...row, score });
+        const match = this._searchMatchFromKey(key, plan);
+        if (match.score >= 0) scored.push({ ...row, score: match.score, matchTier: match.tier });
       }
     }
     const ranked = this._rankSearchResults(scored);
@@ -15471,15 +15927,156 @@ class Plugin extends AppPlugin {
     return String(value == null ? '' : value).toLowerCase().replace(/\s+/g, ' ').trim();
   }
 
+  _searchAbbrevMap() {
+    if (!this._searchAbbrevBuilt) {
+      const base = {
+        s: ['season', 'series'], e: ['episode'], ep: ['episode'],
+        v: ['volume', 'version'], vol: ['volume'], q: ['quarter'],
+        w: ['week'], wk: ['week'], ch: ['chapter'], pt: ['part'],
+        no: ['number'], vs: ['versus'],
+      };
+      const custom = this._pickerAbbrevConfig || {};
+      for (const [key, vals] of Object.entries(custom)) {
+        if (!Array.isArray(vals)) continue;
+        base[key] = [...new Set([...(base[key] || []), ...vals.map((v) => String(v).toLowerCase())])];
+      }
+      const reverse = new Map();
+      for (const [key, vals] of Object.entries(base)) {
+        for (const word of vals) reverse.set(word, key);
+      }
+      this._searchAbbrevBuilt = { forward: base, reverse };
+    }
+    return this._searchAbbrevBuilt;
+  }
+
+  _searchNumWord(n) {
+    const words = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'];
+    const i = Number(n);
+    return Number.isInteger(i) && i >= 0 && i <= 12 ? words[i] : null;
+  }
+
+  _searchTokenAlts(tokens) {
+    const { forward, reverse } = this._searchAbbrevMap();
+    const alts = tokens.map(() => new Set());
+    const compactRe = /^([a-z]+)(\d+)$/i;
+    for (let i = 0; i < tokens.length; i++) {
+      const t = tokens[i];
+      alts[i].add(t);
+      const numWord = /^\d+$/.test(t) ? this._searchNumWord(t) : null;
+      if (numWord) alts[i].add(numWord);
+      if (/^[a-z]+$/.test(t)) {
+        const numFromWord = wordsIndex(t);
+        if (numFromWord != null) alts[i].add(String(numFromWord));
+        const abbrevKey = reverse.get(t);
+        if (abbrevKey) alts[i].add(abbrevKey);
+        for (const [key, vals] of Object.entries(forward)) {
+          if (vals.includes(t)) { alts[i].add(key); for (const v of vals) alts[i].add(v); }
+        }
+      }
+      const cm = t.match(compactRe);
+      if (cm) {
+        alts[i].add(cm[1]); alts[i].add(cm[2]);
+        for (const v of forward[cm[1]] || []) alts[i].add(v);
+        for (const v of forward[cm[1]] || []) alts[i].add(v + cm[2]);
+      }
+      if (i + 1 < tokens.length && /^[a-z]+$/.test(t) && /^\d+$/.test(tokens[i + 1])) {
+        const key = reverse.get(t) || (t.length === 1 ? t : null);
+        if (key) {
+          alts[i].add(key + tokens[i + 1]);
+          alts[i + 1].add(key + tokens[i + 1]);
+        }
+        const cm2 = t.match(compactRe);
+        if (!cm2 && t.length > 1) {
+          const guessKey = reverse.get(t);
+          if (guessKey) {
+            alts[i].add(guessKey + tokens[i + 1]);
+            alts[i + 1].add(guessKey + tokens[i + 1]);
+          }
+        }
+      }
+    }
+    function wordsIndex(w) {
+      const words = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'];
+      const idx = words.indexOf(w);
+      return idx >= 0 ? idx : null;
+    }
+    return alts;
+  }
+
+  _searchEditDistance(a, b, max) {
+    if (a === b) return 0;
+    const la = a.length; const lb = b.length;
+    if (!la) return lb <= max ? lb : max + 1;
+    if (!lb) return la <= max ? la : max + 1;
+    if (Math.abs(la - lb) > max) return max + 1;
+    const d = Array.from({ length: la + 1 }, () => new Int16Array(lb + 1));
+    for (let i = 0; i <= la; i++) d[i][0] = i;
+    for (let j = 0; j <= lb; j++) d[0][j] = j;
+    for (let i = 1; i <= la; i++) {
+      let rowMin = max + 1;
+      for (let j = 1; j <= lb; j++) {
+        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+        d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+        if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+          d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+        }
+        if (d[i][j] < rowMin) rowMin = d[i][j];
+      }
+      if (rowMin > max) return max + 1;
+    }
+    return d[la][lb] <= max ? d[la][lb] : max + 1;
+  }
+
+  _ensureSearchInitialisms(key) {
+    if (key._init) return key._init;
+    const inits = [];
+    const tokens = key.tokens || [];
+    let i = 0;
+    while (i < tokens.length) {
+      if (!/^[a-z]+$/.test(tokens[i])) { i++; continue; }
+      let j = i;
+      while (j < tokens.length && /^[a-z]+$/.test(tokens[j])) j++;
+      const alphaRun = tokens.slice(i, j);
+      let k = 0;
+      while (k < alphaRun.length) {
+        const single = alphaRun[k].length === 1;
+        let m = k;
+        while (m < alphaRun.length && (alphaRun[m].length === 1) === single) m++;
+        const run = alphaRun.slice(k, m);
+        if (run.length >= 2) {
+          if (single) {
+            inits.push(run.join(''));
+            if (run.length > 2) inits.push(run.slice(0, -1).join(''));
+          } else inits.push(run.map((t) => t[0]).join(''));
+        }
+        k = m;
+      }
+      i = j;
+    }
+    key._init = inits;
+    return inits;
+  }
+
   // Return -1 for no match, otherwise a rank (larger is better). '+' retains
   // its documented AND meaning; within each clause, separator-insensitive and
   // ordered-token matches are accepted. Requiring every token prevents loose
   // false positives such as "EMP 27" matching an EMP26 identifier.
   _searchPlan(query) {
     const clauses = String(query == null ? '' : query)
-      .split('+').map((q) => this._searchKey(q)).filter((q) => q.compact);
+      .split('+').map((q) => {
+        const key = this._searchKey(q);
+        if (!key.compact) return null;
+        key.tokenAlts = this._searchTokenAlts(key.tokens);
+        return key;
+      }).filter(Boolean);
     if (!clauses.length) return null;
-    return { clauses, compactLength: clauses.reduce((n, q) => n + q.compact.length, 0) };
+    let needsInitialism = false;
+    for (const clause of clauses) {
+      for (const token of clause.tokens) {
+        if (/^[a-z]{2,6}$/.test(token)) needsInitialism = true;
+      }
+    }
+    return { clauses, compactLength: clauses.reduce((n, q) => n + q.compact.length, 0), needsInitialism };
   }
 
   _lineIndexBroker() {
@@ -15517,7 +16114,7 @@ class Plugin extends AppPlugin {
     const candidates = new Map();
     const add = (guid, value) => {
       if (!guid || !value) return;
-      const score = this._searchScoreFromKey(this._searchKey(value), plan);
+      const score = this._searchScoreFromKey(this._searchKey(value), plan, { strict: true });
       if (score < 0) return;
       const previous = candidates.get(guid);
       if (previous == null || score > previous) candidates.set(String(guid), score);
@@ -15558,7 +16155,7 @@ class Plugin extends AppPlugin {
     return 'more may exist';
   }
 
-  _searchScoreFromKey(target, plan) {
+  _searchStrictScoreFromKey(target, plan) {
     if (!target?.compact || !plan?.clauses?.length) return -1;
     let total = 0;
     for (const q of plan.clauses) {
@@ -15588,18 +16185,121 @@ class Plugin extends AppPlugin {
       if (score < 0) return -1;
       total += score;
     }
-    // Prefer shorter candidates at the same semantic tier without allowing
-    // length to outweigh the tier itself.
     return total - Math.min(80, Math.max(0, target.compact.length - plan.compactLength));
   }
 
-  _searchScore(text, queryOrPlan) {
+  _searchRecallTokenMatch(qForms, qOrig, tt, isInit) {
+    const isNumQ = /^\d+$/.test(qOrig);
+    const isNumT = /^\d+$/.test(tt);
+    if (isNumQ || isNumT) {
+      if (qOrig === tt) return { quality: 1.0, partial: true };
+      return null;
+    }
+    let best = null;
+    for (const qf of qForms) {
+      if (qf === tt) {
+        const q = qf === qOrig ? 1.0 : 0.8;
+        if (!best || q > best.quality) best = { quality: q, partial: q >= 0.85 };
+      } else if (tt.startsWith(qf) && qf.length >= 1) {
+        const q = qf === qOrig ? 0.85 : 0.8;
+        if (!best || q > best.quality) best = { quality: q, partial: q >= 0.85 };
+      } else if (qf.length >= 4 && tt.includes(qf)) {
+        if (!best || 0.6 > best.quality) best = { quality: 0.6, partial: false };
+      } else if (qf.length >= 4) {
+        const maxDist = qf.length >= 8 ? 2 : 1;
+        const dist = this._searchEditDistance(qf, tt, maxDist);
+        if (dist <= maxDist) {
+          if (!best || 0.55 > best.quality) best = { quality: 0.55, partial: false };
+        }
+      }
+    }
+    if (isInit && best && best.quality > 0) best = { ...best, quality: Math.min(best.quality, 0.8) };
+    return best;
+  }
+
+  _searchMatchFromKey(target, plan, opts = {}) {
+    const empty = { score: -1, tier: 'strict', spans: [], partialTokens: 0 };
+    if (!target?.compact || !plan?.clauses?.length) return empty;
+    const strictScore = this._searchStrictScoreFromKey(target, plan);
+    if (strictScore >= 0) {
+      return { score: strictScore, tier: 'strict', spans: [], partialTokens: plan.clauses.reduce((n, c) => n + c.tokens.length, 0) };
+    }
+    if (opts.strict === true) return empty;
+    const lengthPenalty = Math.min(80, Math.max(0, target.compact.length - plan.compactLength));
+    let best = null;
+    for (const clause of plan.clauses) {
+      const tokens = clause.tokens;
+      const tokenAlts = clause.tokenAlts || tokens.map((t) => new Set([t]));
+      const targetTokens = target.tokens || [];
+      const inits = plan.needsInitialism ? this._ensureSearchInitialisms(target) : [];
+      const initOffset = targetTokens.length;
+      const allTargets = targetTokens.concat(inits);
+      const spans = [];
+      const qualities = [];
+      let partialTokens = 0;
+      const usedTarget = new Set();
+      for (let qi = 0; qi < tokens.length; qi++) {
+        const qOrig = tokens[qi];
+        const qForms = tokenAlts[qi] || new Set([qOrig]);
+        let tokenBest = null;
+        for (let ti = 0; ti < allTargets.length; ti++) {
+          if (usedTarget.has(ti)) continue;
+          const isInit = ti >= initOffset;
+          const tt = allTargets[ti];
+          const hit = this._searchRecallTokenMatch(qForms, qOrig, tt, isInit);
+          if (hit && (!tokenBest || hit.quality > tokenBest.quality)) {
+            tokenBest = { ...hit, targetIdx: ti, queryIdx: qi };
+          }
+        }
+        if (tokenBest) {
+          usedTarget.add(tokenBest.targetIdx);
+          spans.push([tokenBest.targetIdx < initOffset ? tokenBest.targetIdx : -1, tokenBest.queryIdx]);
+          qualities.push(tokenBest.quality);
+          if (tokenBest.partial) partialTokens++;
+        } else {
+          qualities.push(0);
+        }
+      }
+      const matched = qualities.filter((q) => q > 0).length;
+      const unmatched = tokens.length - matched;
+      let tier = 'strict';
+      if (unmatched > 0) {
+        if (tokens.length <= 2) continue;
+        if (unmatched > 1) continue;
+        const missIdx = qualities.findIndex((q) => q <= 0);
+        const missTok = tokens[missIdx];
+        if (/^\d+$/.test(missTok)) continue;
+        const alphaCount = tokens.filter((t) => /^[a-z]+$/.test(t)).length;
+        if (alphaCount === 1 && /^[a-z]+$/.test(missTok)) continue;
+        const longest = tokens.reduce((a, b) => (a.length >= b.length ? a : b));
+        if (missTok === longest) continue;
+        tier = 'close';
+      }
+      const avgQuality = qualities.reduce((s, q) => s + q, 0) / tokens.length;
+      const base = tier === 'close'
+        ? 100 + Math.round(80 * avgQuality)
+        : Math.round(300 * avgQuality) + 80;
+      const score = base - lengthPenalty;
+      if (score < 0) continue;
+      const candidate = { score, tier, spans, partialTokens };
+      if (!best || score > best.score || (score === best.score && tier === 'strict' && best.tier === 'close')) best = candidate;
+    }
+    return best || empty;
+  }
+
+  _searchScoreFromKey(target, plan, opts = {}) {
+    return this._searchMatchFromKey(target, plan, opts).score;
+  }
+
+  _searchScore(text, queryOrPlan, opts = {}) {
     const plan = queryOrPlan?.clauses ? queryOrPlan : this._searchPlan(queryOrPlan);
-    return this._searchScoreFromKey(this._searchKey(text), plan);
+    return this._searchScoreFromKey(this._searchKey(text), plan, opts);
   }
 
   _rankSearchResults(results) {
-    return (results || []).sort((a, b) => (b.score || 0) - (a.score || 0)
+    const tierRank = (row) => (row?.matchTier === 'close' ? 1 : 0);
+    return (results || []).sort((a, b) => tierRank(a) - tierRank(b)
+      || (b.score || 0) - (a.score || 0)
       || String(a.text || '').localeCompare(String(b.text || ''))
       || String(a.guid || '').localeCompare(String(b.guid || '')));
   }
@@ -15764,6 +16464,83 @@ class Plugin extends AppPlugin {
       this._r5FrecencyCache = raw ? JSON.parse(raw) : {};
     } catch (e) { this._r5FrecencyCache = {}; }
     return this._r5FrecencyCache;
+  }
+
+  // ─── Pick memory: query tokens → recently picked guids (per workspace) ───
+  _pickMemoryStorageKey() {
+    const workspaceGuid = this._wbWorkspaceGuid();
+    return workspaceGuid ? 'refx_pick_memory_v1:' + workspaceGuid : '';
+  }
+
+  _pickMemoryLoad() {
+    const key = this._pickMemoryStorageKey();
+    if (!key) return {};
+    if (this._pickMemoryCache && this._pickMemoryCacheKey === key) return this._pickMemoryCache;
+    try {
+      const raw = localStorage.getItem(key);
+      const parsed = raw ? JSON.parse(raw) : {};
+      this._pickMemoryCache = (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
+    } catch (e) { this._pickMemoryCache = {}; }
+    this._pickMemoryCacheKey = key;
+    return this._pickMemoryCache;
+  }
+
+  _pickMemoryRecord(guid, tokens) {
+    const key = this._pickMemoryStorageKey();
+    if (!key || !guid || !tokens?.length) return;
+    const store = this._pickMemoryLoad();
+    const now = Date.now();
+    for (const token of tokens) {
+      if (!token) continue;
+      if (!store[token]) store[token] = {};
+      store[token][guid] = now;
+    }
+    const pairs = [];
+    for (const [token, guids] of Object.entries(store)) {
+      for (const [g, ts] of Object.entries(guids || {})) pairs.push({ token, guid: g, lastUsedAt: Number(ts) || 0 });
+    }
+    if (pairs.length > 300) {
+      pairs.sort((a, b) => a.lastUsedAt - b.lastUsedAt);
+      for (let i = 0; i < pairs.length - 300; i++) {
+        delete store[pairs[i].token][pairs[i].guid];
+        if (!Object.keys(store[pairs[i].token]).length) delete store[pairs[i].token];
+      }
+    }
+    this._pickMemoryCache = store;
+    try { localStorage.setItem(key, JSON.stringify(store)); } catch (e) {}
+  }
+
+  _pickMemoryHits(tokens) {
+    const hits = new Map();
+    if (!tokens?.length) return hits;
+    const store = this._pickMemoryLoad();
+    for (const token of tokens) {
+      const guids = store[token];
+      if (!guids) continue;
+      for (const guid of Object.keys(guids)) hits.set(guid, (hits.get(guid) || 0) + 1);
+    }
+    return hits;
+  }
+
+  _pickMemoryRecentGuids(exclude, limit = 12) {
+    const store = this._pickMemoryLoad();
+    const pairs = [];
+    for (const guids of Object.values(store)) {
+      for (const [guid, lastUsedAt] of Object.entries(guids || {})) {
+        if (!guid || exclude?.has(guid)) continue;
+        pairs.push({ guid, lastUsedAt: Number(lastUsedAt) || 0 });
+      }
+    }
+    pairs.sort((a, b) => b.lastUsedAt - a.lastUsedAt);
+    const seen = new Set();
+    const out = [];
+    for (const pair of pairs) {
+      if (seen.has(pair.guid)) continue;
+      seen.add(pair.guid);
+      out.push(pair.guid);
+      if (out.length >= limit) break;
+    }
+    return out;
   }
 
   _r5RecordFrecency(guid) {
@@ -15963,6 +16740,7 @@ class Plugin extends AppPlugin {
       ordered.push({ guid, suggestionKind });
     };
     recent.slice(0, Math.ceil(limit / 2)).forEach((entry) => take(entry, 'recent'));
+    for (const guid of this._pickMemoryRecentGuids(seen, limit)) take([guid], 'learned');
     frequent.slice(0, limit).forEach((entry) => take(entry, 'frequent'));
     const byGuid = (window.g_universe && window.g_universe.itemsByGuid) || {};
     for (const guid in byGuid) {
@@ -15988,8 +16766,8 @@ class Plugin extends AppPlugin {
         if (!name) continue;
         rows.push({
           guid, text: name, realTitle: name, page: '', rguid: null,
-          score: 500 + this._r5FrecencyBoost(guid) + Math.max(0, 24 - index),
-          matchKind: 'recent', suggestionKind,
+          score: 500 + this._r5FrecencyBoost(guid) + Math.max(0, 24 - index) + this._connHopWeight(currentGuid, guid),
+          matchKind: suggestionKind === 'learned' ? 'learned' : 'recent', suggestionKind,
         });
         continue;
       }
@@ -16008,8 +16786,8 @@ class Plugin extends AppPlugin {
         task: state?.type === 'task'
           ? { is: true, done: Number(state?.props?.done ?? 0) === 8 }
           : null,
-        score: 500 + this._r5FrecencyBoost(guid) + Math.max(0, 24 - index),
-        matchKind: 'recent', suggestionKind,
+        score: 500 + this._r5FrecencyBoost(guid) + Math.max(0, 24 - index) + this._connHopWeight(currentGuid, guid),
+        matchKind: suggestionKind === 'learned' ? 'learned' : 'recent', suggestionKind,
       });
     }
     return this._rankSearchResults(rows).slice(0, limit);
@@ -16379,7 +17157,19 @@ class Plugin extends AppPlugin {
     const key = this._searchKey(q);
     const out = [q];
     if (key.compact && this._exactPageKey(key.compact) !== this._exactPageKey(q)) out.push(key.compact);
-    return out.slice(0, 2);
+    const { reverse } = this._searchAbbrevMap();
+    const compactParts = [];
+    for (let i = 0; i < key.tokens.length; i++) {
+      const t = key.tokens[i];
+      if (i + 1 < key.tokens.length && /^[a-z]+$/.test(t) && /^\d+$/.test(key.tokens[i + 1])) {
+        const abbrevKey = reverse.get(t) || (t.length === 1 ? t : null);
+        if (abbrevKey) { compactParts.push(abbrevKey + key.tokens[i + 1]); i++; continue; }
+      }
+      compactParts.push(t);
+    }
+    const compactQuery = compactParts.join(' ');
+    if (compactQuery && compactQuery !== q && !out.includes(compactQuery)) out.push(compactQuery);
+    return out.slice(0, 4);
   }
 
   _prewarmLineSearchCache(link) {
@@ -16551,8 +17341,19 @@ class Plugin extends AppPlugin {
       return;
     }
     link.emptySuggestions = false;
+    if (!link.fuzzyPool) link.fuzzyPool = new Map();
+    else link.fuzzyPool.clear();
     // When filters-only (no free text), use a null searchPlan — all text matches.
     const searchPlan = q ? this._searchPlan(q) : null;
+    const memoryTokens = [];
+    if (searchPlan) {
+      for (const clause of searchPlan.clauses) {
+        memoryTokens.push(...clause.tokens);
+        const alts = clause.tokenAlts || this._searchTokenAlts(clause.tokens);
+        for (const altSet of alts) for (const alt of altSet) memoryTokens.push(alt);
+      }
+    }
+    const memoryHits = this._pickMemoryHits(memoryTokens);
     const aliasFilter = String(r5Filters.alias || '').trim();
     const lineAliasPlan = aliasFilter ? this._searchPlan(aliasFilter) : null;
     if ((q && !searchPlan) || (aliasFilter && !lineAliasPlan)) {
@@ -16593,6 +17394,7 @@ class Plugin extends AppPlugin {
     let deferProgressiveReservoir = false;
     let deferredNarrowResults = null;
     let narrowedSettledRanked = null;
+    let acceptRecallMatches = false;
     const addResult = (guid, next) => {
       if (!this._pickerCanUseResult(next)) return;
       if (completeResultGuid.has(guid)) {
@@ -16668,12 +17470,41 @@ class Plugin extends AppPlugin {
       }
       if (!text) return reject('resolution');
       // R5: text search (or pass-through when filter-only).
-      let score = searchPlan ? this._searchScoreFromKey(textKey || this._searchKey(text), searchPlan) : 500;
+      const rowKey = textKey || this._searchKey(text);
+      let matchTier = 'strict';
+      let matchSpans = null;
+      let matchKind = null;
+      let score = 500;
       const contextOnly = rowMetadata?.contextOnly === true && rowMetadata?._lineIndexMatched === true;
-      if (score < 0 && !(contextOnly && media)) return reject('score');
+      if (searchPlan) {
+        const strict = this._searchMatchFromKey(rowKey, searchPlan, { strict: true });
+        if (strict.score >= 0) {
+          score = strict.score;
+          matchTier = 'strict';
+        } else {
+          const recall = this._searchMatchFromKey(rowKey, searchPlan);
+          if (!acceptRecallMatches && recall.partialTokens >= 1 && link.fuzzyPool.size < 4000) {
+            link.fuzzyPool.set(guid, rowKey);
+          }
+          if (recall.score >= 0) {
+            score = recall.score;
+            matchTier = recall.tier;
+            matchSpans = recall.spans;
+          } else score = -1;
+        }
+      }
+      const learned = memoryHits.has(guid);
+      if (learned) {
+        score = Math.max(score, 380);
+        matchTier = 'strict';
+        matchKind = 'learned';
+      }
+      if (score < 0 && !(contextOnly && media) && !learned) return reject('score');
       // Borrowed context is intentionally below every direct-text tier
       // (_searchScoreFromKey bottoms out at 300 after its length penalty).
       if (contextOnly && media) score = 250;
+      // Same-collection and referenced-from-page boosts remain out of scope here.
+      if (link.pageGuid && rguid === link.pageGuid) score += 40;
       // R5: apply remaining filters that need the row built.
       // Pass r5ColMap (may be null for registry rows when not yet built — but for
       // in:collection queries it is pre-built before scanRegistry is called).
@@ -16682,9 +17513,13 @@ class Plugin extends AppPlugin {
       if (hasFilters && !this._r5FilterRow({ guid, task, rguid, segments: rawSegs }, r5Filters, r5ColMap)) return reject('filter');
       // R5: frecency boost — rank-only, never a completeness filter.
       if (!contextOnly) score += this._r5FrecencyBoost(guid);
+      if (learned) score += 150;
+      if (curLine) score += this._connHopWeight(curLine, guid);
       let page = "";
       try { page = pageFn() || ""; } catch (e) {}
-      const next = { guid, text, page, task: task || null, rguid: rguid || null, score };
+      const next = { guid, text, page, task: task || null, rguid: rguid || null, score, matchTier };
+      if (matchKind) next.matchKind = matchKind;
+      if (matchSpans?.length) next.matchSpans = matchSpans;
       if (media) next.media = media;
       if (contextOnly) next.contextOnly = true;
       if (rowMetadata && typeof rowMetadata === 'object') {
@@ -16717,16 +17552,16 @@ class Plugin extends AppPlugin {
           const aliasCacheKey = set.lineGuid + '\0' + alias.text;
           let aliasKey = link.aliasKeyCache.get(aliasCacheKey);
           if (!aliasKey) { aliasKey = this._searchKey(alias.text); link.aliasKeyCache.set(aliasCacheKey, aliasKey); }
-          const aliasScore = lineAliasPlan ? this._searchScoreFromKey(aliasKey, lineAliasPlan)
-            : (searchPlan ? this._searchScoreFromKey(aliasKey, searchPlan) : 500);
+          const aliasScore = lineAliasPlan ? this._searchScoreFromKey(aliasKey, lineAliasPlan, { strict: true })
+            : (searchPlan ? this._searchScoreFromKey(aliasKey, searchPlan, { strict: true }) : 500);
           if (aliasScore < 0) continue;
           let freeScore = aliasScore;
           if (lineAliasPlan && searchPlan) {
             const currentTextCacheKey = set.lineGuid + '\0__currentText__';
             let currentKey = link.aliasKeyCache.get(currentTextCacheKey);
             if (!currentKey) { currentKey = this._searchKey(set.currentText || ''); link.aliasKeyCache.set(currentTextCacheKey, currentKey); }
-            const currentScore = this._searchScoreFromKey(currentKey, searchPlan);
-            const aliasFreeScore = this._searchScoreFromKey(aliasKey, searchPlan);
+            const currentScore = this._searchScoreFromKey(currentKey, searchPlan, { strict: true });
+            const aliasFreeScore = this._searchScoreFromKey(aliasKey, searchPlan, { strict: true });
             freeScore = Math.max(currentScore, aliasFreeScore);
             if (freeScore < 0) continue;
           }
@@ -16791,6 +17626,8 @@ class Plugin extends AppPlugin {
       }
       // v4.24.1: quality post-processing — dedupe, demote, strip comment noise.
       ranked = this._r5PostProcessResults(ranked, link);
+      const strictResultCount = ranked.filter((row) => row.matchTier !== 'close').length;
+      if (strictResultCount >= 5) ranked = ranked.filter((row) => row.matchTier !== 'close');
       if (selectedGuid && !ranked.some((row) => row.guid === selectedGuid) && !settled && link.stickySelectionRow) {
         ranked.push(link.stickySelectionRow);
       } else if (settled && selectedGuid && !ranked.some((row) => row.guid === selectedGuid)) {
@@ -16881,6 +17718,7 @@ class Plugin extends AppPlugin {
       if (canNarrow) {
         // Prefix extension: only rescore the candidates that passed the previous scan.
         // This is O(prev_candidates) instead of O(all_lines).
+        acceptRecallMatches = true;
         const nextCandidates = new Map();
         deferredNarrowResults = new Map();
         deferProgressiveReservoir = true;
@@ -16892,8 +17730,20 @@ class Plugin extends AppPlugin {
             const matched = consider(guid, () => this._segmentsFromState(it), () => this._recordNameIndex?.get(it.rguid) || '', true, cand.task, cand.rguid, it.text_segments, registryRowMetadata(it), null, null, it);
             if (matched) nextCandidates.set(guid, cand);
           }
+          // A token that only becomes fuzzy-eligible after an extension is missed
+          // until the next full scan; rescore the retained fuzzy pool here too.
+          for (const [fguid] of link.fuzzyPool || []) {
+            if (nextCandidates.has(fguid)) continue;
+            const it = byGuid[fguid];
+            if (!it || it.is_deleted || it.is_trashed) continue;
+            const task = it.type === 'task' ? { is: true, done: null } : null;
+            const rguid = it.rguid || null;
+            const matched = consider(fguid, () => this._segmentsFromState(it), () => this._recordNameIndex?.get(rguid) || '', true, task, rguid, it.text_segments, registryRowMetadata(it), null, null, it);
+            if (matched) nextCandidates.set(fguid, { task, rguid });
+          }
         } finally {
           deferProgressiveReservoir = false;
+          acceptRecallMatches = false;
         }
         // Build the complete settled order once, including rescored rows that
         // an alias-filled capped pool may have rejected. Copy only missing
@@ -16907,6 +17757,8 @@ class Plugin extends AppPlugin {
           this._addBoundedSearchResult(narrowedSource, row.guid, row, { unbounded: true });
         }
         narrowedSettledRanked = this._rankSearchResults([...narrowedSource.values()]);
+        const narrowStrict = narrowedSettledRanked.filter((row) => row.matchTier !== 'close').length;
+        if (narrowStrict >= 5) narrowedSettledRanked = narrowedSettledRanked.filter((row) => row.matchTier !== 'close');
         if (narrowedSettledRanked.length > this._BLOCK_RESULT_POOL_CAP) {
           narrowedSettledRanked = narrowedSettledRanked.slice(0, this._BLOCK_RESULT_POOL_CAP);
         }
@@ -16974,6 +17826,42 @@ class Plugin extends AppPlugin {
           registryScanComplete = true;
           link.scanQuery = q;
           link.scanFiltersKey = filtersKey;
+          const strictRows = completeResultGuid.size;
+          const fuzzyEntries = [...(link.fuzzyPool || [])];
+          if (strictRows < 8 && fuzzyEntries.length && searchPlan) {
+            let fuzzyIdx = 0;
+            const fuzzyPump = () => {
+              if (!alive()) { publish(true); settleScan(true); return; }
+              const started = performance.now();
+              let processed = 0;
+              while (fuzzyIdx < fuzzyEntries.length && processed < 400 && (processed < 64 || performance.now() - started < 4)) {
+                const [fguid, fkey] = fuzzyEntries[fuzzyIdx++];
+                processed++;
+                if (completeResultGuid.has(fguid)) continue;
+                const recall = this._searchMatchFromKey(fkey, searchPlan);
+                if (recall.score < 0) continue;
+                const it = byGuid[fguid];
+                if (!it || it.is_deleted || it.is_trashed) continue;
+                const task = it.type === 'task' ? { is: true, done: null } : null;
+                const rguid = it.rguid || null;
+                let page = '';
+                try { page = this._recordNameIndex?.get(rguid) || ''; } catch (e) {}
+                const text = link.textCache.get(fguid)?.text
+                  || this._cleanDisplayText(this._segmentsFromState(it)).trim();
+                const next = {
+                  guid: fguid, text, page, task, rguid, score: recall.score + this._r5FrecencyBoost(fguid),
+                  matchTier: recall.tier,
+                };
+                if (recall.spans?.length) next.matchSpans = recall.spans;
+                addResult(fguid, next);
+              }
+              publish(fuzzyIdx >= fuzzyEntries.length);
+              if (fuzzyIdx < fuzzyEntries.length) setTimeout(fuzzyPump, 0);
+              else { publish(true); settleScan(true); }
+            };
+            fuzzyPump();
+            return;
+          }
           publish(true);
           settleScan(true);
         };
@@ -17416,9 +18304,10 @@ class Plugin extends AppPlugin {
     const addTitle = (guid, name, nameKey) => {
       if (!guid || !name) return;
       if (aliasFilter || !passesRecordFilters(guid, false)) return;
-      let score = searchPlan ? this._searchScoreFromKey(nameKey || this._searchKey(name), searchPlan) : 500;
+      let score = searchPlan ? this._searchScoreFromKey(nameKey || this._searchKey(name), searchPlan, { strict: true }) : 500;
       if (score < 0) return;
       score += this._r5FrecencyBoost(guid);
+      if (link.lineGuid) score += this._connHopWeight(link.lineGuid, guid);
       const next = { guid, text: name, realTitle: name, page: '', score, matchKind: 'title', matchQuery: q };
       addRecordResult(guid, next);
     };
@@ -17429,13 +18318,13 @@ class Plugin extends AppPlugin {
         const cacheToken = guid + '\u0000' + alias.normalized;
         let aliasKey = link.aliasKeyCache.get(cacheToken);
         if (!aliasKey) { aliasKey = this._searchKey(alias.text); link.aliasKeyCache.set(cacheToken, aliasKey); }
-        const filterScore = aliasPlan ? this._searchScoreFromKey(aliasKey, aliasPlan) : -1;
+        const filterScore = aliasPlan ? this._searchScoreFromKey(aliasKey, aliasPlan, { strict: true }) : -1;
         if (aliasPlan && filterScore < 0) continue;
-        const aliasFreeScore = searchPlan ? this._searchScoreFromKey(aliasKey, searchPlan) : 500;
+        const aliasFreeScore = searchPlan ? this._searchScoreFromKey(aliasKey, searchPlan, { strict: true }) : 500;
         let freeScore = aliasFreeScore;
         if (!aliasPlan && searchPlan && aliasFreeScore < 0) continue;
         if (aliasPlan && searchPlan) {
-          const titleScore = this._searchScoreFromKey(link.nameKeyCache.get(guid) || this._searchKey(name), searchPlan);
+          const titleScore = this._searchScoreFromKey(link.nameKeyCache.get(guid) || this._searchKey(name), searchPlan, { strict: true });
           freeScore = Math.max(aliasFreeScore, titleScore);
           if (freeScore < 0) continue;
         }
@@ -17445,7 +18334,8 @@ class Plugin extends AppPlugin {
         // When alias: composes with free text, keep alias quality primary and
         // use the second match only as a bounded tie-breaker.
         const composed = aliasPlan && searchPlan ? Math.max(0, Math.min(60, Math.round(freeScore / 24))) : 0;
-        const score = semantic + composed + this._r5FrecencyBoost(guid) + this._aliasPickUseBoost(guid, alias.text);
+        const score = semantic + composed + this._r5FrecencyBoost(guid) + this._aliasPickUseBoost(guid, alias.text)
+          + (link.lineGuid ? this._connHopWeight(link.lineGuid, guid) : 0);
         const next = {
           guid, text: alias.text, aliasText: alias.text, realTitle: name,
           page: '', score, matchKind: 'alias', matchQuery: aliasFilter || q,
@@ -17730,8 +18620,17 @@ class Plugin extends AppPlugin {
     link.renderWindowStart = renderStart;
     link.renderWindowEnd = renderEnd;
     let automaticImages = 0;
+    let closeHeaderShown = false;
     renderIndices.forEach((i) => {
       const r = link.results[i];
+      if (r?.matchTier === 'close' && !closeHeaderShown) {
+        closeHeaderShown = true;
+        const header = this._el('div', 'refalias-result-empty refx-r5-not-found');
+        header.setAttribute('role', 'status');
+        header.setAttribute('aria-live', 'polite');
+        header.textContent = 'Close matches';
+        list.append(header);
+      }
       // _notFound rows (exactGuid unresolved) are informational only — never selectable.
       if (r && r._notFound) {
         const row = this._el("div", "refalias-result-empty refx-r5-not-found");
@@ -17744,7 +18643,8 @@ class Plugin extends AppPlugin {
       const ctxClass = r._ctxKind === 'parent' ? ' r5-ctx-parent'
         : r._ctxKind === 'sibling' ? ' r5-ctx-sibling'
         : r._ctxKind === 'child' ? ' r5-ctx-child' : '';
-      const row = this._el("div", "refalias-result" + ctxClass + (i === selectedIndex ? " refalias-result-sel" : ""));
+      const closeClass = r.matchTier === 'close' ? ' refx-r5-close' : '';
+      const row = this._el("div", "refalias-result" + ctxClass + closeClass + (i === selectedIndex ? " refalias-result-sel" : ""));
       row.setAttribute('role', 'option');
       row.setAttribute('aria-selected', i === selectedIndex ? 'true' : 'false');
       if (r.task && r.task.is) {
@@ -17765,7 +18665,10 @@ class Plugin extends AppPlugin {
         }
       }
       const txt = this._el("span", "refalias-result-text");
-      txt.innerHTML = this._snippetHTML(r.text, r.matchQuery || link.query, { full: i === selectedIndex });
+      txt.innerHTML = this._snippetHTML(r.text, r.matchQuery || link.query, {
+        full: i === selectedIndex,
+        spans: r.matchSpans,
+      });
       if (r.aliasText) {
         const target = this._el('span', 'refx-alias-result-target');
         target.append(this._el('span', 'refx-alias-result-arrow', ' ↳ '));
@@ -18467,6 +19370,38 @@ class Plugin extends AppPlugin {
     const full = this._previewCleanText(text).replace(/\s+/g, " ").trim();
     const q = (query || "").trim();
     const tail = (s, n) => s.slice(0, n) + (s.length > n ? "…" : "");
+    if (options.spans?.length) {
+      const displayKey = this._searchKey(full);
+      const highlight = new Set(options.spans.map((pair) => pair[0]).filter((idx) => idx >= 0));
+      if (highlight.size && displayKey.tokens.length) {
+        const parts = [];
+        let cursor = 0;
+        const lower = full.toLowerCase();
+        for (let ti = 0; ti < displayKey.tokens.length; ti++) {
+          const token = displayKey.tokens[ti];
+          const pos = lower.indexOf(token, cursor);
+          if (pos < 0) continue;
+          if (pos > cursor) parts.push({ text: full.slice(cursor, pos), mark: false });
+          parts.push({ text: full.slice(pos, pos + token.length), mark: highlight.has(ti) });
+          cursor = pos + token.length;
+        }
+        if (cursor < full.length) parts.push({ text: full.slice(cursor), mark: false });
+        if (parts.length) {
+          let body = parts.map((p) => p.mark
+            ? '<mark class="refx-picker-match">' + esc(p.text) + '</mark>'
+            : esc(p.text)).join('');
+          if (!options.full) {
+            const plain = parts.map((p) => p.text).join('');
+            body = esc(tail(plain, 150));
+            const markTok = parts.findIndex((p) => p.mark);
+            if (markTok >= 0 && body.includes('<mark')) body = parts.map((p) => p.mark
+              ? '<mark class="refx-picker-match">' + esc(p.text) + '</mark>'
+              : esc(p.text)).join('');
+          }
+          return body;
+        }
+      }
+    }
     if (!q) return esc(options.full ? full : tail(full, 150));
     // Match the whole query and each word (Thymer search is per-word/stemmed),
     // longest first so phrases win over their fragments.
@@ -18603,6 +19538,15 @@ class Plugin extends AppPlugin {
     link.picking = true;
     // R5: record frecency on pick so future queries rank this target higher.
     try { if (result && result.guid) this._r5RecordFrecency(result.guid); } catch (e) {}
+    try {
+      const pickSrc = link.lineGuid || link.pageGuid;
+      if (pickSrc && result?.guid) this._connRecordHop(pickSrc, result.guid, "pick");
+    } catch (e) {}
+    try {
+      const pickPlan = this._searchPlan(link.docQuery ?? link.query);
+      const pickTokens = pickPlan?.clauses?.flatMap((c) => c.tokens) || [];
+      if (result?.guid && pickTokens.length) this._pickMemoryRecord(result.guid, pickTokens);
+    } catch (e) {}
     // Scoped queries and drill commands never enter the document. Use the
     // canonical root query/range captured before the first drill for every pick
     // path, including context rows and drilled target rows.
@@ -18618,6 +19562,17 @@ class Plugin extends AppPlugin {
         const rect = link.pop.getBoundingClientRect();
         pickerRect = { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height };
       } catch (e) {}
+    }
+
+    // v4.55.0 WO-18: intercept "Show path to…" (record pick, no caret required).
+    if (this._pendingConnPath && kind === "record") {
+      const pending = this._pendingConnPath;
+      this._pendingConnPath = null;
+      this._exitLinkMode();
+      const idx = await this._connIndexesReady();
+      const out = await this._connPathsBetween(pending.fromGuid, result.guid, { indexes: idx });
+      this._connShowPathsResult(pending.fromGuid, result.guid, out);
+      return true;
     }
 
     // v3.60.0 F1: intercept "Add connection..." flow (record pick).
@@ -19428,12 +20383,33 @@ class Plugin extends AppPlugin {
           const t = raw || {};
           return this._scrubGuidTokens(t.query || t.text || t.q || "");
         }
+        if (s.type === "mention") {
+          const g = typeof raw === "string" ? raw : ((raw && raw.guid) || "");
+          return "@" + this._userDisplayName(g);
+        }
         if (typeof raw === "string") return this._scrubGuidTokens(raw);
         const t = raw || {};
         return this._scrubGuidTokens(t.title || t.text || t.name || "");
       })
       .join("")
       .replace(/(?:<!--|!--)?\s*am-page-uid\s*:[^\r\n]*(?:-->|$)/gi, "");
+  }
+
+  // Mention segments render as @DisplayName everywhere (previously the raw user
+  // guid leaked into crumbs/rows). Lazily cached per session.
+  _userDisplayName(guid) {
+    if (!guid) return "?";
+    if (!this._userNameCache) {
+      this._userNameCache = new Map();
+      try {
+        for (const u of this.data.getActiveUsers() || []) {
+          const g = u.guid || (u.getGuid && u.getGuid());
+          const n = (u.getDisplayName && u.getDisplayName()) || u.name;
+          if (g && n) this._userNameCache.set(g, n);
+        }
+      } catch (e) {}
+    }
+    return this._userNameCache.get(guid) || guid;
   }
 
   // Remove graphemes [start,end) across segments and insert `ref` at `start`.
@@ -21868,17 +22844,10 @@ class Plugin extends AppPlugin {
 }
 .refx-line-context-body { min-height: 74px; max-height: 420px; overflow-y: auto; }
 .refalias-pop.refx-line-context-pop .refx-line-context-body { flex: 1 1 auto; min-height: 0; max-height: none; }
-.refx-line-context-owner {
-  padding: 8px 12px 5px; color: var(--color-text-600, var(--text-muted, #9ca3af));
-  font-size: 10.5px; font-weight: 650;
-}
 .refx-line-context-crumbs {
   display: flex; align-items: center; gap: 4px; min-width: 0;
   padding: 0 12px 7px; overflow: hidden;
   color: var(--color-text-600, var(--text-muted, #9ca3af)); font-size: 10.5px;
-}
-.refx-line-context-crumb {
-  min-width: 0; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .refx-line-context-sep { flex: 0 0 auto; opacity: .55; }
 .refx-line-context-outline { border-bottom: 0; }
@@ -21933,16 +22902,7 @@ class Plugin extends AppPlugin {
 .refx-refmenu > .refx-ref-chain-outgoing {
   height: var(--refx-refmenu-outgoing-height, auto); overflow-y: auto; box-sizing: border-box;
 }
-.refx-inline-refs > .refx-ref-chain-tree {
-  margin: 5px 8px 7px; padding: 6px 7px 7px;
-  border: 1px solid var(--cards-border-color, var(--border-default, #d8dee8));
-  border-radius: 6px; background: rgba(127,127,127,.035);
-}
-.refx-inline-refs > .refx-ref-chain-tree .refx-chain-tree-root {
-  max-height: min(220px, 42vh);
-}
-.refx-chain-source-group,
-.refx-chain-remark-section { min-width: 0; }
+.refx-chain-source-group { min-width: 0; }
 .refx-chain-source-label {
   padding: 4px 7px 2px; color: var(--color-text-600, var(--text-muted, #9ca3af));
   font-size: 10px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -21955,10 +22915,6 @@ class Plugin extends AppPlugin {
 .refx-chain-source-link:focus-visible {
   color: var(--button-primary-bg-color, #2d72d2); text-decoration: underline;
   text-underline-offset: 2px;
-}
-.refx-chain-remark-section {
-  margin-top: 4px; padding-top: 3px;
-  border-top: 1px dashed var(--cards-border-color, var(--border-default, #d8dee8));
 }
 .refx-chain-tree-row {
   min-width: 0; margin-left: 0; width: 100%;
@@ -23492,7 +24448,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     if (!ref) return;
     e.preventDefault();
     e.stopImmediatePropagation();
-    this._bridgeJump(ref.targetGuid, { newPanel: e.shiftKey });
+    this._bridgeJump(ref.targetGuid, { newPanel: e.shiftKey, from: hit.lineGuid || hit.pageGuid || null });
   };
 
   // Palette entry point: resolve the reference under the caret.
@@ -23554,7 +24510,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     // Close again after async resolution in case another menu opened while the
     // target loaded. The double-click action itself never opens a second menu.
     this._closeCardPopup();
-    this._bridgeJump(r.targetGuid, {});
+    this._bridgeJump(r.targetGuid, { from: r.lineGuid || r.pageGuid || null });
   }
 
   _panelForNode(node) {
@@ -23908,8 +24864,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     } catch (error) {
       this._recordRefxError(error, "ref level cache revision");
     }
-    return surfaceRevision + ":" + Number(this._referenceIndexDataGeneration || 0)
-      + ":" + Number(this._remarksGeneration || 0);
+    return surfaceRevision + ":" + Number(this._referenceIndexDataGeneration || 0);
   }
 
   _refLevelCacheGet(guid, direction, limit) {
@@ -24034,39 +24989,6 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       via: "in",
       typedEdge: null,
     };
-  }
-
-  _refLevelRemarkRows(guid) {
-    const rows = [];
-    const seen = new Set();
-    const indexedRemarks = this._remarksIndex?.bySourceLine?.get?.(guid) || [];
-    const append = (recordGuid, excerpt = "") => {
-      recordGuid = String(recordGuid || "");
-      if (!recordGuid || seen.has(recordGuid)) return;
-      seen.add(recordGuid);
-      const recordName = this._refLevelRecordName(recordGuid);
-      const text = String(excerpt || recordName || "Remark").trim() || "Remark";
-      rows.push({
-        guid: recordGuid,
-        isLine: false,
-        title: text,
-        text,
-        sourceRecordGuid: recordGuid,
-        sourceRecordName: recordName || "Remarks",
-        via: "remark",
-        typedEdge: "remark",
-      });
-    };
-    for (const remark of indexedRemarks) append(remark?.recordGuid, remark?.excerpt);
-    const propertyIndex = this._linePropRefIndex;
-    for (const recordGuid of propertyIndex?.recordsByTarget?.get?.(guid) || []) {
-      const knownRemark = indexedRemarks.find((remark) => remark?.recordGuid === recordGuid);
-      const collectionGuid = this._recordCollectionIndex?.get?.(recordGuid) || "";
-      if (knownRemark || collectionGuid === this._remarksCollectionGuid) {
-        append(recordGuid, knownRemark?.excerpt || "");
-      }
-    }
-    return rows;
   }
 
   _throwIfRefChainAborted(signal) {
@@ -24373,9 +25295,6 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         const resolved = await this._refLevelIncomingCandidates(guid, limit, signal);
         this._throwIfRefChainAborted(signal);
         rawRows = resolved.candidates.map((candidate) => this._refLevelIncomingRow(candidate)).filter(Boolean);
-        const remarks = this._refLevelRemarkRows(guid);
-        const seen = new Set(rawRows.map((row) => row.guid));
-        for (const remark of remarks) if (!seen.has(remark.guid)) rawRows.push(remark);
         complete = resolved.complete;
         failed = resolved.failed;
         truncated = resolved.truncated || rawRows.length > limit;
@@ -25192,6 +26111,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       }
     }
     return {
+      ownerGuid: ownerGuid || "",
       target: row(target, targetDepth),
       parent: ancestorItems.length
         ? row(ancestorItems[ancestorItems.length - 1], Math.max(0, targetDepth - 1))
@@ -25199,6 +26119,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       breadcrumbs: ancestorItems.map((item) => ({
         guid: item.guid,
         text: this._navigatorContextText(item),
+        segments: item.segments || [],
       })),
       sections: [
         {
@@ -25279,14 +26200,55 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     this._appendRefChainSection(pop, targetGuid, options.chain || [], {
       lazyIncoming: options.lazyChain !== false,
     });
-    if (ownerName) body.append(this._el("div", "refx-line-context-owner", ownerName));
-    if (context.breadcrumbs.length) {
+    const ownerGuid = String(context?.ownerGuid || options?.ownerGuid || "").trim();
+    const breadcrumbItems = Array.isArray(context?.breadcrumbs) ? context.breadcrumbs : [];
+    if (ownerName || breadcrumbItems.length) {
       const crumbs = this._el("div", "refx-line-context-crumbs");
-      context.breadcrumbs.forEach((crumb, index) => {
-        if (index) crumbs.append(this._el("span", "refx-line-context-sep", "›"));
-        crumbs.append(this._el("span", "refx-line-context-crumb", crumb.text || "…"));
-      });
-      body.append(crumbs);
+      let prevId = null;
+      const appendSep = () => {
+        if (crumbs.children.length) crumbs.append(this._el("span", "refx-line-context-sep", "›"));
+      };
+      if (ownerName) {
+        appendSep();
+        if (ownerGuid) {
+          const recEl = this._el("button", "trc-ref-popover-crumb-rec trc-ref-popover-crumb-parent", ownerName);
+          recEl.type = "button";
+          recEl.title = "Open record";
+          recEl.addEventListener("mousedown", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          });
+          recEl.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            Promise.resolve(this._bridgeJump(ownerGuid, {}))
+              .catch((error) => this._recordRefxError(error, "line context owner jump " + ownerGuid));
+          });
+          crumbs.append(recEl);
+        } else {
+          crumbs.append(this._el("span", "trc-ref-popover-crumb-rec", ownerName));
+        }
+        prevId = ownerGuid || null;
+      }
+      for (const crumb of breadcrumbItems) {
+        const id = crumb?.segments?.length
+          ? this._crumbIdentity({ segments: crumb.segments })
+          : (crumb?.guid || null);
+        if (id && (id === ownerGuid || id === prevId)) continue;
+        const text = String(crumb?.text || "").trim();
+        if (!text) continue;
+        appendSep();
+        const segs = (crumb.segments || []).filter((seg) => seg && !(seg.type === "text" && !String(seg.text || "").trim()));
+        let kindClass = "trc-ref-crumb-text";
+        if (segs.length === 1) {
+          if (segs[0].type === "ref") kindClass = "trc-ref-crumb-ref";
+          else if (segs[0].type === "datetime") kindClass = "trc-ref-crumb-date";
+          else if (segs[0].type === "mention") kindClass = "trc-ref-crumb-mention";
+        }
+        crumbs.append(this._el("span", kindClass, text.length > 60 ? text.slice(0, 60) + "…" : text));
+        prevId = id || prevId;
+      }
+      if (crumbs.children.length) body.append(crumbs);
     }
     const outline = this._el("div", "refx-preview-outline refx-line-context-outline");
     const flowy = this._previewOutlineFlowyStyle();
@@ -25725,6 +26687,11 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     const materialized = Array.from(level || []);
     materialized._refxTruncated = level?.truncated === true;
     materialized._refxCapReason = String(level?.capReason || "");
+    const hopSrc = String(job.parentCtx?.guid || "");
+    if (hopSrc) {
+      materialized.sort((a, b) => this._connHopWeight(hopSrc, b.guid) - this._connHopWeight(hopSrc, a.guid)
+        || String(a.text || a.title || "").localeCompare(String(b.text || b.title || "")));
+    }
     job.container.replaceChildren();
     job.container.dataset.refxResolved = "1";
     if (job.pill) {
@@ -25999,7 +26966,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     jump.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
-      this._bridgeJump(row.guid, {});
+      this._bridgeJump(row.guid, { from: parentCtx?.guid || null });
     });
     top.append(jump);
     const countText = row.inboundCount == null
@@ -26034,6 +27001,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       event.preventDefault();
       event.stopPropagation();
       if (pill.dataset.refxBusy === "1") return;
+      try { this._connRecordHop(parentCtx?.guid || "", row.guid, "expand"); } catch (e) {}
       if (children.dataset.refxResolved === "1") {
         if (children.children.length === 0) return;
         const collapsed = children.classList.contains("refx-hidden");
@@ -26063,7 +27031,6 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     pager.type = "button";
     container.append(content, pager);
     const groups = new Map();
-    let remarks = null;
     let cursor = 0;
     const appendSourceLabel = (section, row) => {
       const sourceGuid = String(row?.sourceRecordGuid || "").trim();
@@ -26096,17 +27063,6 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     };
     const rowContainer = (row) => {
       if (!parentCtx.grouped) return content;
-      if (row.typedEdge === "remark") {
-        if (!remarks) {
-          remarks = this._el("section", "refx-chain-remark-section");
-          remarks.append(this._el("div", "refx-chain-source-label", "Remarks"));
-          const remarkRows = this._el("div", "refx-chain-source-rows");
-          remarks.append(remarkRows);
-          content.append(remarks);
-          remarks = remarkRows;
-        }
-        return remarks;
-      }
       const key = row.sourceRecordGuid || "__other__";
       // A continuous branch on one page inherits the nearest visible source
       // heading. A changed owner gets a nested heading, making cross-page
@@ -26447,7 +27403,6 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
 
   // MENU surface only. The menu is anchored once against the chip, so its
   // context is a compact drill outline inside a fixed reserved box. The
-  // section/popover surfaces use _buildRefRowContextStrip instead — see there.
   _buildLineRefContextStrip(kindClass) {
     const section = this._el("div", kindClass);
     section.append(this._el("div", kindClass + "-label", "Block context"));
@@ -26553,74 +27508,6 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     return height;
   }
 
-  // SECTION + POPOVER surfaces. The target renders as a NORMAL reference row —
-  // the same source-record group header, the same
-  // _buildRefContextRow/_fillRefContextRow row with its foldable ancestor
-  // outline, children, siblings, and per-row actions that the backlinks
-  // directly below it use. Nothing about it is a special widget: it is the
-  // presentation the reader already recognises, applied to the block they are
-  // looking at. Rows auto-size and fill asynchronously exactly like their
-  // neighbours, so there is no reserved box here.
-  _buildRefRowContextStrip(kindClass) {
-    const section = this._el("div", kindClass);
-    // v4.41.0 COLLAPSIBLE BLOCK CONTEXT: a fold twisty beside the label
-    // collapses the rows container. v4.49.2: default collapsed via Settings
-    // (`refx_ctx_start_collapsed_v1`); the twisty does NOT persist last fold.
-    // Both call sites (the floating badge popover and the inline section) build
-    // through here. While collapsed the call sites DEFER hydration entirely and
-    // stash it on the section; the twisty's first expand runs it (below).
-    const labelRow = this._el("div", kindClass + "-label-row");
-    const twist = this._el("button", kindClass + "-twist refx-ctxstrip-twist", "▾");
-    twist.type = "button";
-    twist.title = "Collapse block context";
-    twist.setAttribute("aria-expanded", "true");
-    const label = this._el("div", kindClass + "-label", "Block context");
-    labelRow.append(twist, label);
-    section.append(labelRow);
-    const rows = this._el("div", kindClass + "-rows");
-    const loading = this._el("div", "refx-ref-line-loading", "Loading context…");
-    loading.setAttribute("role", "status");
-    loading.setAttribute("aria-live", "polite");
-    rows.append(loading);
-    section.append(rows);
-    const applyCollapsed = (collapsed) => {
-      rows.classList.toggle("refx-hidden", collapsed);
-      twist.textContent = collapsed ? "▸" : "▾";
-      twist.title = collapsed ? "Expand block context" : "Collapse block context";
-      twist.setAttribute("aria-expanded", collapsed ? "false" : "true");
-      labelRow.classList.toggle("refx-ctxstrip-collapsed", collapsed);
-    };
-    applyCollapsed(this.loadBoolSetting('refx_ctx_start_collapsed_v1', true));
-    // Swallow the press so it never reaches the surface/popover handling.
-    twist.addEventListener("mousedown", (ev) => { ev.preventDefault(); ev.stopPropagation(); });
-    twist.addEventListener("click", (ev) => {
-      ev.preventDefault(); ev.stopPropagation();
-      const collapsed = !rows.classList.contains("refx-hidden");
-      applyCollapsed(collapsed);
-      // A strip built while the collapse pref was set deferred its hydration
-      // (the call site stashed it here); the FIRST expand runs it, once.
-      if (!collapsed && section._refxHydrateOnExpand) {
-        const hydrate = section._refxHydrateOnExpand;
-        section._refxHydrateOnExpand = null;
-        Promise.resolve(hydrate()).catch((error) => this._recordRefxError(error, 'ref row context expand hydration'));
-      }
-    });
-    return section;
-  }
-
-  _refRowContextUnavailable(rowsEl) {
-    if (!rowsEl) return false;
-    const status = this._el(
-      "div",
-      "refalias-preview-empty",
-      "Couldn't load this block's context"
-    );
-    status.setAttribute("role", "status");
-    status.setAttribute("aria-live", "polite");
-    rowsEl.replaceChildren(status);
-    return false;
-  }
-
   // Owner resolution is shared with the menu's context path (the same hint,
   // miss, and moved-owner caches). The BODY read is deliberately NOT the menu's
   // LRU: _fillRefContextRow owns a per-surface treeCache and reads
@@ -26628,48 +27515,6 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
   // what every backlink row in this surface uses. Pulling the drill LRU's
   // differently-shaped, expansion-on tree in here would give the strip an
   // outline that disagrees with the rows underneath it.
-  async _hydrateRefRowContext(section, targetGuid, options = {}) {
-    const rowsClass = options.rowsClass || "";
-    const rowsEl = rowsClass ? section?.querySelector?.("." + rowsClass) : null;
-    if (!rowsEl) return false;
-    // A collapsed strip pays nothing: hydration is deferred — the call sites
-    // stash it on the section and the strip's twisty runs it on first expand.
-    // This early return is the backstop so no caller can sneak a build while
-    // the rows container is hidden.
-    if (rowsEl.classList.contains('refx-hidden')) return false;
-    const alive = () => !this._unloaded && (!options.alive || options.alive());
-    try {
-      const ownerGuid = await this._lineRefContextOwner(targetGuid);
-      if (!alive()) return false;
-      if (!ownerGuid) return this._refRowContextUnavailable(rowsEl);
-      rowsEl.replaceChildren();
-      // A stub carrying only the line and record GUIDs — the exact shape a cold
-      // native backreference row starts from. _fillRefContextRow hydrates its
-      // text from the owner's tree and relocates it into the fold outline.
-      const line = { guid: targetGuid, record: { guid: ownerGuid } };
-      const rendered = await this._renderRefsGroups(rowsEl, [line], {
-        alive: options.alive || null,
-        hostLineGuid: options.hostLineGuid || null,
-        canEdit: options.canEdit === true,
-        onEmbed: options.onEmbed || null,
-        targetGuid,
-        // v4.41.0: this IS the Block Context surface — the only surface whose
-        // Reference row + sibling rows mount remark chips this release.
-        isBlockContext: true,
-        actionsFor: options.actionsFor || (() => []),
-      });
-      if (!alive()) return false;
-      if (rendered === false) return false;
-      if (!rowsEl.querySelector(".trc-ref-popover-item")) {
-        return this._refRowContextUnavailable(rowsEl);
-      }
-      return true;
-    } catch (error) {
-      this._recordRefxError(error, "ref row context load");
-      if (alive()) this._refRowContextUnavailable(rowsEl);
-      return false;
-    }
-  }
 
   async _hydrateLineRefContext(pop, targetGuid, isCurrent = null, options = {}) {
     const current = () => !isCurrent || isCurrent();
@@ -27219,8 +28064,9 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
 
     // Navigate. "Side panel" always means Thymer's real panel; the plugin-owned
     // shelf is named explicitly as the Workbench.
-    row("Jump to block", r.isText ? "double-click" : mod + "O", () => this._bridgeJump(r.targetGuid, {}));
-    row("Open in side panel", mod + "\u21e7O", () => this._bridgeJump(r.targetGuid, { newPanel: true }));
+    const menuFrom = r.lineGuid || r.pageGuid || null;
+    row("Jump to block", r.isText ? "double-click" : mod + "O", () => this._bridgeJump(r.targetGuid, { from: menuFrom }));
+    row("Open in side panel", mod + "\u21e7O", () => this._bridgeJump(r.targetGuid, { newPanel: true, from: menuFrom }));
     row("Open linked references", "", () => this._openLinkedRefs(r));
     flyout("Add to Workbench", [
       item("Reference", "Workbench", () => this._wbAdd(r.targetGuid)),
@@ -27239,6 +28085,12 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         () => this._menuExpandChain(r, depth)
       );
     }));
+    if (this._connEnabled) {
+      row("Show path to…", "", () => {
+        this._closeCardPopup();
+        this._connOpenPathTargetPicker(r.targetGuid);
+      });
+    }
     // Display-variant rows -- only when this ref's embed is OPEN under the line,
     // and only for LINE refs (a record embed is body-only: its first line is
     // real content, not a header to hide).
@@ -28128,6 +28980,12 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
   // ("This is a custom panel"), so the destination RECORD is computed before any
   // panel exists — if nothing resolves, no panel is created (the old order left
   // an empty Custom Panel behind whenever the navigation failed).
+  _bridgeJumpRecordHop(opts, dstGuid) {
+    try {
+      if (dstGuid) this._connRecordHop(opts?.from || null, dstGuid, opts?.how || "jump");
+    } catch (e) {}
+  }
+
   async _bridgeJump(guid, opts) {
     if (!guid) return false;
     const rec = this.data.getRecord(guid);
@@ -28156,6 +29014,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
             });
             if (opened === false) throw new Error("Destination record did not open");
             if (!rec) await panel.navigateTo({ itemGuid: guid, highlight: true });
+            this._bridgeJumpRecordHop(opts, guid);
             return true;
           } catch (e) {
             // Never leave an unnavigated shell behind — close it, then use the
@@ -28179,14 +29038,16 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     try {
       if (!rec) {
         const ok = await panel.navigateTo({ itemGuid: guid, highlight: true });
-        if (ok) return true;
+        if (ok) { this._bridgeJumpRecordHop(opts, guid); return true; }
         if (recordGuid) {
           panel.navigateTo({ type: "edit_panel", rootId: recordGuid, subId: null, workspaceGuid: this.workspaceGuid || null });
+          this._bridgeJumpRecordHop(opts, guid);
           return true;
         }
         return false;
       }
       panel.navigateTo({ type: "edit_panel", rootId: guid, subId: null, workspaceGuid: this.workspaceGuid || null });
+      this._bridgeJumpRecordHop(opts, guid);
       return true;
     } catch (e) {}
     return false;
@@ -28274,6 +29135,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     this._countCacheStoreMax = 4000;
     this._countCachePersistTimer = null;
     this._seedCountCacheFromDisk();
+    this._seedCooccurFromDisk();
     this._popoverEl = null;
     this._popoverGuid = null;
     this._counterStyleEl = null;
@@ -28402,7 +29264,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     this._overlayGap = this.coerceBadgeGap(this.loadStringSetting(this._storageKeyOverlayGap) || (custom.overlayGap != null ? String(custom.overlayGap) : ''), 6);
 
     // v3.33.0 (OPT-IN, ADDITIVE): property names whose LINE-guid value refx
-    // treats as a reference TO that line (e.g. org-remark's "Source Line"). The
+    // treats as a reference TO that line (e.g. org-remark's "line-guid property"). The
     // source line then shows the count badge + its "Linked References" list the
     // referencing records. Absent/empty → feature OFF (zero cost). Read from the
     // top-level custom object (not the nested counter block); accept an array or
@@ -28433,12 +29295,8 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     // when the toggle is off, which makes every consult site (guards on
     // .length / .size) a no-op — the feature turns fully off at zero cost.
     this._lineRefPropsConfigured = this.normalizeLineRefProps(
-      topCustom.lineRefProperties != null ? topCustom.lineRefProperties : ['Source Line']
+      topCustom.lineRefProperties != null ? topCustom.lineRefProperties : []
     );
-    // v4.41.0: the Remarks collection GUID is overridable for portability —
-    // the default is the original workspace's collection; the name-based
-    // fallback in _ensureRemarksIndex covers the rest.
-    this._remarksCollectionGuid = String(topCustom.remarksCollection || '1ZG05C7ST1T13EWAF5S2M4VNQR');
     this._storageKeyLineRefProps = 'refx_line_ref_props_enabled_v1';
     this._lineRefPropsEnabled = this.loadBoolSetting(this._storageKeyLineRefProps, true);
     this._lineRefProps = this._lineRefPropsEnabled ? this._lineRefPropsConfigured.slice() : [];
@@ -28446,7 +29304,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     this._linePropRefIndex = null;
 
     // v3.75.0: persist the line-prop-ref index (record → line it references via a
-    // configured property, e.g. org-remark's "Source Line") to localStorage so a
+    // configured property, e.g. org-remark's "line-guid property") to localStorage so a
     // reload can seed it SYNCHRONOUSLY from disk and resolve those refs INSTANTLY,
     // instead of waiting for the ~540ms background walk of every workspace record.
     // The seed is fromDisk:true — used immediately for the first badge scan, then
@@ -28766,7 +29624,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     try { this._persistCountCache(); } catch (e) {}
 
     // v3.75.0: same for the line-prop-ref index — flush the latest real build so
-    // the next reload seeds org-remark "Source Line" refs synchronously. Runs
+    // the next reload seeds org-remark "line-guid property" refs synchronously. Runs
     // BEFORE _linePropRefIndex is nulled below. Direct call (not the scheduler,
     // which no-ops under _isUnloading), and skips a fromDisk-only index by design.
     if (this._linePropPersistTimer) {
@@ -28837,16 +29695,6 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     if (!(this._linePropRecordGuids instanceof Set)) this._linePropRecordGuids = new Set();
     if (!(this._recordIndexRetryTimers instanceof Map)) this._recordIndexRetryTimers = new Map();
     if (!(this._recordIndexRetryAttempts instanceof Map)) this._recordIndexRetryAttempts = new Map();
-    // v4.41.0: SourceLine → remark map state. The MAP builds lazily on the
-    // first Block Context render (perf gate: zero onLoad cost); only these
-    // containers exist from the start, and Remarks-collection record events
-    // no-op until the map exists.
-    if (!this._remarksCollectionGuid) this._remarksCollectionGuid = '1ZG05C7ST1T13EWAF5S2M4VNQR';
-    if (this._remarksIndex === undefined) this._remarksIndex = null;
-    if (this._remarksIndexPromise === undefined) this._remarksIndexPromise = null;
-    if (this._remarksGeneration === undefined) this._remarksGeneration = 0;
-    if (!(this._remarkBodyCache instanceof Map)) this._remarkBodyCache = new Map();
-    if (this._remarkBodyCacheMax == null) this._remarkBodyCacheMax = 500;
   }
 
   registerCounterCommands() {
@@ -29070,7 +29918,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
   }
 
   // v3.35.0: toggle the line-guid-property-as-reference feature (v3.33.0). ON →
-  // the configured property names (custom.lineRefProperties, e.g. "Source Line")
+  // the configured property names (custom.lineRefProperties, e.g. "line-guid property")
   // count as references TO the line they hold; OFF → effective list is [] so all
   // consult sites no-op. Rebuilds the index + clears cached counts so badges
   // update live in both directions.
@@ -29081,7 +29929,6 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     this.saveBoolSetting(this._storageKeyLineRefProps, on);
     this._lineRefProps = on ? this._lineRefPropsConfigured.slice() : [];
     this._lineRefPropSet = new Set(this._lineRefProps.map((n) => n.toLowerCase()));
-    this._remarkPropNameSet = null; // v4.41.0: drop the remark-chip prop-name memo too
     this._linePropRefIndex = null; // force a rebuild on next consult
     this.clearCountCache();
     this.refreshAllPanels({ force: true, reason: 'set-line-ref-props' });
@@ -29374,9 +30221,9 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         // rows are gone. "Reference counters enabled" above is still the master
         // on/off. (custom.overlayBadges = false in config still disables overlay.)
         // v3.35.0 — the v3.33.0 line-guid-property-as-reference feature (default
-        // ON): property names like "Source Line" count as a reference to the line
+        // ON): property names like "line-guid property" count as a reference to the line
         // they hold, so e.g. an org-remark comment shows up in that line's refs.
-        body.append(mkCheckRow('Line-guid properties count as references (e.g. Source Line)', this._lineRefPropsEnabled, (on) => this.setLineRefPropsEnabled(on)));
+        body.append(mkCheckRow('Line-guid properties count as references', this._lineRefPropsEnabled, (on) => this.setLineRefPropsEnabled(on)));
         // v3.68.0: auto-detect any property holding a line guid as a line ref.
         // Works for org-remark, PDF highlights, and any future plugin automatically.
         body.append(mkCheckRow('Auto-detect line-guid properties (works for all plugins, no registration needed)', this._autoLineRefs, (on) => this.setAutoLineRefs(on)));
@@ -29448,9 +30295,6 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         // v3.49.0: Property cards start folded (default OFF).
         body.append(mkCheckRow('Property cards start folded', this._cardFoldedDefault(), (on) => {
           try { localStorage.setItem('refx_card_folded_default_v1', on ? '1' : '0'); } catch (_e) {}
-        }));
-        body.append(mkCheckRow('Block context starts collapsed', this.loadBoolSetting('refx_ctx_start_collapsed_v1', true), (on) => {
-          this.saveBoolSetting('refx_ctx_start_collapsed_v1', on);
         }));
         body.append(mkCheckRow('Automatically load small record bodies (≤ ' + this._smallBodyLineCap + ' lines)', configuredInlineGroups.autoLoadSmallBodies, (on) => {
           configuredInlineGroups.autoLoadSmallBodies = on;
@@ -30054,7 +30898,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       .trc-ref-popover {
         position: fixed;
         z-index: 10000;
-        min-width: 260px;
+        min-width: 380px; /* v4.51.2: a four-crumb path fits on one line */
         max-width: 460px;
         max-height: 420px;
         overflow-y: auto;
@@ -30066,6 +30910,52 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         font-family: var(--ed-variable-width-font, var(--font-sans, inherit));
         font-size: 12px;
         color: var(--color-text-400);
+      }
+      .trc-ref-popover:has(.refx-zoom-body) {
+        min-width: 560px;
+        max-width: min(720px, 92vw);
+      }
+      .refx-zoom-body {
+        max-height: min(60vh, 520px);
+        overflow: auto;
+        position: relative;
+      }
+      .trc-ref-crumb-root {
+        font-weight: 600;
+        color: var(--color-text-400);
+      }
+      .refx-zoom-target > .refx-wb-tree-line {
+        outline: 1px solid color-mix(in srgb, var(--refx-page-link-color, #106ba3) 55%, transparent);
+        outline-offset: 1px;
+        border-radius: 4px;
+        background: color-mix(in srgb, var(--refx-page-link-color, #106ba3) 10%, transparent);
+      }
+      .refx-wb-tree-dot {
+        cursor: pointer;
+      }
+      .refx-wb-tree-dot:hover {
+        color: var(--refx-page-link-color, #106ba3);
+      }
+      .refx-row-home {
+        border-left: 2px solid color-mix(in srgb, var(--refx-page-link-color, #106ba3) 45%, transparent);
+        padding-left: 6px;
+      }
+      .refx-home-sep {
+        border-top: 1px dashed var(--border-default);
+        margin: 4px 0 6px;
+        opacity: .6;
+      }
+      .refx-zoom-hint {
+        font-size: 11px;
+        color: var(--color-text-600);
+        margin: 2px 0 6px 6px;
+      }
+      .refx-zoom-hint button {
+        border: 0;
+        background: transparent;
+        color: var(--refx-page-link-color, #106ba3);
+        cursor: pointer;
+        padding: 0 2px;
       }
 
       .trc-ref-popover-header {
@@ -30082,25 +30972,6 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
          row as the rows below it, so it needs a label and a separator only.
          Elastic for the same reason as the inline strip — it must not hold
          open space its content does not fill. */
-      .trc-ref-popover-context {
-        border-bottom: 1px solid var(--cards-border-color);
-        margin-bottom: 4px;
-      }
-      .trc-ref-popover-context:has(> .trc-ref-popover-context-label-row.refx-ctxstrip-collapsed) {
-        border-bottom: 0;
-        margin-bottom: 2px;
-      }
-      .trc-ref-popover-context-label {
-        padding: 0 8px 2px;
-        color: var(--color-text-600);
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: .06em;
-        text-transform: uppercase;
-      }
-      .trc-ref-popover-context-rows {
-        padding: 0;
-      }
 
       .trc-ref-popover-item {
         display: block;
@@ -30122,8 +30993,6 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       }
 
       .trc-ref-popover-item:focus-visible,
-      .refx-ref-outline-line:focus-visible,
-      .refx-ref-sibling-row:focus-visible,
       .refx-wb-tree-line:focus-visible {
         outline: 1px solid var(--color-accent-500, var(--button-primary-bg-color, #4a90d9));
         outline-offset: 1px;
@@ -30144,34 +31013,77 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       }
 
       /* Roam-style full-context rows: breadcrumb ("Record › parent line"),
-         the FULL referencing line (wrapped, not ellipsized), then up to 3 of
-         its children, indented and dimmed. */
+         the FULL referencing line (wrapped, not ellipsized), then children. */
       .trc-ref-popover-crumb {
-        display: block;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 2px 3px;
         min-width: 0;
         font-size: 11px;
+        line-height: 1.5;
         color: var(--color-text-600);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        white-space: normal;
+        overflow: visible;
       }
 
       .trc-ref-popover-crumb-rec {
-        font-weight: 650;
+        font-weight: 600;
       }
 
       .trc-ref-popover-crumb-sep {
-        opacity: .6;
-        margin: 0 2px;
+        opacity: .5;
+        margin: 0 1px;
       }
+
+      .trc-ref-popover-crumb-parent, .trc-ref-popover-crumb-rec {
+        background: none;
+        border: 0;
+        padding: 0;
+        font: inherit;
+        color: inherit;
+        cursor: pointer;
+      }
+      .trc-ref-popover-crumb-parent:hover, .trc-ref-popover-crumb-rec:hover {
+        text-decoration: underline;
+      }
+
+      .trc-ref-crumb-ref, .trc-ref-crumb-date, .trc-ref-crumb-mention {
+        color: var(--refx-page-link-color, #106ba3);
+      }
+      .trc-ref-crumb-self {
+        display: inline-block;
+        width: 9px;
+        height: 9px;
+        border: 1.5px solid currentColor;
+        border-radius: 50%;
+        background: none;
+        padding: 0;
+        margin: 0 2px;
+        cursor: pointer;
+        opacity: .6;
+        vertical-align: middle;
+      }
+      .trc-ref-crumb-self:hover { opacity: 1; }
+      .refx-ref-rowfold {
+        background: none;
+        border: 0;
+        padding: 0 3px 0 0;
+        font: inherit;
+        font-size: 10px;
+        color: var(--color-text-600);
+        cursor: pointer;
+        opacity: .55;
+      }
+      .refx-ref-rowfold:hover { opacity: 1; }
 
       .trc-ref-popover-fulltext {
         display: block;
-        margin-top: 2px;
+        font-size: inherit;
+        margin: 2px 0 0 14px;
         color: var(--color-text-400);
         white-space: normal;
         overflow-wrap: anywhere;
-        font-size: 13px;
         line-height: 1.5;
       }
 
@@ -30213,6 +31125,8 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       .trc-ref-popover-actions {
         display: inline-flex;
         visibility: hidden;
+        opacity: 0;
+        transition: none;
         position: absolute;
         inset-inline-end: 0;
         top: 0;
@@ -30235,6 +31149,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       .trc-ref-popover-item:focus .trc-ref-popover-actions,
       .trc-ref-popover-item:focus-within .trc-ref-popover-actions {
         visibility: visible;
+        opacity: .75;
       }
 
       .trc-ref-popover-action {
@@ -30270,21 +31185,6 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         border-top: 1px solid var(--cards-border-color);
         border-radius: 0 0 6px 6px;
         font-weight: 600;
-      }
-
-      .trc-ref-popover-crumb-parent {
-        cursor: pointer;
-        border: 0;
-        padding: 0;
-        background: transparent;
-        color: inherit;
-        font: inherit;
-        text-align: left;
-      }
-
-      .trc-ref-popover-crumb-parent:hover {
-        color: var(--color-text-400);
-        text-decoration: underline;
       }
 
       .refx-ref-task {
@@ -30441,29 +31341,21 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         color: var(--color-text-600);
       }
 
-      /* Block Context strip above the backlinks (line targets only). The rows
-         inside are ordinary reference rows and inherit every group/row/outline
-         rule below, so this contributes a label and a separator and NOTHING
-         else. Deliberately elastic — no height, no min-height, no scroll area:
-         it is exactly as tall as the row it holds, like any backlink group. */
-      .refx-inline-refs-context {
-        margin: 0 0 4px;
-        border-bottom: 1px solid var(--cards-border-color);
+      .refx-inline-refs-header button {
+        opacity: .35;
       }
-      .refx-inline-refs-context:has(> .refx-inline-refs-context-label-row.refx-ctxstrip-collapsed) {
-        border-bottom: 0;
-        margin-bottom: 2px;
+      .refx-inline-refs:hover .refx-inline-refs-header button {
+        opacity: 1;
       }
-      .refx-inline-refs-context-label {
-        padding: 1px 0 2px;
-        color: var(--color-text-600);
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: .06em;
-        text-transform: uppercase;
+
+      .refx-inline-refs-filters {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        padding: 2px 8px 4px;
       }
-      .refx-inline-refs-context-rows {
-        padding: 0;
+      .refx-inline-refs-filters.refx-hidden {
+        display: none;
       }
 
       .refx-inline-refs-title {
@@ -30610,6 +31502,23 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         font-style: italic;
       }
 
+      .refx-nested-count {
+        display: inline-block;
+        margin-left: 4px;
+        font-size: var(--refx-count-size, .8em);
+        opacity: var(--refx-count-opacity, .6);
+        color: var(--refx-page-link-color, #106ba3);
+        cursor: pointer;
+        vertical-align: super;
+        line-height: 1;
+      }
+      .refx-nested-count:hover { opacity: 1; }
+      .refx-nested-refs {
+        margin: 4px 0 6px 14px;
+        border-left: 1px solid var(--border-default);
+        padding-left: 8px;
+      }
+
       .refx-inline-editor {
         display: block;
         width: 100%;
@@ -30659,7 +31568,6 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       /* ⇅ sort / ⧉ add-target-to-Workbench in the inline section header — the
          sort control opens the right-side cluster (it takes over the auto
          margin so sort/⧉/pin/close sit together on the right). */
-      .refx-inline-refs-collapse-all,
       .refx-inline-refs-sort,
       .refx-inline-refs-wb {
         flex: 0 0 auto;
@@ -30674,7 +31582,6 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       }
       .refx-inline-refs-sort { margin-left: auto; }
 
-      .refx-inline-refs-collapse-all:hover,
       .refx-inline-refs-sort:hover,
       .refx-inline-refs-wb:hover {
         background: var(--sidebar-bg-hover);
@@ -30690,9 +31597,14 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         flex: 0 0 auto;
         color: var(--color-text-600);
         font-size: 10px;
-        opacity: .7;
+        opacity: 0;
+        transition: none;
         white-space: nowrap;
         margin-left: 6px;
+      }
+      .trc-ref-popover-item:hover .trc-ref-timestamp,
+      .trc-ref-popover-item:focus-within .trc-ref-timestamp {
+        opacity: .75;
       }
       .refx-wb-hdr .trc-ref-timestamp { margin-left: 4px; }
       .refx-sort-menu { min-width: 160px; }
@@ -30718,85 +31630,6 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       .refx-chip-label { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .refx-chip-count { opacity: .65; }
       .refx-chip-more { font-size: 10px; opacity: .7; }
-
-      /* -- v4.20.0 R7: native facet chip bar ------------------------------ */
-      .refx-r7-facet-bar {
-        display: flex; flex-wrap: wrap; gap: 4px;
-        padding: 2px 8px 4px; min-height: 0;
-      }
-      .refx-r7-facet-bar:empty { display: none; }
-      .refx-r7-facet-chip {
-        display: inline-flex; align-items: center; gap: 3px;
-        padding: 1px 6px; border-radius: 10px;
-        border: 1px solid var(--cards-border-color);
-        background: var(--input-bg-color); color: var(--color-text-400);
-        font: inherit; font-size: 10px; cursor: pointer; user-select: none;
-        transition: background .1s;
-      }
-      .refx-r7-facet-chip:hover { background: var(--sidebar-bg-hover); color: var(--color-text-400); }
-      .refx-r7-facet-active {
-        background: var(--button-primary-bg-color);
-        border-color: var(--button-primary-bg-color);
-        color: #fff;
-      }
-      .refx-r7-facet-active:hover { opacity: .88; }
-      .refx-r7-facet-label { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .refx-r7-facet-count { opacity: .65; }
-
-      /* -- v3.56.0 F1: unlinked mentions subsection ----------------------- */
-      .refx-unlinked-section {
-        border-top: 1px solid var(--cards-border-color);
-        margin-top: 6px; padding-top: 4px;
-      }
-      .refx-unlinked-toggle {
-        display: block; width: 100%; text-align: left; border: 0;
-        background: transparent; color: var(--color-text-600);
-        font: inherit; font-size: 11px; padding: 2px 8px; cursor: pointer;
-        border-radius: 4px;
-      }
-      .refx-unlinked-toggle:hover { background: var(--sidebar-bg-hover); color: var(--color-text-400); }
-      .refx-unlinked-body { padding: 2px 0; }
-      .refx-unlinked-link-all {
-        font: inherit; font-size: 10px; font-weight: 650;
-        color: var(--color-text-400); background: var(--sidebar-bg-hover);
-        border: 1px solid var(--cards-border-color); border-radius: 4px;
-        padding: 1px 6px; margin: 2px 8px 4px; cursor: pointer;
-      }
-      .refx-unlinked-link-all:disabled { opacity: .5; cursor: default; }
-      .refx-unlinked-row {
-        display: flex; align-items: baseline; gap: 4px; flex-wrap: wrap;
-        padding: 2px 8px; font-size: 11px; color: var(--color-text-400);
-      }
-      .refx-unlinked-row:hover { background: var(--sidebar-bg-hover); }
-      .refx-unlinked-crumb {
-        font-weight: 650; color: var(--color-text-600); font-size: 10px;
-        cursor: pointer; white-space: nowrap;
-      }
-      .refx-unlinked-crumb:hover { text-decoration: underline; }
-      .refx-unlinked-sep { font-size: 10px; opacity: .5; }
-      .refx-unlinked-line {
-        flex: 1 1 auto; min-width: 0; overflow: hidden;
-        text-overflow: ellipsis; white-space: nowrap;
-      }
-      .refx-unlinked-pill {
-        flex: 0 0 auto; font-size: 9px; font-weight: 650; letter-spacing: .02em;
-        padding: 1px 5px; border-radius: 8px;
-        background: rgba(210,160,40,.18); color: rgba(180,120,20,1);
-        border: 1px solid rgba(180,120,20,.3);
-      }
-      .refx-unlinked-link {
-        flex: 0 0 auto; font: inherit; font-size: 10px;
-        color: var(--color-text-400); background: var(--sidebar-bg-hover);
-        border: 1px solid var(--cards-border-color); border-radius: 4px;
-        padding: 1px 6px; cursor: pointer;
-      }
-      .refx-unlinked-link:hover { background: var(--cards-border-color); }
-      .refx-unlinked-link.is-disabled, .refx-unlinked-link:disabled { opacity: .4; cursor: default; }
-      .refx-unlinked-more {
-        font: inherit; font-size: 10px; color: var(--color-text-600);
-        background: transparent; border: 0; padding: 2px 8px; cursor: pointer;
-      }
-      .refx-unlinked-more:hover { text-decoration: underline; }
 
       /* -- v3.60.0 F1+F2: deep connections + suggested connections subsection -- */
       .refx-deep-section {
@@ -30840,6 +31673,11 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       .refx-deep-trail-node { color: var(--color-text-400); cursor: pointer; }
       .refx-deep-trail-node:hover { text-decoration: underline; }
       .refx-deep-trail-prop { opacity: .65; font-style: italic; }
+      .refx-conn-paths { display: flex; flex-direction: column; gap: 6px; }
+      .refx-conn-paths-head { font-size: 12px; font-weight: 600; color: var(--color-text-400); margin-bottom: 4px; }
+      .refx-conn-paths-pair-head { font-size: 11px; font-weight: 600; color: var(--color-text-600); margin-top: 8px; }
+      .refx-conn-paths-note { font-size: 11px; color: var(--color-text-600); font-style: italic; padding: 4px 0; }
+      .refx-conn-paths-modal { width: 100%; }
       .refx-deep-suggest-section { margin-top: 6px; border-top: 1px solid var(--cards-border-color); padding-top: 3px; }
       .refx-deep-sug-row {
         display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
@@ -30849,6 +31687,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       .refx-deep-sug-name { font-weight: 600; cursor: pointer; flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .refx-deep-sug-name:hover { text-decoration: underline; }
       .refx-deep-sug-score { font-size: 9.5px; color: var(--color-text-600); flex: 0 0 auto; }
+      .refx-deep-sug-evidence { font-size: 9.5px; color: var(--color-text-600); flex: 0 0 auto; margin-left: 4px; }
       .refx-deep-sug-graph {
         flex: 0 0 auto; border: 0; background: transparent; cursor: pointer;
         color: var(--color-text-600); font-size: 12px; padding: 1px 3px; border-radius: 3px;
@@ -30980,6 +31819,97 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         background: var(--input-bg-color); border: 1px solid var(--input-border-color);
         border-radius: 5px; padding: 2px 6px; color: var(--color-text-400); font: inherit;
       }
+      .refx-wb-freopen-wrap { flex: 0 0 auto; display: inline-flex; gap: 0; align-items: center; }
+      .refx-wb-fstack, .refx-wb-freopen, .refx-wb-freopen-drop { flex: 0 0 auto; min-width: 22px; padding: 0 4px; }
+      .refx-wb-stack-row { display: flex; align-items: center; gap: 2px; padding: 0 2px; }
+      .refx-wb-stack-load { flex: 1 1 auto; min-width: 0; }
+      .refx-wb-stack-edit, .refx-wb-stack-del {
+        flex: 0 0 auto; border: 0; background: transparent; color: var(--color-text-600);
+        font: inherit; font-size: 11px; padding: 4px 5px; border-radius: 4px; cursor: pointer;
+      }
+      .refx-wb-stack-edit:hover, .refx-wb-stack-del:hover { background: var(--sidebar-bg-hover); color: var(--color-text-400); }
+      .refx-wb-stack-confirm { flex: 1 1 100%; padding: 2px 8px 4px; font-size: 10px; }
+      .refx-wb-tabs {
+        position: sticky; top: 0; z-index: 4;
+        display: flex; align-items: stretch; gap: 2px; overflow-x: auto;
+        height: 24px; min-height: 24px; max-height: 24px;
+        padding: 0 6px 2px; margin-bottom: 2px;
+        background: var(--color-bg-900); border-bottom: 1px solid var(--cards-border-color);
+      }
+      .refx-wb-tab {
+        flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px;
+        border: 0; background: transparent; color: var(--color-text-600);
+        font: inherit; font-size: 10px; line-height: 1; padding: 2px 6px 1px;
+        border-radius: 0; cursor: pointer; max-width: 120px;
+        border-bottom: 2px solid transparent;
+      }
+      .refx-wb-tab.is-active { border-bottom-color: var(--color-accent-400, var(--refx-page-link-color)); color: var(--color-text-400); }
+      .refx-wb-tab-dot {
+        flex: 0 0 7px; width: 7px; height: 7px; border-radius: 50%;
+        background: var(--color-text-600);
+      }
+      .refx-wb-tab.is-pinned .refx-wb-tab-dot { background: var(--refx-page-link-color); }
+      .refx-wb-tab-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .refx-wb-tab-dragging { opacity: .45; }
+      .refx-wb-trail {
+        display: flex; flex-wrap: nowrap; align-items: center; gap: 2px;
+        overflow-x: auto; min-height: 22px; max-height: 22px;
+        padding: 0 6px 2px; margin-bottom: 2px;
+        font-size: 10px; line-height: 1.2; color: var(--color-text-600);
+        border-bottom: 1px dashed var(--cards-border-color);
+        background: var(--color-bg-900);
+      }
+      .refx-wb-trail[hidden] { display: none !important; }
+      .refx-wb-trail-hop, .refx-wb-trail-more, .refx-wb-trail-act {
+        flex: 0 0 auto; border: 0; background: transparent; color: inherit;
+        font: inherit; font-size: 10px; line-height: 1.2; padding: 1px 4px;
+        border-radius: 4px; cursor: pointer; max-width: 140px;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+      .refx-wb-trail-hop:hover, .refx-wb-trail-more:hover, .refx-wb-trail-act:hover {
+        background: var(--sidebar-bg-hover); color: var(--color-text-400);
+      }
+      .refx-wb-trail-sep { flex: 0 0 auto; opacity: .55; padding: 0 1px; user-select: none; }
+      .refx-wb-trail-more { font-weight: 650; opacity: .75; max-width: none; }
+      .refx-wb-trail-act { margin-left: 4px; max-width: none; }
+      .refx-wb-trail-act.is-replaying { color: var(--refx-page-link-color); font-weight: 600; }
+      .refx-wb-related {
+        display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px;
+        margin: 8px 6px 12px; padding: 6px 8px;
+        border: 1px dashed var(--cards-border-color); border-radius: 8px;
+        background: var(--color-bg-850, var(--color-bg-900));
+      }
+      .refx-wb-related[hidden] { display: none !important; }
+      .refx-wb-related-chip {
+        display: inline-flex; align-items: baseline; gap: 4px; max-width: 100%;
+        border: 1px solid var(--cards-border-color); border-radius: 999px;
+        background: var(--cards-bg); color: var(--color-text-400);
+        font: inherit; font-size: 11px; line-height: 1.2; padding: 2px 8px 2px 6px;
+        cursor: pointer;
+      }
+      .refx-wb-related-chip:hover { border-color: var(--refx-page-link-color); color: var(--color-text-300); }
+      .refx-wb-related-glyph { opacity: .75; font-size: 10px; }
+      .refx-wb-related-name { font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px; }
+      .refx-wb-related-reason { color: var(--color-text-600); font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px; }
+      .refx-wb-related-evidence { color: var(--color-text-600); font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; opacity: .9; }
+      .refx-wb-shared {
+        display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px;
+        margin: 4px 6px 8px; padding: 6px 8px;
+        border: 1px dashed var(--cards-border-color); border-radius: 8px;
+        background: var(--color-bg-850, var(--color-bg-900));
+      }
+      .refx-wb-shared[hidden] { display: none !important; }
+      .refx-wb-shared-chip {
+        display: inline-flex; align-items: baseline; gap: 4px; max-width: 100%;
+        border: 1px solid var(--cards-border-color); border-radius: 999px;
+        background: var(--cards-bg); color: var(--color-text-400);
+        font: inherit; font-size: 11px; line-height: 1.2; padding: 2px 8px 2px 6px;
+        cursor: pointer;
+      }
+      .refx-wb-shared-chip:hover { border-color: var(--refx-page-link-color); color: var(--color-text-300); }
+      .refx-wb-shared-glyph { opacity: .75; font-size: 10px; }
+      .refx-wb-shared-name { font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px; }
+      .refx-wb-shared-reason { color: var(--color-text-600); font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px; }
       .refx-wb-vmenu {
         position: fixed; z-index: 10001; min-width: 170px;
         background: var(--cards-bg); border: 1px solid var(--cards-border-color);
@@ -31108,248 +32038,30 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         align-items: center;
       }
       .trc-ref-crumb-acts {
-        display: none;
+        display: inline-flex;
         align-items: center;
         gap: 1px;
-        margin-left: 2px;
+        position: absolute;
+        left: 100%;
+        top: 0;
+        opacity: 0;
+        transition: none;
+        pointer-events: none;
       }
-      .trc-ref-crumb-anc:hover .trc-ref-crumb-acts,
-      .trc-ref-crumb-anc:focus-within .trc-ref-crumb-acts {
-        display: inline-flex;
+      .trc-ref-crumb-anc:hover .trc-ref-crumb-acts {
+        opacity: .75;
       }
 
-      /* v3.35.0 GRANULAR FOLDING — vertical nested ancestor→ref→children outline.
-         Each level is an independently foldable node; the ref line is the anchor. */
-      .refx-ref-outline {
+      /* v3.79.0 explicit relationship section headings. */
+
+      .refx-ref-context-children {
+        margin-left: 14px;
+        padding-left: 8px;
+        border-left: 1px solid var(--border-default, rgba(127,127,127,.25));
+      }
+      .trc-ref-popover-item[data-refx-self-ref="1"] > .refx-ref-context-children {
         margin-top: 2px;
       }
-      .refx-ref-outline-node {
-        display: block;
-      }
-      .refx-ref-outline-line {
-        position: relative;
-        display: flex;
-        align-items: baseline;
-        gap: 3px;
-        line-height: 1.45;
-      }
-      .refx-ref-outline-kids {
-        margin-left: 10px;
-        padding-left: 10px;
-        border-left: 1px solid var(--cards-border-color, rgba(127,127,127,0.18));
-      }
-      .refx-ref-outline-twist {
-        flex: 0 0 auto;
-        cursor: pointer;
-        font-size: 9px;
-        width: 11px;
-        text-align: center;
-        color: var(--color-text-600);
-        user-select: none;
-        align-self: center;
-        border: 0;
-        padding: 0;
-        background: transparent;
-      }
-      .refx-ref-outline-twist:hover { color: var(--color-text-400); }
-      .refx-ref-outline-label {
-        flex: 1 1 auto;
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      /* hover-reveal the ↗ ◧ ✎ ⤵ action cluster on the level being pointed at */
-      .refx-ref-outline-line .trc-ref-crumb-acts { display: none; }
-      .refx-ref-outline-line:hover .trc-ref-crumb-acts,
-      .refx-ref-outline-line:focus .trc-ref-crumb-acts,
-      .refx-ref-outline-line:focus-within .trc-ref-crumb-acts { display: inline-flex; }
-      /* the actual referencing line — slightly emphasized so it reads as the anchor */
-      .refx-ref-outline-refnode { display: block; }
-      .refx-ref-outline-refline {
-        display: block;
-        border-left: 2px solid var(--color-accent-500, var(--button-primary-bg-color, #4a90d9));
-        padding: 2px 6px;
-        border-radius: 0 4px 4px 0;
-        background: color-mix(in srgb, var(--color-accent-500, #4a90d9) 7%, transparent);
-        margin-left: -1px;
-      }
-
-      /* v3.79.0 explicit relationship labels + direct sibling context. */
-      .refx-ref-relation-label {
-        flex: 0 0 auto;
-        display: inline-block;
-        margin-right: 6px;
-        padding: 0;
-        border: 0;
-        border-radius: 0;
-        color: var(--color-text-600);
-        font-size: 9.5px;
-        font-weight: 650;
-        line-height: 1.45;
-        letter-spacing: .06em;
-        text-transform: uppercase;
-        vertical-align: 1px;
-      }
-      .refx-ref-relation-reference {
-        color: var(--color-accent-500, var(--button-primary-bg-color, #4a90d9));
-        font-weight: 700;
-      }
-      .refx-ref-relation-section { margin: 5px 0 2px; }
-      .refx-ref-relation-heading {
-        color: var(--color-text-600);
-        font-size: 9.5px;
-        font-weight: 650;
-        letter-spacing: .06em;
-        text-transform: uppercase;
-        margin: 4px 0 1px;
-      }
-      .refx-ref-sibling-list {
-        margin: 4px 0 2px 18px;
-        padding: 0 0 0 8px;
-        border-left: 1px dashed var(--cards-border-color);
-        border-radius: 0;
-      }
-      .refx-ref-sibling-row {
-        display: flex;
-        align-items: baseline;
-        gap: 4px;
-        min-width: 0;
-        padding: 1px 0;
-        position: relative;
-      }
-      .refx-ref-sibling-actions {
-        display: inline-flex;
-        visibility: hidden;
-        position: absolute;
-        inset-inline-end: 0;
-        top: 0;
-        width: auto;
-        max-width: 100%;
-        min-width: 0;
-        overflow-x: auto;
-        overflow-y: hidden;
-        white-space: nowrap;
-        justify-content: flex-end;
-        padding-inline-start: 10px;
-        background: linear-gradient(to right, transparent, color-mix(in srgb, var(--cards-bg, transparent) 70%, transparent) 10px);
-        pointer-events: none;
-        z-index: 4;
-        scrollbar-width: thin;
-      }
-      .refx-ref-sibling-row:hover .refx-ref-sibling-actions,
-      .refx-ref-sibling-row:focus .refx-ref-sibling-actions,
-      .refx-ref-sibling-row:focus-within .refx-ref-sibling-actions { visibility: visible; }
-      .refx-ref-relation-more {
-        color: var(--color-text-600);
-        font-size: 10px;
-        margin: 2px 0 0 14px;
-        border: 0;
-        padding: 1px 2px;
-        background: transparent;
-        cursor: pointer;
-        font: inherit;
-      }
-      .refx-ref-relation-more:disabled { cursor: default; opacity: .7; }
-
-      /* v4.41.0 remark chips in ref context rows (pen color = org-remark's
-         yellow pen rgba(250,204,21)) */
-      .refx-remark-chips {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4px;
-        margin: 2px 0 2px 14px;
-      }
-      .refx-ref-sibling-row .refx-remark-chips {
-        display: inline-flex;
-        margin: 0 0 0 4px;
-      }
-      .refx-remark-chip {
-        display: inline-flex;
-        align-items: baseline;
-        gap: 4px;
-        max-width: 100%;
-        min-width: 0;
-        border: 1px solid color-mix(in srgb, rgb(250,204,21) 55%, transparent);
-        border-radius: 4px;
-        background: rgba(250,204,21,0.14);
-        color: var(--color-text-400);
-        font: inherit;
-        font-size: 10px;
-        padding: 0 4px;
-        cursor: pointer;
-      }
-      .refx-remark-chip:hover,
-      .refx-remark-chip:focus-visible {
-        background: rgba(250,204,21,0.24);
-      }
-      .refx-remark-chip-pen {
-        flex: 0 0 auto;
-        color: rgb(202,138,4);
-        font-size: 9px;
-      }
-      .refx-remark-chip-text {
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .refx-remark-chips-more {
-        align-self: center;
-        color: var(--color-text-600);
-        font-size: 9.5px;
-      }
-
-      /* v4.41.0 collapsible Block Context strip */
-      .trc-ref-popover-context-label-row,
-      .refx-inline-refs-context-label-row {
-        display: flex;
-        align-items: baseline;
-        gap: 4px;
-      }
-      .trc-ref-popover-context-label-row .trc-ref-popover-context-label,
-      .refx-inline-refs-context-label-row .refx-inline-refs-context-label {
-        flex: 1 1 auto;
-        min-width: 0;
-      }
-      .refx-ctxstrip-twist {
-        flex: 0 0 auto;
-        cursor: pointer;
-        font-size: 9px;
-        width: 11px;
-        text-align: center;
-        color: var(--color-text-600);
-        user-select: none;
-        align-self: center;
-        border: 0;
-        padding: 0;
-        background: transparent;
-      }
-      .refx-ctxstrip-twist:hover { color: var(--color-text-400); }
-      /* collapsed Block Context label row dims to signal the hidden rows */
-      .refx-ctxstrip-collapsed { opacity: 0.72; }
-      .refx-ref-outline-refnode > .refx-ref-context-children {
-        margin-left: 18px;
-        padding-left: 8px;
-        border-left: 1px solid var(--cards-border-color);
-      }
-      .refx-inline-refs-context-rows .refx-inline-refs-group-count,
-      .refx-inline-refs-context-rows .refx-inline-refs-group-header-actions,
-      .trc-ref-popover-context-rows .refx-inline-refs-group-count,
-      .trc-ref-popover-context-rows .refx-inline-refs-group-header-actions {
-        display: none;
-      }
-      .refx-inline-refs-context-rows .refx-inline-refs-group,
-      .trc-ref-popover-context-rows .refx-inline-refs-group {
-        margin-top: 0;
-        border-top: 0;
-      }
-      .refx-ref-outline-label.refx-ref-outline-media .refx-preview-media-card,
-      .refx-ref-sibling-row .refx-preview-media-card {
-        max-width: 220px;
-      }
-      .refx-ref-context-children { margin-left: 8px; }
-      .refx-ref-children-heading { margin-left: 8px; }
 
       /* collapsed-summary line (first child + "+N more") next to its fold twisty */
       .refx-ref-child-summary {
@@ -31384,22 +32096,6 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         text-overflow: ellipsis;
         white-space: nowrap;
       }
-
-      /* v3.36.0: fold twisty ON THE REF LINE — collapses the whole child region
-         away (Roam ▾ shown / ▸ hidden). Sits just left of the ref text. */
-      .refx-ref-childfold {
-        cursor: pointer;
-        font-size: 9px;
-        margin-right: 4px;
-        color: var(--color-text-600);
-        user-select: none;
-        display: inline-block;
-        width: 10px;
-        border: 0;
-        padding: 0;
-        background: transparent;
-      }
-      .refx-ref-childfold:hover { color: var(--color-text-400); }
 
       .refx-ref-child-twist {
         cursor: pointer;
@@ -31436,6 +32132,30 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
          only; does not affect editor chips or badge counters. */
       .trc-ref-popover-fulltext .tlr-seg-ref::after,
       .refx-inline-refs .trc-ref-popover-fulltext .tlr-seg-ref::after {
+        content: ' ';
+      }
+
+      /* v4.52.2: RefX-owned chips inside reference rows (no Backreferences bridge). */
+      .refx-own-chip.lineitem-ref,
+      .refx-own-chip.lineitem-linkobj { cursor: pointer; }
+      .refx-own-chip.lineitem-hashtag { opacity: .85; }
+      .refx-own-chip.lineitem-datetime { opacity: .85; }
+      .refx-inline-refs .lineitem-ref.refx-own-chip.refx-pageref-chip,
+      .trc-ref-popover-fulltext .lineitem-ref.refx-own-chip.refx-pageref-chip,
+      .refx-wb-tree-text .lineitem-ref.refx-own-chip.refx-pageref-chip {
+        color: var(--refx-page-link-color, #106ba3);
+      }
+      .refx-inline-refs .lineitem-ref.refx-own-chip.refx-lineref-chip,
+      .trc-ref-popover-fulltext .lineitem-ref.refx-own-chip.refx-lineref-chip,
+      .refx-wb-tree-text .lineitem-ref.refx-own-chip.refx-lineref-chip {
+        color: var(--refx-line-link-color, var(--button-primary-bg-color, #397f84));
+      }
+      .trc-ref-popover-fulltext .refx-own-chip.lineitem-ref::after,
+      .trc-ref-popover-fulltext .refx-own-chip.lineitem-linkobj::after,
+      .refx-wb-tree-text .refx-own-chip.lineitem-ref::after,
+      .refx-wb-tree-text .refx-own-chip.lineitem-linkobj::after,
+      .refx-inline-refs .trc-ref-popover-fulltext .refx-own-chip.lineitem-ref::after,
+      .refx-inline-refs .trc-ref-popover-fulltext .refx-own-chip.lineitem-linkobj::after {
         content: ' ';
       }
 
@@ -31656,14 +32376,16 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       state.nativePickerDeferredLines?.clear?.();
       if (deferred.size && this._enabled) this.scheduleRescanLines(state, deferred);
     };
+    const options = { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'data-guid', 'style'], attributeOldValue: true };
     const observer = new MutationObserver((mutations) => {
-      if (mutations?.length && mutations.every((m) => this._pickerOnlyMutation(m))) return;
+      this._moGuardCallback('panel', mutations || [], { obs: observer, target: panelEl, options, ctx: { state } }, (muts, budgetStart) => {
+      if (muts?.length && muts.every((m) => this._pickerOnlyMutation(m))) return;
       // Do not blanket-drop mutations during a post-paint quiet window. Our own
       // decorator nodes are already rejected by nodeHasReferenceHint, while a
       // genuine native ref chip / backlink pill / task rerender can land inside
       // this 140-180ms interval. The old early return lost that only signal and
       // left badges/checkboxes absent until a manual re-index.
-      const lines = this._mutatedLines(mutations);
+      const lines = this._mutatedLines(muts, budgetStart);
       // Native suggestion-only mutations have no committed line and no queued
       // reconciliation. Reject them before even querying picker state.
       if (!lines.size && !state.nativePickerDeferredLines?.size) return;
@@ -31684,7 +32406,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       // subtree before suppressing badge/count work: scanning every chip on every
       // line in a mixed mutation batch turned one ref mutation into hundreds of
       // host lookups. The debounced scoped rescan remains the final reconciliation.
-      this._tagReferenceChipsFromMutations(mutations);
+      this._tagReferenceChipsFromMutations(muts);
       // v3.24.0 caret-shift fix: while the (( / [[ picker (or a modal) is open,
       // do no decorator/count work. Re-inserting badge/glyph DOM into the live
       // caret line is what can move the cursor; class-only tagging above is safe.
@@ -31710,6 +32432,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         // scoped reconciliation timer.
         if (this._enabled && this._targetLineBadges && this._excludeCollections.size === 0) {
           for (const lineEl of lines) {
+            if (this._moBudgetExceeded(budgetStart)) { this._scheduleCoalescedRescan('panel', { state }); break; }
             const guid = (lineEl.getAttribute('data-guid') || '').trim();
             const n = guid && this._nativePillCount(lineEl);
             if (n >= this._minCount) this.upsertTargetBadge(lineEl, guid, { count: n, capped: false });
@@ -31717,13 +32440,11 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         }
         if (this._enabled) this.scheduleRescanLines(state, lines);
       }
+      if (this._moBudgetExceeded(budgetStart)) this._scheduleCoalescedRescan('panel', { state });
+      });
     });
 
-    observer.observe(panelEl, {
-      childList: true,
-      characterData: true,
-      subtree: true
-    });
+    observer.observe(panelEl, options);
     state.observer = observer;
     state.observerEl = panelEl;
   }
@@ -31840,19 +32561,32 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     const popoverOpts = { preferAbove: !!(wrap.closest && wrap.closest('.listitem-transclusion')) };
     const pop = document.createElement('div');
     pop.className = 'trc-ref-popover';
+    this._wireRefSurfaceChipNav(pop);
 
     const header = document.createElement('div');
     header.className = 'trc-ref-popover-header';
-    header.textContent = `References to ${this.getOrLoadRecordName(guid)}`;
+    // v4.51.2: a line target names itself by its text (a guid is not a name);
+    // record targets keep the live record name.
+    let popTitle = '';
+    try { if (this._isLineRefTarget(guid)) popTitle = String(this._resolveRefTargetText(guid, 0) || '').trim(); } catch (e) { popTitle = ''; }
+    if (!popTitle && hostNodePre && this._isLineRefTarget(guid)) {
+      // v4.51.3: the resolver is cold on a fresh launch; the badge's own host
+      // line is on screen, so read its text and skip plugin decorators.
+      try {
+        const textEl = hostNodePre.querySelector('.listitem-text') || hostNodePre.querySelector('.line-div') || hostNodePre;
+        const clone = textEl.cloneNode(true);
+        // Decorators nest below the first child level (the count badge sits
+        // inside a wrap), so strip them from a detached clone, never the live line.
+        // Thymer's own chrome sits in the line too: the native backlink pill
+        // (`line-button.lineitem-backlink-pill`, text = the count) and any
+        // other line-button. Strip those with the plugin decorators.
+        for (const n of clone.querySelectorAll('[class*="trc-"], [class*="refx-"], .lineitem-backlink-pill, line-button')) n.remove();
+        popTitle = String(clone.textContent || '').replace(/\s+/g, ' ').trim();
+      } catch (e) { popTitle = ''; }
+    }
+    if (!popTitle) popTitle = this.getOrLoadRecordName(guid);
+    header.textContent = `References to ${popTitle.length > 80 ? popTitle.slice(0, 80) + '…' : popTitle}`;
     pop.appendChild(header);
-
-    // v4.40.0: same Block Context strip, same line-target gate. v4.40.1: it is
-    // a normal reference row, matching the rows it sits above.
-    const contextHostLineGuid = wrap.closest?.('.listitem')?.getAttribute?.('data-guid') || null;
-    const contextSection = this._isLineRefTarget(guid)
-      ? this._buildRefRowContextStrip('trc-ref-popover-context')
-      : null;
-    if (contextSection) pop.appendChild(contextSection);
 
     const loading = document.createElement('div');
     loading.className = 'trc-ref-popover-loading';
@@ -31863,37 +32597,6 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     this._popoverEl = pop;
     this._popoverGuid = guid;
     this.positionRefPopover(pop, anchorRect, popoverOpts);
-    if (contextSection) {
-      const hydratePopoverContext = () => Promise.resolve(this._hydrateRefRowContext(contextSection, guid, {
-        rowsClass: 'trc-ref-popover-context-rows',
-        alive: () => this._popoverEl === pop && this._popoverGen === myGen,
-        // Mirrors this surface's own rows: embeds when a host line exists, and
-        // never edits (a popover row can't host the textarea editor).
-        hostLineGuid: contextHostLineGuid,
-        canEdit: false,
-        onEmbed: contextHostLineGuid
-          ? ((g) => { this.closeRefPopover(); this._bridgeCreateEmbed(contextHostLineGuid, g); })
-          : null,
-        actionsFor: (line) => {
-          const actions = [
-            { label: '↗', title: 'Jump to line', fn: () => { this.closeRefPopover(); this._bridgeJump(line?.guid || '', {}); } },
-            { label: '◧', title: 'Open in side panel', fn: () => { this.closeRefPopover(); this._bridgeJump(line?.guid || '', { newPanel: true }); } },
-          ];
-          if (contextHostLineGuid) {
-            actions.push({
-              label: '⤵',
-              title: 'Embed here',
-              fn: () => { this.closeRefPopover(); this._bridgeCreateEmbed(contextHostLineGuid, line?.guid || ''); },
-            });
-          }
-          return actions;
-        },
-      })).catch((error) => this._recordRefxError(error, 'ref popover context hydration'));
-      // While the fold pref is collapsed the strip defers hydration; the
-      // twisty's first expand runs this same closure (see the strip builder).
-      if (this.loadBoolSetting('refx_ctx_start_collapsed_v1', true)) contextSection._refxHydrateOnExpand = hydratePopoverContext;
-      else hydratePopoverContext();
-    }
 
     // Yield a full task before starting searchByQuery. Some SDK implementations
     // do substantial synchronous work before returning their Promise; merely
@@ -31971,6 +32674,13 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     const contextSourceCap = 20;
     const contextSources = new Set();
     const contextJobs = [];
+    if (this._isLineRefTarget(guid)) {
+      await this._appendRefHomeRow(pop, guid, ctx, {
+        jumpFn: (g) => { this.closeRefPopover(); this._bridgeJump(g, {}); },
+        onCrumbJump: (g) => { this.closeRefPopover(); this._bridgeJump(g, {}); },
+      });
+      if (items.length > 0) this._appendRefHomeSep(pop);
+    }
     for (const line of items.slice(0, maxItems)) {
       const sourceRecordGuid = line?.record?.guid || '';
       const actions = [
@@ -32076,9 +32786,121 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     return '';
   }
 
+  _validOwnChipGuid(guid) {
+    return typeof guid === 'string' && /^[A-Za-z0-9_-]{6,64}$/.test(guid);
+  }
+
+  _ownChipSegmentNode(seg) {
+    if (!seg) return null;
+    const type = seg.type;
+    const raw = seg.text;
+    if (type === 'text' || type === 'bold' || type === 'italic' || type === 'code' || type === 'strike') {
+      const txt = typeof raw === 'string' ? this._scrubGuidTokens(raw) : this._scrubGuidTokens(String(raw || ''));
+      if (!txt) return null;
+      if (type === 'text') return document.createTextNode(txt);
+      const wrap = document.createElement(type === 'code' ? 'code' : (type === 'bold' ? 'b' : (type === 'italic' ? 'i' : 's')));
+      wrap.textContent = txt;
+      return wrap;
+    }
+    if (type === 'ref') {
+      const t = typeof raw === 'string' ? { guid: raw } : (raw || {});
+      const guid = typeof t.guid === 'string' ? t.guid : (typeof raw === 'string' ? raw : '');
+      if (!this._validOwnChipGuid(guid)) return document.createTextNode(this._cleanDisplayText([seg]));
+      const title = typeof t.title === 'string' ? t.title : '';
+      const label = (title && !this._hasGuidToken(title) ? title : '')
+        || this._resolveRefTargetText(guid, 0)
+        || this.getOrLoadRecordName(guid)
+        || guid.slice(-6);
+      const span = document.createElement('span');
+      span.className = 'lineitem-ref clickable refx-own-chip';
+      span.setAttribute('data-guid', guid);
+      span.textContent = label;
+      return span;
+    }
+    if (type === 'linkobj') {
+      let guid = null;
+      let title = '';
+      if (typeof raw === 'string') {
+        if (this._validOwnChipGuid(raw)) guid = raw;
+        else title = raw;
+      } else if (raw && typeof raw === 'object') {
+        guid = raw.guid || (raw.text && typeof raw.text === 'object' ? raw.text.guid : null) || null;
+        title = raw.title || raw.name || raw.link || '';
+        if (typeof raw.text === 'string') title = title || raw.text;
+        else if (raw.text && typeof raw.text === 'object') title = title || raw.text.title || raw.text.text || '';
+      }
+      if (guid && this._validOwnChipGuid(guid)) {
+        const span = document.createElement('span');
+        span.className = 'lineitem-linkobj refx-own-chip';
+        span.setAttribute('data-guid', guid);
+        span.textContent = String(title || this.getOrLoadRecordName(guid) || guid.slice(-6));
+        return span;
+      }
+      const plain = title || this._cleanDisplayText([seg]);
+      return plain ? document.createTextNode(plain) : null;
+    }
+    if (type === 'hashtag') {
+      const tag = typeof raw === 'string' ? raw : (raw?.text || raw?.title || '');
+      const span = document.createElement('span');
+      span.className = 'lineitem-hashtag refx-own-chip';
+      span.textContent = String(tag || '').startsWith('#') ? String(tag) : ('#' + String(tag || ''));
+      return span;
+    }
+    if (type === 'datetime') {
+      const span = document.createElement('span');
+      span.className = 'lineitem-datetime refx-own-chip';
+      span.textContent = this._dateSegmentText(raw);
+      return span;
+    }
+    if (type === 'mention') {
+      const g = typeof raw === 'string' ? raw : (raw?.guid || '');
+      const span = document.createElement('span');
+      span.className = 'lineitem-mention refx-own-chip';
+      span.textContent = '@' + this._userDisplayName(g);
+      return span;
+    }
+    const fallback = this._cleanDisplayText([seg]);
+    return fallback ? document.createTextNode(fallback) : null;
+  }
+
+  _ownChipNodeIsChip(node) {
+    return !!(node && node.nodeType === 1 && node.classList && node.classList.contains('refx-own-chip'));
+  }
+
+  _ownChipSegmentLeadingText(seg) {
+    if (!seg) return '';
+    const type = seg.type;
+    if (type === 'text' || type === 'bold' || type === 'italic' || type === 'code' || type === 'strike') {
+      const raw = seg.text;
+      return typeof raw === 'string' ? raw : String(raw || '');
+    }
+    return '';
+  }
+
+  _renderSegmentsOwn(el, segments) {
+    if (!el) return;
+    el.textContent = '';
+    const segs = segments || [];
+    let prevNode = null;
+    for (let i = 0; i < segs.length; i++) {
+      const node = this._ownChipSegmentNode(segs[i]);
+      if (!node) continue;
+      if (prevNode && this._ownChipNodeIsChip(prevNode)) {
+        const nextIsChip = this._ownChipNodeIsChip(node);
+        const nextText = nextIsChip ? '' : this._ownChipSegmentLeadingText(segs[i]);
+        if (nextIsChip || (nextText && !/^\s/.test(nextText))) {
+          el.appendChild(document.createTextNode(' '));
+        }
+      }
+      el.appendChild(node);
+      prevNode = node;
+    }
+    this._tagReferenceChipsIn(el);
+  }
+
   // Render a referencing line's text into `el`. If a sibling plugin exports a
   // rich segment renderer (window.__thymerBackrefs.renderSegments), use it —
-  // it draws real chips/dates; otherwise fall back to plain _displayText.
+  // it draws real chips/dates; otherwise paint chips ourselves.
   _renderRefLineText(el, segments) {
     try {
       const rs = window.__thymerBackrefs && window.__thymerBackrefs.renderSegments;
@@ -32088,10 +32910,15 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         if (typeof out === 'string' && out) { el.textContent = out; return; }
       }
     } catch (e) {}
+    const canBuildNodes = typeof document !== 'undefined'
+      && typeof document.createElement === 'function'
+      && typeof document.createTextNode === 'function';
+    if (canBuildNodes) {
+      this._renderSegmentsOwn(el, segments);
+      if (String(el.textContent || '').trim()) return;
+    }
     // Bug A fallback: _cleanDisplayText join("") loses the space between a ref chip
     // and the following text segment when the segment data has no separator character.
-    // Build with a spaced join: insert one space when a ref/linkobj segment is followed
-    // by a text segment that doesn't already start with whitespace.
     const segs = segments || [];
     const parts = segs.map((s, i) => {
       const t = this._cleanDisplayText([s]);
@@ -32310,6 +33137,12 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     setTimeout(() => document.addEventListener("mousedown", close, true), 0);
   }
 
+  _ensureElDataset(el) {
+    if (!el) return el;
+    try { if (!el.dataset) el.dataset = {}; } catch (e) {}
+    return el;
+  }
+
   _buildRefContextRow(line, opts) {
     const o = opts || {};
     const sourceRecordGuid = line?.record?.guid || '';
@@ -32321,6 +33154,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     btn.tabIndex = 0;
     btn.setAttribute('role', 'group');
     btn.setAttribute('aria-label', 'Linked reference context');
+    if (o.showRecordCrumb) btn.__refxShowRecordCrumb = true;
 
     const rowTop = document.createElement('span');
     rowTop.className = 'trc-ref-popover-item-top';
@@ -32335,16 +33169,12 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       recEl.textContent = sourceRecordGuid ? this.getOrLoadRecordName(sourceRecordGuid) : 'Unknown record';
       if (canJump) {
         recEl.classList.add('trc-ref-popover-crumb-parent');
-        recEl.title = 'Open record';
-        recEl.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); o.onCrumbJump(sourceRecordGuid); });
+        recEl.title = 'Zoom to page';
+        this._ensureElDataset(recEl).dataset.guid = sourceRecordGuid;
       }
       crumbEl.appendChild(recEl);
     }
     rowTop.appendChild(crumbEl);
-
-    // A5: subtle "when this line was created" stamp (relative, absolute on hover).
-    const tsEl = this._mkTimestampSpan(line);
-    if (tsEl) rowTop.appendChild(tsEl);
 
     const actionsEl = document.createElement('span');
     actionsEl.className = 'trc-ref-popover-actions';
@@ -32354,6 +33184,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
 
     const fullEl = document.createElement('span');
     fullEl.className = 'trc-ref-popover-fulltext';
+    this._ensureElDataset(fullEl);
     let segments = [];
     try { segments = line?.getSegments?.() || line?.segments || []; } catch (e) {}
     const media = this._mediaLineInfo(line);
@@ -32400,6 +33231,9 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     // already work in place). Navigation now lives on an explicit ↗ action
     // (see call sites / _mkRefRowAction). `o.onClick` is retained by callers
     // as the jump fn they feed into that action, but the row itself never wires it.
+    if (typeof o.onCrumbJump === 'function') btn.__refxOnCrumbJump = o.onCrumbJump;
+    btn.__refxActionsEl = actionsEl;
+    this._wireRefRowZoomClicks(btn);
 
     return { rowEl: btn, rowTopEl: rowTop, actionsEl, crumbEl, fullEl, childBox };
   }
@@ -32811,313 +33645,20 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     return { target, chain, parent, siblings, siblingSelfGuid: forRender ? lineGuid : '', tree };
   }
 
-  // ── v4.41.0 REMARKS IN BLOCK CONTEXT ──────────────────────────────────────
-  // A lazy cached SourceLine → [remark] map over the Remarks collection. The
-  // map builds on the FIRST Block Context render (never at onLoad, zero
-  // timers), refreshes only from Remarks-collection record events, and reads
-  // remark bodies lazily per RENDERED remark only (cached). The chip on a
-  // referencing line's row is the relational read-back: a comment made on a
-  // block that references this one is visible from this block's context.
-
-  _remarkLineRefPropNames() {
-    if (this._remarkPropNameSet) return this._remarkPropNameSet;
-    // Honor the CONFIGURED property list (default ["Source Line"]) even when
-    // the badge-counting toggle is off — chips are their own feature, but they
-    // read the same property convention. The documented kill switch is part of
-    // that convention: lineRefProperties = false or [] normalizes to an EMPTY
-    // configured list, and an empty list makes the chips feature fully inert
-    // (plugin.json's "Set it to [] or false to disable (zero cost…)" promise).
-    if (!this._lineRefPropsConfigured?.length) {
-      this._remarkPropNameSet = new Set();
-      return this._remarkPropNameSet;
-    }
-    this._remarkPropNameSet = new Set(this._lineRefPropsConfigured.map((n) => String(n).trim().toLowerCase()).filter(Boolean));
-    return this._remarkPropNameSet;
+  // Identity guid of a crumb: the guid when the item's non-whitespace segments are
+  // exactly one `ref`; otherwise null. Used to drop redundant path crumbs.
+  _crumbIdentity(item) {
+    const segs = (item?.segments || []).filter((s) => s && !(s.type === 'text' && !String(s.text || '').trim()));
+    if (segs.length !== 1 || segs[0].type !== 'ref') return null;
+    const raw = segs[0].text;
+    const guid = typeof raw === 'string' ? raw : (raw && raw.guid) || '';
+    return guid || null;
   }
 
-  // ONE getAllProperties() pass per remark record yields both the line guids
-  // held by its line-ref properties (org-remark's "Source Line") and its
-  // excerpt text. Raw values go through the shared normalizer — GUID strings,
-  // {guid} objects, and JSON-stringified arrays all resolve. The warm event
-  // path runs this per Remarks event, so the passes are deliberately merged.
-  _remarkScanProps(rec) {
-    const lines = new Set();
-    let excerpt = '';
-    let props = [];
-    try { props = rec?.getAllProperties?.() || []; } catch (e) {}
-    const names = this._remarkLineRefPropNames();
-    for (const prop of props || []) {
-      const pname = (prop && prop.name) ? String(prop.name).trim().toLowerCase() : '';
-      if (!pname) continue;
-      if (names.has(pname)) {
-        for (const value of this.getPropertyCandidateValues(prop)) {
-          if (this.looksLikeGuid(value)) lines.add(value);
-        }
-      } else if (pname === 'excerpt' && !excerpt) {
-        for (const value of this.getPropertyCandidateValues(prop)) {
-          const t = String(value || '').trim();
-          if (t && !this.looksLikeGuid(t)) { excerpt = t; break; }
-        }
-      }
-    }
-    return { lines, excerpt };
-  }
-
-  async _ensureRemarksIndex() {
-    this.ensureRuntimeState();
-    if (this._remarksIndex) return this._remarksIndex;
-    if (this._remarksIndexPromise) return this._remarksIndexPromise;
-    const job = (async () => {
-      const bySourceLine = new Map();
-      const byRecord = new Map();
-      // Identity fence: a reload/unload during the build bumps the generation
-      // (and unload sets _unloaded), so a late settle can NEVER resurrect the
-      // pre-teardown map. Same pattern as _lineRefContextGeneration.
-      const gen = this._remarksGeneration;
-      try {
-        // The kill switch makes the whole feature inert: an empty property set
-        // skips even the one-per-session collection enumeration (zero cost).
-        if (this._remarkLineRefPropNames().size) {
-          // The existing collection-read pattern: enumerate collections once,
-          // find the Remarks collection, read records + their "Source Line"
-          // props. No body reads here — bodies load per rendered remark only.
-          let collections = [];
-          try { collections = await this.data.getAllCollections(); } catch (e) {}
-          const colGuid = this._remarksCollectionGuid;
-          const col = (collections || []).find((c) => {
-            const g = c?.guid || (typeof c?.getGuid === 'function' ? c.getGuid() : '');
-            return g === colGuid;
-          }) || (collections || []).find((c) => {
-            try { return String(c?.getName?.() || '').trim().toLowerCase() === 'remarks'; } catch (e) { return false; }
-          });
-          if (col) {
-            let records = [];
-            try {
-              let r = col.getAllRecords?.();
-              if (r && typeof r.then === 'function') r = await r;
-              if (Array.isArray(r)) records = r;
-            } catch (e) {}
-            for (const rec of records) {
-              const recGuid = rec?.guid || '';
-              if (!recGuid) continue;
-              const scan = this._remarkScanProps(rec);
-              if (!scan.lines.size) continue;
-              byRecord.set(recGuid, scan.lines);
-              for (const lineGuid of scan.lines) {
-                let arr = bySourceLine.get(lineGuid);
-                if (!arr) { arr = []; bySourceLine.set(lineGuid, arr); }
-                arr.push({ recordGuid: recGuid, excerpt: scan.excerpt });
-              }
-            }
-          }
-        }
-      } catch (error) {
-        this._recordRefxError(error, 'remarks index build');
-      }
-      if (!this._unloaded && gen === this._remarksGeneration) {
-        this._remarksIndex = { builtAt: Date.now(), bySourceLine, byRecord };
-      }
-      return this._remarksIndex;
-    })().finally(() => { this._remarksIndexPromise = null; });
-    this._remarksIndexPromise = job;
-    return job;
-  }
-
-  // Payload-filtered Remarks-collection routing, called from the existing
-  // record.created/updated/moved host handlers (no extra subscriptions — the
-  // handlers already carry the hot-reload-safe __refxHostEvents lifecycle).
-  // Record events arrive FLAT ({eventName, source, collectionGuid,
-  // recordGuid, ...}) and record.moved is unscoped, so membership is decided
-  // from the payload, never from the subscription. Events before the first
-  // lazy build are no-ops: the build reads full truth anyway.
-  _remarksRecordEvent(recordGuid, ev, kind, collectionGuid = '') {
-    if (!recordGuid || !this._remarksIndex) return;
-    const colGuid = this._remarksCollectionGuid;
-    if (kind === 'moved') {
-      const dest = String(collectionGuid || ev?.collectionGuid || ev?.targetCollectionGuid || '');
-      if (dest === colGuid) { this._patchRemarksIndexRecord(recordGuid); return; }
-      if (this._remarksIndex.byRecord.has(recordGuid)) this._removeRemarksIndexRecord(recordGuid);
-      return;
-    }
-    // FAIL CLOSED: a created/updated payload WITHOUT a collection identity is
-    // NOT treated as a Remarks event. record.updated streams per keystroke
-    // workspace-wide, so a foreign event must cost zero record/property reads.
-    // The fallback is _recordCollectionIndex — a plain in-memory Map
-    // (recordGuid → collection guid), already maintained by the host handlers;
-    // records it has never seen resolve to '' and are ignored.
-    const col = String(ev?.collectionGuid || ev?.parentGuid || this._recordCollectionIndex?.get?.(recordGuid) || '');
-    if (col !== colGuid) return;
-    if (ev?.trashed === true) { this._removeRemarksIndexRecord(recordGuid); return; }
-    this._patchRemarksIndexRecord(recordGuid);
-  }
-
-  _patchRemarksIndexRecord(recordGuid) {
-    const idx = this._remarksIndex;
-    if (!idx) return;
-    let rec = null;
-    try { rec = this.data.getRecord(recordGuid); } catch (e) {}
-    if (!rec) { this._removeRemarksIndexRecord(recordGuid); return; }
-    const scan = this._remarkScanProps(rec);
-    const next = scan.lines;
-    const excerpt = scan.excerpt;
-    const prev = idx.byRecord.get(recordGuid) || null;
-    const affected = new Set([...(prev || []), ...next]);
-    if (next.size) idx.byRecord.set(recordGuid, next);
-    else idx.byRecord.delete(recordGuid);
-    for (const lineGuid of prev || []) {
-      if (next.has(lineGuid)) continue;
-      const arr = idx.bySourceLine.get(lineGuid);
-      if (!arr) continue;
-      const kept = arr.filter((entry) => entry.recordGuid !== recordGuid);
-      if (kept.length) idx.bySourceLine.set(lineGuid, kept);
-      else idx.bySourceLine.delete(lineGuid);
-    }
-    for (const lineGuid of next) {
-      let arr = idx.bySourceLine.get(lineGuid);
-      if (!arr) { arr = []; idx.bySourceLine.set(lineGuid, arr); }
-      const existing = arr.find((entry) => entry.recordGuid === recordGuid);
-      if (existing) existing.excerpt = excerpt;
-      else arr.push({ recordGuid, excerpt });
-    }
-    // The remark's body may have changed with the event — drop the cached
-    // first line so the next render re-reads it (bounded, per rendered remark).
-    this._remarkBodyCache?.delete(recordGuid);
-    this._refreshRenderedRemarkChips(affected);
-  }
-
-  _removeRemarksIndexRecord(recordGuid) {
-    const idx = this._remarksIndex;
-    if (!idx) return;
-    const prev = idx.byRecord.get(recordGuid);
-    this._remarkBodyCache?.delete(recordGuid);
-    if (!prev) return;
-    idx.byRecord.delete(recordGuid);
-    for (const lineGuid of prev) {
-      const arr = idx.bySourceLine.get(lineGuid);
-      if (!arr) continue;
-      const kept = arr.filter((entry) => entry.recordGuid !== recordGuid);
-      if (kept.length) idx.bySourceLine.set(lineGuid, kept);
-      else idx.bySourceLine.delete(lineGuid);
-    }
-    this._refreshRenderedRemarkChips(prev);
-  }
-
-  // Bounded lazy body read — the first non-empty body line of ONE remark that
-  // is actually being rendered ("doing this tonight."), capped per remark
-  // record. Structure-only read, same getLineItems(false) the rows use. The
-  // cap eviction is FIFO (oldest-INSERTED out; hits don't re-insert) — not
-  // LRU; bounded either way. A transient getLineItems failure caches NOTHING,
-  // so the next render retries instead of pinning an empty Excerpt forever.
-  async _remarkFirstBodyLine(recordGuid) {
-    const cache = this._remarkBodyCache;
-    if (cache && cache.has(recordGuid)) return cache.get(recordGuid);
-    let text = '';
-    let failed = false;
-    try {
-      const rec = this.data.getRecord(recordGuid);
-      if (rec && typeof rec.getLineItems === 'function') {
-        let items = [];
-        try { items = await rec.getLineItems(false); } catch (e) { failed = true; }
-        for (const it of items || []) {
-          const t = this._cleanDisplayText((it && it.segments) || []).trim();
-          if (t) { text = t; break; }
-        }
-      }
-    } catch (e) { failed = true; }
-    if (cache && !failed) {
-      if (cache.size >= (this._remarkBodyCacheMax || 500)) {
-        const oldest = cache.keys().next().value;
-        if (oldest != null) cache.delete(oldest);
-      }
-      cache.set(recordGuid, text);
-    }
-    return text;
-  }
-
-  _buildRemarkChip(remark, ctx) {
-    const chip = this._el('button', 'refx-remark-chip');
-    chip.type = 'button';
-    chip.setAttribute('data-refx-remark', remark.recordGuid);
-    const initial = String(remark.excerpt || '').trim();
-    chip.append(this._el('span', 'refx-remark-chip-pen', '✎'));
-    const textEl = this._el('span', 'refx-remark-chip-text',
-      initial ? (initial.length > 80 ? initial.slice(0, 80) + '…' : initial) : 'remark');
-    chip.append(textEl);
-    chip.title = 'Open remark';
-    // Swallow the press so it never reaches the surface/task handling, then
-    // open the remark record through the shared record-open convention.
-    chip.addEventListener('mousedown', (ev) => { ev.preventDefault(); ev.stopPropagation(); });
-    chip.addEventListener('click', (ev) => {
-      ev.preventDefault(); ev.stopPropagation();
-      try { if (this._popoverEl && this._popoverEl.contains && this._popoverEl.contains(chip)) this.closeRefPopover(); } catch (e) {}
-      this._openRecord(remark.recordGuid);
-    });
-    this._remarkFirstBodyLine(remark.recordGuid).then((text) => {
-      if (this._unloaded) return;
-      if (ctx && ctx.alive && !ctx.alive()) return;
-      if (!chip.isConnected) return;
-      const t = String(text || '').trim();
-      if (!t) return;
-      textEl.textContent = t.length > 80 ? t.slice(0, 80) + '…' : t;
-      chip.title = 'Open remark — ' + (t.length > 160 ? t.slice(0, 160) + '…' : t);
-    }).catch((error) => { this._recordRefxError(error, 'remark chip body'); });
-    return chip;
-  }
-
-  _fillRemarkChipsWrap(wrap, lineGuid, ctx) {
-    const remarks = this._remarksIndex?.bySourceLine?.get(lineGuid) || [];
-    wrap.replaceChildren();
-    const CAP = 6;
-    for (const remark of remarks.slice(0, CAP)) wrap.append(this._buildRemarkChip(remark, ctx));
-    if (remarks.length > CAP) {
-      wrap.append(this._el('span', 'refx-remark-chips-more', `+${remarks.length - CAP} remarks`));
-    }
-    // A line whose remarks all vanished loses its wrap entirely.
-    if (!wrap.children.length && wrap.parentNode) wrap.remove();
-  }
-
-  _buildRemarkChipsForLine(lineGuid, ctx) {
-    const remarks = this._remarksIndex?.bySourceLine?.get(lineGuid) || [];
-    if (!remarks.length) return null;
-    const wrap = this._el('div', 'refx-remark-chips');
-    wrap.setAttribute('data-refx-remark-line', lineGuid);
-    wrap._refxRemarkCtx = ctx || null;
-    this._fillRemarkChipsWrap(wrap, lineGuid, ctx);
-    return wrap;
-  }
-
-  // Live re-fill of chips already on screen after a Remarks-collection event.
-  // Only EXISTING wraps refresh; a first-ever remark on a line with no wrap
-  // renders on the next context open (the map is the truth; open rows are not
-  // tracked by line guid).
-  _refreshRenderedRemarkChips(lineGuids) {
-    if (!lineGuids || !lineGuids.size || typeof document === 'undefined') return;
-    for (const lineGuid of lineGuids) {
-      const esc = (window.CSS && window.CSS.escape) ? window.CSS.escape(lineGuid) : lineGuid;
-      let wraps = [];
-      try { wraps = document.querySelectorAll('.refx-remark-chips[data-refx-remark-line="' + esc + '"]') || []; } catch (e) {}
-      for (const wrap of wraps || []) {
-        if (!wrap || !wrap.isConnected) continue;
-        this._fillRemarkChipsWrap(wrap, lineGuid, wrap._refxRemarkCtx || null);
-      }
-    }
-  }
-
-  // Async attach used by both chip surfaces (the Reference row's refNode and
-  // sibling rows): the shared lazy build resolves once, then chips land only
-  // if the host is still alive and connected.
-  _attachRemarkChips(parentEl, beforeEl, lineGuid, ctx) {
-    if (!parentEl || !lineGuid || this._unloaded) return;
-    this._ensureRemarksIndex().then(() => {
-      if (this._unloaded) return;
-      if (ctx && ctx.alive && !ctx.alive()) return;
-      if (!parentEl.isConnected) return;
-      if (parentEl.querySelector(':scope > .refx-remark-chips')) return; // already attached
-      const wrap = this._buildRemarkChipsForLine(lineGuid, ctx);
-      if (!wrap) return;
-      if (beforeEl && beforeEl.parentNode === parentEl) parentEl.insertBefore(wrap, beforeEl);
-      else parentEl.append(wrap);
-    }).catch((error) => { this._recordRefxError(error, 'remark chips attach'); });
+  // True when the line is nothing but a reference to targetGuid (Roam elides it as ○).
+  _isPureSelfRef(line, targetGuid) {
+    if (!line || !targetGuid) return false;
+    return this._crumbIdentity(line) === targetGuid;
   }
 
   _siblingRenderPlan(total, rendered) {
@@ -33127,106 +33668,682 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     return { next, cap, remainingAfter: Math.max(0, total - done - next) };
   }
 
-  _buildRefSiblingList(siblings, ctx, excludeGuid = '') {
-    const cache = ctx.siblingCache || (ctx.siblingCache = new Map());
-    let cached = cache.get(siblings);
-    if (!cached) {
-      const all = (siblings || []).filter((sib) => sib && (
-        this._isTaskLikeLine(sib)
-        || !!this._mediaLineInfo(sib)
-        || this._cleanDisplayText(sib.segments || []).trim()
-      ));
-      const indexByGuid = new Map();
-      for (let i = 0; i < all.length; i++) if (all[i]?.guid) indexByGuid.set(all[i].guid, i);
-      cached = { all, indexByGuid };
-      cache.set(siblings, cached);
-    }
-    const all = cached.all;
-    const excludedAt = excludeGuid && cached.indexByGuid.has(excludeGuid)
-      ? cached.indexByGuid.get(excludeGuid)
-      : -1;
-    const total = all.length - (excludedAt >= 0 ? 1 : 0);
-    if (!total) return null;
-    // Logical sibling slices skip the current line without allocating/filtering
-    // the entire peer array once per reference row.
-    const slice = (start, count) => {
-      const out = [];
-      const stop = Math.min(total, start + count);
-      for (let logical = start; logical < stop; logical++) {
-        const physical = excludedAt >= 0 && logical >= excludedAt ? logical + 1 : logical;
-        if (all[physical]) out.push(all[physical]);
+  _resolveLineOwnerGuid(targetGuid) {
+    if (!targetGuid) return '';
+    try {
+      const domOwner = this._pageGuidFromDom(targetGuid);
+      if (domOwner) return domOwner;
+    } catch (e) {}
+    try {
+      const hint = this._lineOwnerHints?.get?.(targetGuid);
+      if (hint) return hint;
+    } catch (e) {}
+    // The target's page is usually not open (a `((` chip points elsewhere), so
+    // the DOM has nothing; Thymer's live registry names the owning record.
+    try {
+      const st = ((window.g_universe && window.g_universe.itemsByGuid) || {})[targetGuid] || this._liveStateByGuid?.(targetGuid);
+      if (st && st.rguid) { this._lineOwnerHints?.set?.(targetGuid, st.rguid); return st.rguid; }
+    } catch (e) {}
+    return '';
+  }
+
+  _buildRefHomeLine(targetGuid) {
+    const ownerGuid = this._resolveLineOwnerGuid(targetGuid) || '';
+    let segments = [];
+    try {
+      const reg = (window.g_universe && window.g_universe.itemsByGuid) || {};
+      const st = reg[targetGuid];
+      const ts = st && st.text_segments;
+      if (Array.isArray(ts) && ts.length) {
+        for (let i = 0; i + 1 < ts.length; i += 2) {
+          const type = ts[i];
+          const payload = ts[i + 1];
+          if (type === 'text' || type === 'bold' || type === 'italic' || type === 'code') {
+            segments.push({ type, text: String(payload || '') });
+          } else if (type === 'ref' || type === 'linkobj') {
+            const g = typeof payload === 'string' ? payload : (payload && payload.guid) || '';
+            segments.push({ type, text: typeof payload === 'object' && payload ? payload : g });
+          } else if (type === 'mention' || type === 'datetime') {
+            segments.push({ type, text: payload });
+          }
+        }
       }
-      return out;
+    } catch (e) {}
+    if (!segments.length) {
+      try {
+        const title = String(this._resolveRefTargetText(targetGuid, 0) || '').trim();
+        if (title) segments = [{ type: 'text', text: title }];
+      } catch (e) {}
+    }
+    return { guid: targetGuid, record: { guid: ownerGuid }, segments };
+  }
+
+  async _appendRefHomeRow(container, targetGuid, ctx, opts = {}) {
+    if (!container || !targetGuid || !this._isLineRefTarget(targetGuid)) return false;
+    const homeLine = this._buildRefHomeLine(targetGuid);
+    const jumpFn = opts.jumpFn || ((g) => { this._bridgeJump(g, {}); });
+    const row = this._buildRefContextRow(homeLine, {
+      showRecordCrumb: true,
+      tag: 'div',
+      rowClass: 'refx-inline-refs-row refx-row-home',
+      actions: [{ label: '↗', title: 'Jump to line', fn: () => { jumpFn(targetGuid); } }],
+      onCrumbJump: opts.onCrumbJump || ((g) => { this._bridgeJump(g, {}); }),
+    });
+    container.appendChild(row.rowEl);
+    await this._fillRefContextRow(ctx, homeLine, row.crumbEl, row.childBox);
+    return true;
+  }
+
+  _appendRefHomeSep(container) {
+    if (!container) return;
+    container.appendChild(this._el('div', 'refx-home-sep'));
+  }
+
+  _wireRefRowZoomClicks(rowEl) {
+    if (!rowEl || rowEl.__refxZoomWired) return;
+    rowEl.__refxZoomWired = true;
+    rowEl.addEventListener('mousedown', (ev) => {
+      const t = ev.target?.closest?.('.trc-ref-popover-crumb-rec')
+        || ev.target?.closest?.('.trc-ref-popover-crumb-parent')
+        || ev.target?.closest?.('.refx-wb-tree-dot');
+      if (t) ev.preventDefault();
+    }, true);
+    rowEl.addEventListener('click', (ev) => {
+      if (ev.target?.closest?.('.trc-ref-crumb-acts') || ev.target?.closest?.('.trc-ref-popover-action') || ev.target?.closest?.('.refx-ref-rowfold') || ev.target?.closest?.('.refx-wb-act') || ev.target?.closest?.('.refx-wb-tree-acts')) return;
+      const ctx = rowEl.__refxCtx;
+      if (!ctx) return;
+      const dot = ev.target?.closest?.('.refx-wb-tree-dot');
+      if (dot) {
+        ev.preventDefault(); ev.stopPropagation();
+        const lineEl = dot.closest('.refx-wb-tree-line');
+        const rootGuid = lineEl?.dataset?.guid || '';
+        const zoom = rowEl.__refxZoom || {};
+        const sourceGuid = zoom.view?.sourceGuid || zoom.refSourceGuid || ctx.sourceRecordGuid || '';
+        if (!rootGuid || !sourceGuid) return;
+        if (ev.shiftKey) { this._bridgeJump(rootGuid, { newPanel: true }); return; }
+        if (ev.metaKey || ev.ctrlKey) { ctx.onJump(rootGuid); return; }
+        this._zoomRefRow(rowEl, ctx, { sourceGuid, rootGuid }).catch(() => {});
+        return;
+      }
+      const crumb = ev.target?.closest?.('.trc-ref-popover-crumb-rec')
+        || ev.target?.closest?.('.trc-ref-popover-crumb-parent');
+      if (!crumb) return;
+      if (ev.target?.closest?.('.trc-ref-crumb-acts')) return;
+      ev.preventDefault(); ev.stopPropagation();
+      const zoom = rowEl.__refxZoom || {};
+      let sourceGuid = zoom.view?.sourceGuid || zoom.refSourceGuid || ctx.sourceRecordGuid || '';
+      let rootGuid = null;
+      if (crumb.classList.contains('trc-ref-popover-crumb-rec')) {
+        sourceGuid = crumb.dataset?.guid || sourceGuid;
+        rootGuid = null;
+      } else {
+        rootGuid = crumb.dataset?.guid || '';
+        if (!rootGuid) return;
+      }
+      if (!sourceGuid) return;
+      const jumpGuid = rootGuid || sourceGuid;
+      if (ev.shiftKey) { this._bridgeJump(jumpGuid, { newPanel: true }); return; }
+      if (ev.metaKey || ev.ctrlKey) {
+        if (rootGuid === null && typeof rowEl.__refxOnCrumbJump === 'function') rowEl.__refxOnCrumbJump(sourceGuid);
+        else ctx.onJump(jumpGuid);
+        return;
+      }
+      this._zoomRefRow(rowEl, ctx, { sourceGuid, rootGuid }).catch(() => {});
+    }, true);
+  }
+
+  _refContentChipSelector() {
+    return '.lineitem-ref[data-guid], .tlr-seg-ref[data-ref-guid], .lineitem-linkobj[data-guid]';
+  }
+
+  _refChipGuid(chip) {
+    if (!chip) return '';
+    return chip.getAttribute('data-guid') || chip.getAttribute('data-ref-guid')
+      || chip.dataset?.guid || chip.dataset?.refGuid || '';
+  }
+
+  _refContentChipFromEvent(e) {
+    const t = e?.target;
+    if (!t?.closest) return null;
+    const chip = t.closest(this._refContentChipSelector());
+    if (!chip) return null;
+    if (chip.closest('.trc-ref-popover-crumb')) return null;
+    if (!chip.closest('.trc-ref-popover-fulltext') && !chip.closest('.refx-wb-tree-text')) return null;
+    return chip;
+  }
+
+  _wireRefSurfaceChipNav(root) {
+    if (!root || root.__refxChipNavWired || typeof root.addEventListener !== 'function') return;
+    root.__refxChipNavWired = true;
+    root.addEventListener('mousedown', (ev) => {
+      const chip = this._refContentChipFromEvent(ev);
+      if (!chip) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+    }, true);
+    root.addEventListener('click', (ev) => {
+      const count = ev.target?.closest?.('.refx-nested-count');
+      if (count) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const guid = count.dataset?.guid || '';
+        const row = count.closest('.trc-ref-popover-item');
+        const ctx = row?.__refxCtx;
+        if (guid && row && ctx) this._toggleRefNestedRefs(count, guid, row, ctx).catch(() => {});
+        return;
+      }
+      const chip = this._refContentChipFromEvent(ev);
+      if (!chip) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      const guid = this._refChipGuid(chip);
+      if (!guid) return;
+      const row = chip.closest('.trc-ref-popover-item');
+      const ctx = row?.__refxCtx;
+      if (!row || !ctx) return;
+      if (ev.shiftKey) { this._bridgeJump(guid, { newPanel: true }); return; }
+      if (ev.metaKey || ev.ctrlKey) { this._bridgeJump(guid, {}); return; }
+      if (this._isLineRefTarget(guid)) {
+        const ownerGuid = this._resolveLineOwnerGuid(guid);
+        if (ownerGuid) {
+          this._zoomRefRow(row, ctx, { sourceGuid: ownerGuid, rootGuid: guid }).catch(() => {});
+        } else {
+          this._bridgeJump(guid, {});
+        }
+      } else {
+        this._zoomRefRow(row, ctx, { sourceGuid: guid, rootGuid: null }).catch(() => {});
+      }
+    }, true);
+  }
+
+  _paintRefRowNestedCounts(row, ctx) {
+    if (!row || !ctx) return;
+    for (const old of row.querySelectorAll('.refx-nested-count')) {
+      try { old.remove(); } catch (e) {}
+    }
+    const depth = row.__refxNestDepth || 0;
+    if (depth >= 2) return;
+    row.__refxNestedCountGen = (row.__refxNestedCountGen || 0) + 1;
+    const token = row.__refxNestedCountGen;
+    const selector = this._refContentChipSelector();
+    const chips = [];
+    const seen = new Set();
+    for (const area of row.querySelectorAll('.trc-ref-popover-fulltext, .refx-wb-tree-text')) {
+      for (const chip of area.querySelectorAll(selector)) {
+        const guid = this._refChipGuid(chip);
+        if (!guid || seen.has(guid)) continue;
+        seen.add(guid);
+        chips.push({ chip, guid });
+        if (chips.length >= 40) break;
+      }
+      if (chips.length >= 40) break;
+    }
+    const applyCount = (chip, guid, count) => {
+      if (token !== row.__refxNestedCountGen) return;
+      if (ctx.alive && !ctx.alive()) return;
+      if (row.isConnected === false) return;
+      if (!chip.isConnected) return;
+      const next = chip.nextElementSibling;
+      if (next?.classList?.contains('refx-nested-count')) next.remove();
+      if (count > 0) {
+        const span = document.createElement('span');
+        span.className = 'refx-nested-count';
+        this._ensureElDataset(span).dataset.guid = guid;
+        span.title = count + ' references';
+        span.textContent = String(count);
+        chip.insertAdjacentElement('afterend', span);
+      }
     };
-    const wrap = this._el('div', 'refx-ref-relation-section refx-ref-sibling-list');
-    wrap.append(this._el('div', 'refx-ref-relation-heading', `Siblings (${total})`));
-    const makeRow = (sib) => {
-      const row = this._el('div', 'refx-ref-sibling-row');
-      row.tabIndex = 0;
-      row.setAttribute('role', 'group');
-      row.setAttribute('aria-label', 'Sibling line');
-      row.append(this._el('span', 'refx-wb-tree-dot', '•'));
-      if (this._isTaskLikeLine(sib)) row.append(this._buildTaskToggleGlyph(sib));
-      const txt = this._el('span', 'refx-wb-tree-text');
-      this._renderPreviewLineItem(txt, sib, {
-        autoLoadImage: "viewport",
-        openSource: false,
-        resolveLine: () => this._resolveMediaLineByGuid(sib.guid, sib?.record?.guid || null),
+    for (const { chip, guid } of chips) {
+      const cached = this.getCachedCountInfo(guid);
+      if (cached && cached.count > 0) applyCount(chip, guid, cached.count);
+      this.getCountInfoForGuid(guid).then((info) => {
+        applyCount(chip, guid, Number(info?.count) || 0);
+      }).catch(() => {});
+    }
+  }
+
+  async _toggleRefNestedRefs(countEl, targetGuid, row, ctx) {
+    const lineEl = countEl.closest('.refx-wb-tree-line') || countEl.closest('.trc-ref-popover-fulltext');
+    if (!lineEl) return;
+    let box = (lineEl.__refxNestedRefsEl && lineEl.__refxNestedRefsEl.isConnected !== false)
+      ? lineEl.__refxNestedRefsEl
+      : lineEl.nextElementSibling;
+    if (box?.classList?.contains('refx-nested-refs')) {
+      box.classList.toggle('refx-hidden');
+      return;
+    }
+    box = document.createElement('div');
+    box.className = 'refx-nested-refs';
+    lineEl.__refxNestedRefsEl = box;
+    const loading = document.createElement('div');
+    loading.className = 'refx-ref-line-loading';
+    loading.textContent = 'Loading…';
+    box.appendChild(loading);
+    lineEl.insertAdjacentElement('afterend', box);
+    const depth = (row.__refxNestDepth || 0) + 1;
+    try {
+      const lines = await this._queryRefLines(targetGuid);
+      if (ctx.alive && !ctx.alive()) return;
+      if (row.isConnected === false) return;
+      try { loading.remove(); } catch (e) {}
+      if (!lines.length) {
+        const empty = document.createElement('div');
+        empty.className = 'refx-ref-line-empty';
+        empty.textContent = '(unavailable)';
+        box.appendChild(empty);
+        return;
+      }
+      const shown = lines.slice(0, 30);
+      const nestedAlive = () => (!ctx.alive || ctx.alive()) && row.isConnected !== false
+        && box.isConnected && !box.classList.contains('refx-hidden');
+      await this._renderRefsGroups(box, shown, {
+        flat: true,
+        targetGuid,
+        hostLineGuid: null,
+        canEdit: false,
+        contextCap: 8,
+        deferContext: false,
+        alive: nestedAlive,
+        actionsFor: (line) => [
+          { label: '↗', title: 'Jump to line', fn: () => { this._bridgeJump(line?.guid || '', {}); } },
+          { label: '◧', title: 'Open in side panel', fn: () => { this._bridgeJump(line?.guid || '', { newPanel: true }); } },
+        ],
       });
-      row.append(txt);
-      const acts = this._el('span', 'refx-wb-tree-acts refx-ref-sibling-actions');
-      acts.append(this._mkRefRowAction('↗', 'Jump to sibling', () => { ctx.onJump(sib.guid); }));
-      acts.append(this._mkRefRowAction('◧', 'Open sibling in side panel', () => { this._bridgeJump(sib.guid, { newPanel: true }); }));
-      for (const action of this._refRowClipboardActions(sib.guid, this._navigatorContextText(sib))) {
+      for (const nestedRow of box.querySelectorAll('.trc-ref-popover-item')) {
+        nestedRow.__refxNestDepth = depth;
+      }
+    } catch (e) {
+      try { loading.remove(); } catch (err) {}
+      const empty = document.createElement('div');
+      empty.className = 'refx-ref-line-empty';
+      empty.textContent = '(unavailable)';
+      box.appendChild(empty);
+    }
+  }
+
+  async _refZoomOpenLive(rowEl) {
+    const ctx = rowEl?.__refxCtx;
+    const z = rowEl?.__refxZoom;
+    if (!ctx || !z?.view) return;
+    const liveTarget = z.view.rootGuid || z.view.sourceGuid || '';
+    if (!liveTarget) return;
+    if (!ctx.hostLineGuid) {
+      await this._bridgeJump(liveTarget, { newPanel: true });
+      return;
+    }
+    if (ctx.onEmbed) { ctx.onEmbed(liveTarget); return; }
+    let toasted = false;
+    const origToast = this._toast;
+    this._toast = (msg) => { toasted = true; return origToast.call(this, msg); };
+    try {
+      const ok = await this._bridgeCreateEmbed(ctx.hostLineGuid, liveTarget);
+      if (ok === false && !toasted) {
+        this._toast("Couldn't open this block live here (it may be an ancestor of this line).");
+      }
+    } finally {
+      this._toast = origToast;
+    }
+  }
+
+  _ensureRefRowZoomActions(rowEl, ctx, line) {
+    const actionsEl = rowEl.__refxActionsEl
+      || rowEl.querySelector?.(':scope > .trc-ref-popover-item-top > .trc-ref-popover-actions');
+    if (!actionsEl) return;
+    rowEl.__refxActionsEl = actionsEl;
+    rowEl.__refxCtx = ctx;
+    rowEl.__refxLine = line;
+    if (!actionsEl.__refxZoomBack) {
+      const back = this._mkRefRowAction('‹', 'Back', () => {
+        const z = rowEl.__refxZoom;
+        if (!z || !z.stack.length) return;
+        const prev = z.stack.pop();
+        this._zoomRefRow(rowEl, ctx, prev, { push: false }).catch(() => {});
+      });
+      back.classList.add('refx-zoom-back');
+      back.style.display = 'none';
+      actionsEl.insertBefore(back, actionsEl.firstChild);
+      actionsEl.__refxZoomBack = back;
+    }
+    if (!actionsEl.__refxZoomReset) {
+      const reset = this._mkRefRowAction('⤺', 'Back to the reference', () => {
+        this._renderRefRowReferenceView(ctx, rowEl.__refxLine || line, rowEl).catch(() => {});
+      });
+      reset.classList.add('refx-zoom-reset');
+      reset.style.display = 'none';
+      actionsEl.insertBefore(reset, actionsEl.__refxZoomBack?.nextSibling || actionsEl.firstChild);
+      actionsEl.__refxZoomReset = reset;
+    }
+    if (!actionsEl.__refxZoomLive) {
+      const live = this._mkRefRowAction('⤓', 'Open live below', () => {
+        this._refZoomOpenLive(rowEl).catch(() => {});
+      });
+      live.classList.add('refx-zoom-live');
+      live.style.display = 'none';
+      actionsEl.appendChild(live);
+      actionsEl.__refxZoomLive = live;
+    }
+    this._paintRefRowZoomActions(rowEl);
+  }
+
+  _paintRefRowZoomActions(rowEl) {
+    const z = rowEl.__refxZoom;
+    const ctx = rowEl.__refxCtx;
+    const actionsEl = rowEl.__refxActionsEl;
+    const back = actionsEl?.__refxZoomBack;
+    const reset = actionsEl?.__refxZoomReset;
+    const live = actionsEl?.__refxZoomLive;
+    if (back) back.style.display = (z && z.stack && z.stack.length) ? '' : 'none';
+    if (reset) reset.style.display = (z && z.view) ? '' : 'none';
+    if (live) {
+      if (z && z.view && ctx) {
+        live.style.display = '';
+        if (ctx.hostLineGuid) {
+          live.textContent = '⤓';
+          live.title = 'Open live below';
+        } else {
+          live.textContent = '◧';
+          live.title = 'Open in side panel';
+        }
+      } else {
+        live.style.display = 'none';
+      }
+    }
+  }
+
+  _refZoomRootHasWidgetTag(line) {
+    if (!line?.segments) return false;
+    return line.segments.some((s) => {
+      if (!s || s.type !== 'hashtag') return false;
+      const raw = String(s.text || '').trim();
+      const tag = raw.startsWith('#') ? raw : ('#' + raw);
+      return /^#(nautilus|timeblock)$/i.test(tag);
+    });
+  }
+
+  _refZoomTreeHasMedia(root, maxNodes = 400) {
+    if (!root) return false;
+    let count = 0;
+    const walk = (node) => {
+      if (!node || count >= maxNodes) return false;
+      count++;
+      if (this._mediaLineInfo(node)) return true;
+      for (const c of node.children || []) {
+        if (walk(c)) return true;
+      }
+      return false;
+    };
+    if (Array.isArray(root)) {
+      for (const n of root) { if (walk(n)) return true; }
+      return false;
+    }
+    return walk(root);
+  }
+
+  _refZoomShowsWidget(rootNode, treeRoot) {
+    if (rootNode && this._refZoomRootHasWidgetTag(rootNode)) return true;
+    const roots = rootNode || treeRoot?.children || [];
+    return this._refZoomTreeHasMedia(roots);
+  }
+
+  _refZoomExpandPathGuids(tree, refLineGuid, rootGuid) {
+    const set = new Set();
+    if (!refLineGuid || !tree?.byGuid) return set;
+    let cur = tree.byGuid[refLineGuid];
+    while (cur) {
+      set.add(cur.guid);
+      if (rootGuid && cur.guid === rootGuid) break;
+      cur = cur.parent_guid ? tree.byGuid[cur.parent_guid] : null;
+    }
+    return set;
+  }
+
+  _refZoomCrumbText(anc) {
+    const ptxt = this._mediaLineInfo(anc)
+      ? this._navigatorContextText(anc)
+      : this._cleanDisplayText(anc.segments || []).trim();
+    return ptxt.length > 60 ? ptxt.slice(0, 60) + '…' : ptxt;
+  }
+
+  _refZoomAppendRootCrumb(crumbEl, rootNode, ctx, mkAncActions) {
+    if (!rootNode || !crumbEl) return;
+    const ptxt = this._refZoomCrumbText(rootNode);
+    if (!ptxt) return;
+    crumbEl.append(this._el('span', 'trc-ref-popover-crumb-sep', '›'));
+    const wrap = this._el('span', 'trc-ref-crumb-anc');
+    const segs = (rootNode?.segments || []).filter((s) => s && !(s.type === 'text' && !String(s.text || '').trim()));
+    let kindClass = 'trc-ref-crumb-text';
+    if (segs.length === 1) {
+      if (segs[0].type === 'ref') kindClass = 'trc-ref-crumb-ref';
+      else if (segs[0].type === 'datetime') kindClass = 'trc-ref-crumb-date';
+      else if (segs[0].type === 'mention') kindClass = 'trc-ref-crumb-mention';
+    }
+    const aEl = this._el('button', 'trc-ref-popover-crumb-parent trc-ref-crumb-root ' + kindClass, ptxt);
+    aEl.type = 'button';
+    aEl.title = 'Zoom root';
+    if (rootNode.guid) this._ensureElDataset(aEl).dataset.guid = rootNode.guid;
+    wrap.append(aEl);
+    wrap.append(mkAncActions(rootNode, wrap, aEl));
+    crumbEl.append(wrap);
+  }
+
+  _refZoomClearCrumbs(crumbEl) {
+    if (!crumbEl) return null;
+    const twisty = crumbEl.querySelector(':scope > .refx-ref-rowfold');
+    while (crumbEl.firstChild) crumbEl.removeChild(crumbEl.firstChild);
+    return twisty;
+  }
+
+  async _zoomRefRow(row, ctx, view, { push = true } = {}) {
+    if (!row || !ctx || !view) return;
+    try {
+      const oldHint = row.querySelector?.(':scope > .refx-zoom-hint');
+      if (oldHint) oldHint.remove();
+    } catch (e) {}
+    row.__refxNestedCountGen = (row.__refxNestedCountGen || 0) + 1;
+    const srcGuid = view.sourceGuid || '';
+    if (!srcGuid) return;
+    try {
+      const zoomDst = view.rootGuid == null ? srcGuid : (view.rootGuid || srcGuid);
+      this._connRecordHop(srcGuid, zoomDst, "zoom");
+    } catch (e) {}
+    let treeP = ctx.treeCache.get(srcGuid);
+    if (!treeP) {
+      treeP = (async () => {
+        const rec = this.data.getRecord(srcGuid);
+        let items = [];
+        if (rec) {
+          try { items = await rec.getLineItems(false); } catch (e) {}
+        }
+        return this._refContextTree(items);
+      })();
+      ctx.treeCache.set(srcGuid, treeP);
+    }
+    const tree = await treeP;
+    if (ctx.alive && !ctx.alive()) return;
+    if (row.isConnected === false) return;
+    const zoom = row.__refxZoom || { refLineGuid: '', refSourceGuid: srcGuid, stack: [], view: null };
+    row.__refxZoom = zoom;
+    if (push && zoom.view) {
+      zoom.stack.push(zoom.view);
+      if (zoom.stack.length > 20) zoom.stack.shift();
+    }
+    zoom.view = { sourceGuid: srcGuid, rootGuid: view.rootGuid == null ? null : (view.rootGuid || null) };
+
+    const line = row.__refxLine || { guid: zoom.refLineGuid, record: { guid: srcGuid } };
+    const mkAncActions = (anc, lineEl, labelEl) => {
+      const acts = this._el('span', 'trc-ref-crumb-acts');
+      acts.append(this._mkRefRowAction('↗', 'Jump to line', () => { ctx.onJump(anc.guid); }));
+      acts.append(this._mkRefRowAction('◧', 'Open in side panel', () => { this._bridgeJump(anc.guid, { newPanel: true }); }));
+      for (const action of this._refRowClipboardActions(anc.guid, this._navigatorContextText(anc))) {
         acts.append(this._mkRefRowAction(action.label, action.title, action.fn));
       }
-      if (ctx.canEdit && !this._mediaLineInfo(sib)) acts.append(this._mkRefRowAction('✎', 'Edit sibling', () => { this._beginTreeLineEdit(ctx, row, txt, sib); }));
-      if (ctx.hostLineGuid) acts.append(this._mkRefRowAction('⤵', 'Embed sibling here', () => { ctx.onEmbed ? ctx.onEmbed(sib.guid) : this._bridgeCreateEmbed(ctx.hostLineGuid, sib.guid); }));
-      row.append(acts);
-      // v4.41.0: the same remark chip on sibling lines that carry remarks —
-      // the context view then shows every commented line in the neighbourhood.
-      // Block Context rows only; other _fillRefContextRow surfaces get none.
-      if (ctx.isBlockContext) this._attachRemarkChips(row, acts, sib.guid, ctx);
-      return row;
+      if (ctx.canEdit && !this._mediaLineInfo(anc)) acts.append(this._mkRefRowAction('✎', 'Edit line', () => { this._beginTreeLineEdit(ctx, lineEl, labelEl, anc); }));
+      if (ctx.hostLineGuid) acts.append(this._mkRefRowAction('⤵', 'Embed here', () => { ctx.onEmbed ? ctx.onEmbed(anc.guid) : this._bridgeCreateEmbed(ctx.hostLineGuid, anc.guid); }));
+      return acts;
     };
-    const shown = slice(0, 8);
-    for (const sib of shown) wrap.append(makeRow(sib));
-    if (total > shown.length) {
-      let rendered = shown.length;
-      const first = shown[0] || slice(0, 1)[0] || null;
-      const sourceTarget = first?.parent_guid || first?.record?.guid || '';
-      const firstPlan = this._siblingRenderPlan(total, rendered);
-      const toggle = this._el('button', 'refx-ref-relation-more', `Show next ${firstPlan.next} siblings`);
-      toggle.type = 'button';
-      const extra = this._el('div', 'refx-ref-sibling-extra');
-      toggle.addEventListener('click', (ev) => {
-        ev.preventDefault(); ev.stopPropagation();
-        const plan = this._siblingRenderPlan(total, rendered);
-        if (plan.next <= 0) {
-          if (sourceTarget) ctx.onJump(sourceTarget);
-          return;
+
+    const crumbEl = row.querySelector?.(':scope > .trc-ref-popover-item-top > .trc-ref-popover-crumb')
+      || row.__refxCrumbEl;
+    const childBox = row.querySelector?.(':scope > .refx-ref-context-children')
+      || row.__refxChildBox;
+    const fullEl = row.querySelector?.(':scope > .trc-ref-popover-fulltext');
+    if (!crumbEl || !childBox) return;
+
+    const twisty = this._refZoomClearCrumbs(crumbEl);
+    if (twisty) crumbEl.insertBefore(twisty, crumbEl.firstChild);
+    const recEl = document.createElement('button');
+    recEl.type = 'button';
+    recEl.className = 'trc-ref-popover-crumb-rec trc-ref-popover-crumb-parent'
+      + (zoom.view.rootGuid === null ? ' trc-ref-crumb-root' : '');
+    this._ensureElDataset(recEl).dataset.guid = srcGuid;
+    recEl.textContent = srcGuid ? this.getOrLoadRecordName(srcGuid) : 'Unknown record';
+    recEl.title = 'Zoom to page';
+    crumbEl.appendChild(recEl);
+
+    let rootNode = null;
+    if (zoom.view.rootGuid) {
+      rootNode = tree.byGuid[zoom.view.rootGuid] || null;
+      if (rootNode) {
+        const chain = [];
+        let cur = rootNode.parent_guid ? tree.byGuid[rootNode.parent_guid] : null;
+        let guard = 0;
+        while (cur && guard++ < 12) {
+          chain.unshift(cur);
+          cur = cur.parent_guid ? tree.byGuid[cur.parent_guid] : null;
         }
-        const newRows = slice(rendered, plan.next).map(makeRow);
-        for (const row of newRows) extra.append(row);
-        rendered += plan.next;
-        const nextPlan = this._siblingRenderPlan(total, rendered);
-        if (nextPlan.next > 0) {
-          toggle.textContent = `Show next ${nextPlan.next} siblings`;
-        } else if (rendered < total) {
-          toggle.textContent = sourceTarget
-            ? `Open source for ${total - rendered} more siblings ↗`
-            : `+${total - rendered} more siblings not rendered`;
-          if (!sourceTarget) toggle.disabled = true;
-        } else {
-          toggle.remove();
-        }
-        if (ev.detail === 0 && newRows[0]?.focus) newRows[0].focus();
-      });
-      // Revealed rows precede the persistent toggle. Keyboard activation moves
-      // focus to the first new row; forward Tab then reaches the next-batch control.
-      wrap.append(extra, toggle);
+        ctx.sourceRecordGuid = srcGuid;
+        this._appendFlatAncestorTrail(crumbEl, chain, ctx, mkAncActions, {});
+        this._refZoomAppendRootCrumb(crumbEl, rootNode, ctx, mkAncActions);
+      }
     }
-    return wrap;
+
+    if (fullEl) fullEl.classList.add('refx-hidden');
+    childBox.textContent = '';
+    childBox.classList.add('refx-zoom-body');
+    const refLineGuid = zoom.refLineGuid || line.guid || '';
+    const expandPathGuids = this._refZoomExpandPathGuids(tree, refLineGuid, zoom.view.rootGuid);
+    const treeRoot = zoom.view.rootGuid && rootNode
+      ? rootNode
+      : { guid: srcGuid, children: tree.roots || [] };
+    const treeBox = this._buildRefChildTree(treeRoot, ctx, {
+      maxDepth: 12,
+      maxNodes: 1500,
+      highlightGuid: refLineGuid,
+      expandPathGuids,
+      defaultExpandDepth: 2,
+    });
+    const showWidget = this._refZoomShowsWidget(rootNode, treeRoot);
+    row.__refxZoomShowLive = showWidget;
+    if (showWidget) {
+      const hint = this._el('div', 'refx-zoom-hint');
+      if (ctx.hostLineGuid) {
+        hint.append(this._el('span', '', 'renders a widget — open live '));
+        hint.append(this._mkRefRowAction('⤓', 'Open live below', () => {
+          this._refZoomOpenLive(row).catch(() => {});
+        }));
+      } else {
+        hint.append(this._el('span', '', 'renders a widget — open in side panel '));
+        hint.append(this._mkRefRowAction('◧', 'Open in side panel', () => {
+          this._refZoomOpenLive(row).catch(() => {});
+        }));
+      }
+      row.insertBefore(hint, childBox);
+    }
+    childBox.append(treeBox);
+
+    const targetEl = childBox.querySelector('.refx-zoom-target .refx-wb-tree-line')
+      || childBox.querySelector('[data-guid="' + refLineGuid + '"]');
+    if (targetEl && typeof targetEl.offsetTop === 'number') {
+      childBox.scrollTop = Math.max(0, targetEl.offsetTop - (childBox.clientHeight || 0) / 3);
+    }
+
+    this._ensureRefRowZoomActions(row, ctx, line);
+    this._paintRefRowZoomActions(row);
+    this._paintRefRowNestedCounts(row, ctx);
+  }
+
+  async _renderRefRowReferenceView(ctx, line, row) {
+    if (!ctx || !line || !row) return;
+    const srcGuid = line?.record?.guid || '';
+    const lineGuid = line?.guid || '';
+    if (!srcGuid || !lineGuid) return;
+    let treeP = ctx.treeCache.get(srcGuid);
+    if (!treeP) {
+      treeP = (async () => {
+        const rec = this.data.getRecord(srcGuid);
+        let items = [];
+        if (rec) {
+          try { items = await rec.getLineItems(false); } catch (e) {}
+        }
+        return this._refContextTree(items);
+      })();
+      ctx.treeCache.set(srcGuid, treeP);
+    }
+    const tree = await treeP;
+    if (ctx.alive && !ctx.alive()) return;
+    if (row.isConnected === false) return;
+
+    const zoom = row.__refxZoom || { refLineGuid: lineGuid, refSourceGuid: srcGuid, stack: [], view: null };
+    row.__refxZoom = zoom;
+    zoom.view = null;
+    zoom.stack = [];
+    row.__refxZoomShowLive = false;
+    try {
+      const oldHint = row.querySelector?.(':scope > .refx-zoom-hint');
+      if (oldHint) oldHint.remove();
+    } catch (e) {}
+
+    const crumbEl = row.querySelector?.(':scope > .trc-ref-popover-item-top > .trc-ref-popover-crumb')
+      || row.__refxCrumbEl;
+    const childBox = row.querySelector?.(':scope > .refx-ref-context-children')
+      || row.__refxChildBox;
+    const fullEl = row.querySelector?.(':scope > .trc-ref-popover-fulltext');
+    if (!crumbEl || !childBox) return;
+
+    const relations = this._refContextRelations(tree, lineGuid, true);
+    const { target, chain } = relations;
+    if (!target) return;
+
+    this._hydrateColdRefLineText(fullEl, target);
+    const mkAncActions = (anc, lineEl, labelEl) => {
+      const acts = this._el('span', 'trc-ref-crumb-acts');
+      acts.append(this._mkRefRowAction('↗', 'Jump to line', () => { ctx.onJump(anc.guid); }));
+      acts.append(this._mkRefRowAction('◧', 'Open in side panel', () => { this._bridgeJump(anc.guid, { newPanel: true }); }));
+      for (const action of this._refRowClipboardActions(anc.guid, this._navigatorContextText(anc))) {
+        acts.append(this._mkRefRowAction(action.label, action.title, action.fn));
+      }
+      if (ctx.canEdit && !this._mediaLineInfo(anc)) acts.append(this._mkRefRowAction('✎', 'Edit line', () => { this._beginTreeLineEdit(ctx, lineEl, labelEl, anc); }));
+      if (ctx.hostLineGuid) acts.append(this._mkRefRowAction('⤵', 'Embed here', () => { ctx.onEmbed ? ctx.onEmbed(anc.guid) : this._bridgeCreateEmbed(ctx.hostLineGuid, anc.guid); }));
+      return acts;
+    };
+    const nonEmptyKids = (target.children || []).filter((c) => !!this._mediaLineInfo(c) || this._cleanDisplayText((c && c.segments) || []).trim());
+    const selfRef = !!ctx.targetGuid && this._isPureSelfRef(target, ctx.targetGuid) && this._isLineRefTarget(ctx.targetGuid) && nonEmptyKids.length > 0;
+
+    const twisty = this._refZoomClearCrumbs(crumbEl);
+    if (twisty) crumbEl.insertBefore(twisty, crumbEl.firstChild);
+    if (row.__refxShowRecordCrumb) {
+      const recEl = document.createElement('button');
+      recEl.type = 'button';
+      recEl.className = 'trc-ref-popover-crumb-rec trc-ref-popover-crumb-parent';
+      this._ensureElDataset(recEl).dataset.guid = srcGuid;
+      recEl.textContent = srcGuid ? this.getOrLoadRecordName(srcGuid) : 'Unknown record';
+      recEl.title = 'Zoom to page';
+      crumbEl.appendChild(recEl);
+    }
+    ctx.sourceRecordGuid = srcGuid;
+    this._appendFlatAncestorTrail(crumbEl, chain, ctx, mkAncActions, { selfRef, lineGuid });
+
+    if (selfRef) {
+      row.dataset.refxSelfRef = '1';
+      if (fullEl) fullEl.classList.add('refx-hidden');
+    } else if (fullEl) {
+      fullEl.classList.remove('refx-hidden');
+    }
+    childBox.textContent = '';
+    childBox.classList.remove('refx-zoom-body');
+    if (nonEmptyKids.length > 0) childBox.append(this._buildRefChildTree(target, ctx));
+    this._paintRefRowZoomActions(row);
   }
 
   // Async context fill for one reference row (popover or inline section): the
@@ -33240,6 +34357,16 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     const srcGuid = line?.record?.guid || '';
     const lineGuid = line?.guid || '';
     if (!srcGuid || !lineGuid) return;
+    const contextRow = crumbEl?.closest?.('.trc-ref-popover-item-top')?.parentElement || childBox?.parentElement || null;
+    if (contextRow) {
+      contextRow.__refxCtx = ctx;
+      contextRow.__refxCrumbEl = crumbEl;
+      contextRow.__refxChildBox = childBox;
+      contextRow.__refxLine = line;
+      contextRow.__refxZoom = contextRow.__refxZoom || { refLineGuid: lineGuid, refSourceGuid: srcGuid, stack: [], view: null };
+      contextRow.__refxZoom.refLineGuid = lineGuid;
+      contextRow.__refxZoom.refSourceGuid = srcGuid;
+    }
     let treeP = ctx.treeCache.get(srcGuid);
     if (!treeP) {
       treeP = (async () => {
@@ -33258,24 +34385,14 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     if (!ctx.alive()) return; // the popover/section was replaced or closed while loading
     if (crumbEl?.isConnected === false && childBox?.isConnected === false) return;
     const relations = this._refContextRelations(tree, lineGuid, true);
-    const { target, chain, siblings, siblingSelfGuid } = relations;
+    const { target, chain } = relations;
     if (!target) return;
     // The initial row may have been built from a native backreference stub that
     // carried only line + record GUIDs. The source tree is authoritative for
     // this exact line and is already loaded for context, so hydrate its text at
-    // zero additional I/O before relocating the row into the outline.
-    const contextRow = crumbEl?.closest?.('.trc-ref-popover-item-top')?.parentElement || childBox?.parentElement || null;
+    // zero additional I/O before painting the ancestor trail.
     const resolvedFullEl = contextRow?.querySelector?.(':scope > .trc-ref-popover-fulltext') || null;
     this._hydrateColdRefLineText(resolvedFullEl, target);
-    // v3.35.0 GRANULAR FOLDING: render the ancestor path as a VERTICAL nested
-    // outline (Roam zoomable outline) instead of a flat "a › b › c" trail. EACH
-    // ancestor is an independently-foldable node whose twisty collapses
-    // everything beneath it — deeper ancestors, the ref line ITSELF, and the
-    // ref's children. To make "the parent folds the ref" work with real DOM
-    // nesting, the ref line (fullEl) and its child tree (childBox) are RELOCATED
-    // into the innermost ancestor's fold region. The record-name crumb stays at
-    // the top (rowTop) as page context. Falls back to the old horizontal trail
-    // if the expected row DOM isn't found (defensive; nothing breaks).
     const mkAncActions = (anc, lineEl, labelEl) => {
       const acts = this._el('span', 'trc-ref-crumb-acts');
       acts.append(this._mkRefRowAction('↗', 'Jump to line', () => { ctx.onJump(anc.guid); }));
@@ -33287,128 +34404,85 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       if (ctx.hostLineGuid) acts.append(this._mkRefRowAction('⤵', 'Embed here', () => { ctx.onEmbed ? ctx.onEmbed(anc.guid) : this._bridgeCreateEmbed(ctx.hostLineGuid, anc.guid); }));
       return acts;
     };
+    const nonEmptyKids = (target.children || []).filter((c) => !!this._mediaLineInfo(c) || this._cleanDisplayText((c && c.segments) || []).trim());
+    const selfRef = !!ctx.targetGuid && this._isPureSelfRef(target, ctx.targetGuid) && this._isLineRefTarget(ctx.targetGuid) && nonEmptyKids.length > 0;
     if (crumbEl && crumbEl.isConnected) {
-      const rowTop = crumbEl.closest('.trc-ref-popover-item-top');
-      const btn = rowTop ? rowTop.parentElement : null;
-      const fullEl = btn ? btn.querySelector(':scope > .trc-ref-popover-fulltext') : null;
-      if (btn && fullEl) {
-        const outline = this._el('div', 'refx-ref-outline');
-        let mount = outline; // where the next-deeper level (and finally the ref) nests
-        for (let chainIndex = 0; chainIndex < chain.length; chainIndex++) {
-          const anc = chain[chainIndex];
-          const ptxt = this._mediaLineInfo(anc) ? this._navigatorContextText(anc) : this._cleanDisplayText(anc.segments || []).trim();
-          if (!ptxt) continue;
-          const node = this._el('div', 'refx-ref-outline-node');
-          const lineEl = this._el('div', 'refx-ref-outline-line');
-          lineEl.tabIndex = 0;
-          lineEl.setAttribute('role', 'group');
-          lineEl.setAttribute('aria-label', chainIndex === chain.length - 1 ? 'Parent line' : 'Ancestor line');
-          const kids = this._el('div', 'refx-ref-outline-kids');
-          const twist = this._el('button', 'refx-ref-outline-twist', '▾');
-          twist.type = 'button';
-          twist.title = 'Fold this level';
-          twist.setAttribute('aria-expanded', 'true');
-          twist.addEventListener('click', (ev) => {
-            ev.preventDefault(); ev.stopPropagation();
-            const hidden = kids.classList.toggle('refx-hidden');
-            twist.textContent = hidden ? '▸' : '▾';
-            twist.setAttribute('aria-expanded', hidden ? 'false' : 'true');
-            node.classList.toggle('refx-ref-outline-collapsed', hidden);
-          });
-          lineEl.append(twist);
-          lineEl.append(this._el('span', 'refx-ref-relation-label', chainIndex === chain.length - 1 ? 'Parent' : 'Ancestor'));
-          let aEl;
-          if (this._mediaLineInfo(anc)) {
-            aEl = this._el('span', 'refx-ref-outline-label refx-ref-outline-media');
-            this._renderPreviewLineItem(aEl, anc, {
-              compact: true,
-              thumb: true,
-              autoLoadImage: "viewport",
-              controls: false,
-              openSource: false,
-              resolveLine: () => this._resolveMediaLineByGuid(anc.guid, srcGuid),
-            });
-          } else {
-            aEl = this._el('button', 'trc-ref-popover-crumb-parent refx-ref-outline-label', ptxt.length > 80 ? ptxt.slice(0, 80) + '…' : ptxt);
-            aEl.type = 'button';
-            aEl.title = 'Jump to this ancestor line';
-            aEl.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); ctx.onJump(anc.guid); });
-          }
-          lineEl.append(aEl);
-          lineEl.append(mkAncActions(anc, lineEl, aEl));
-          node.append(lineEl, kids);
-          mount.append(node);
-          mount = kids; // nest deeper
-        }
-        // Relocate the ref line + its child tree into the innermost fold region
-        // (retains task glyph, text, and all handlers — appendChild just moves).
-        fullEl.classList.add('refx-ref-outline-refline');
-        if (!fullEl.querySelector(':scope > .refx-ref-relation-label')) {
-          fullEl.insertBefore(this._el('span', 'refx-ref-relation-label refx-ref-relation-reference', 'Reference'), fullEl.firstChild);
-        }
-        const refNode = this._el('div', 'refx-ref-outline-node refx-ref-outline-refnode');
-        refNode.append(fullEl);
-        // v4.41.0: remarks attached to THIS referencing line render between
-        // the Reference row and its children — the relational read-back ("I
-        // commented on a block that references this one") visible from the
-        // commented-on block's own context. Block Context rows only.
-        if (ctx.isBlockContext) this._attachRemarkChips(refNode, childBox || null, lineGuid, ctx);
-        if (childBox) refNode.append(childBox);
-        mount.append(refNode);
-        const siblingList = this._buildRefSiblingList(siblings, ctx, siblingSelfGuid);
-        if (siblingList) mount.append(siblingList);
-        rowTop.after(outline); // outline takes the ref line's old slot
-      } else {
-        // Defensive fallback: original horizontal trail.
-        for (const anc of chain) {
-          const ptxt = this._mediaLineInfo(anc) ? this._navigatorContextText(anc) : this._cleanDisplayText(anc.segments || []).trim();
-          if (!ptxt) continue;
-          crumbEl.append(this._el('span', 'trc-ref-popover-crumb-sep', '›'));
-          const wrap = this._el('span', 'trc-ref-crumb-anc');
-          const aEl = this._el('button', 'trc-ref-popover-crumb-parent', ptxt.length > 60 ? ptxt.slice(0, 60) + '…' : ptxt);
-          aEl.type = 'button';
-          aEl.title = 'Jump to this ancestor line';
-          aEl.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); ctx.onJump(anc.guid); });
-          wrap.append(aEl);
-          wrap.append(mkAncActions(anc, wrap, aEl));
-          crumbEl.append(wrap);
-        }
+      if (!crumbEl.querySelector(':scope > .refx-ref-rowfold')) {
+        const rowFold = this._el('button', 'refx-ref-rowfold', '▾');
+        rowFold.type = 'button';
+        rowFold.setAttribute('aria-expanded', 'true');
+        const rt = this._relativeTime(this._lineCreatedAt(line));
+        rowFold.title = rt ? ('Created ' + rt.rel + (rt.absShort ? ' (' + rt.absShort + ')' : '')) : 'Fold this reference';
+        rowFold.addEventListener('mousedown', (ev) => { ev.preventDefault(); ev.stopPropagation(); });
+        rowFold.addEventListener('click', (ev) => {
+          ev.preventDefault(); ev.stopPropagation();
+          const row = crumbEl.closest('.trc-ref-popover-item-top')?.parentElement || childBox?.parentElement || null;
+          const fullEl = row?.querySelector?.(':scope > .trc-ref-popover-fulltext') || null;
+          const childEl = row?.querySelector?.(':scope > .refx-ref-context-children') || childBox;
+          const isSelfRef = row?.dataset?.refxSelfRef === '1';
+          let hidden = false;
+          if (childEl) hidden = childEl.classList.toggle('refx-hidden');
+          if (fullEl && !isSelfRef) fullEl.classList.toggle('refx-hidden', hidden);
+          rowFold.textContent = hidden ? '▸' : '▾';
+          rowFold.title = hidden ? 'Unfold this reference' : 'Fold this reference';
+          rowFold.setAttribute('aria-expanded', hidden ? 'false' : 'true');
+        });
+        crumbEl.insertBefore(rowFold, crumbEl.firstChild);
       }
+      ctx.sourceRecordGuid = srcGuid;
+      this._appendFlatAncestorTrail(crumbEl, chain, ctx, mkAncActions, { selfRef, lineGuid });
     }
-    if (childBox && childBox.isConnected) {
-      const kids = target.children || [];
-      // v3.36.0 CHILD FOLD (Roam zoomable outline): the ref line's children are a
-      // proper foldable region — EXPANDED BY DEFAULT (the full recursive tree,
-      // each child individually foldable via _buildRefChildTree) with a single
-      // fold twisty ON THE REF LINE that collapses the WHOLE region away. This
-      // fixes "I should be able to make 'I sure hate paying taxes' go away": the
-      // old design showed an always-visible first-child summary whose ▸ only
-      // EXPANDED (inverted from Roam — you could never hide the child). Now ▾ =
-      // shown, click → ▸ hides all children. The twisty prepends to fullEl (the
-      // ref line = childBox's previous sibling, true in both the nested-outline
-      // refNode and the flat no-ancestor row).
-      const nonEmptyKids = kids.filter((c) => !!this._mediaLineInfo(c) || this._cleanDisplayText((c && c.segments) || []).trim());
-      if (nonEmptyKids.length > 0) {
-        const tree = this._buildRefChildTree(target, ctx);
-        childBox.append(this._el('div', 'refx-ref-relation-heading refx-ref-children-heading', `Children (${nonEmptyKids.length})`), tree);
-        const fullEl = childBox.previousElementSibling; // .trc-ref-popover-fulltext
-        if (fullEl && !fullEl.querySelector(':scope > .refx-ref-childfold')) {
-          const twist = this._el('button', 'refx-ref-childfold', '▾');
-          twist.type = 'button';
-          twist.title = 'Fold children';
-          twist.setAttribute('aria-expanded', 'true');
-          // swallow the press so it never reaches the surface/task handling
-          twist.addEventListener('mousedown', (ev) => { ev.preventDefault(); ev.stopPropagation(); });
-          twist.addEventListener('click', (ev) => {
-            ev.preventDefault(); ev.stopPropagation();
-            const hidden = tree.classList.toggle('refx-hidden');
-            twist.textContent = hidden ? '▸' : '▾';
-            twist.title = hidden ? 'Unfold children' : 'Fold children';
-            twist.setAttribute('aria-expanded', hidden ? 'false' : 'true');
-          });
-          fullEl.insertBefore(twist, fullEl.firstChild);
-        }
+    if (selfRef && contextRow) {
+      contextRow.dataset.refxSelfRef = '1';
+      if (resolvedFullEl) resolvedFullEl.classList.add('refx-hidden');
+    }
+    if (childBox && childBox.isConnected && nonEmptyKids.length > 0) {
+      childBox.append(this._buildRefChildTree(target, ctx));
+    }
+    if (contextRow) {
+      this._ensureRefRowZoomActions(contextRow, ctx, line);
+      this._paintRefRowNestedCounts(contextRow, ctx);
+    }
+  }
+
+  // Roam-style flat ancestor trail in the row header: one `›` + clickable crumb
+  // per ancestor (oldest → parent). The record crumb is already present in the
+  // popup's crumbEl; inline rows sit under a per-record group header.
+  _appendFlatAncestorTrail(crumbEl, chain, ctx, mkAncActions, opts = {}) {
+    if (!crumbEl) return;
+    let prev = ctx.sourceRecordGuid || null;
+    for (const anc of chain || []) {
+      const id = this._crumbIdentity(anc);
+      if (id && (id === prev)) continue;
+      if (id && id === (ctx.sourceRecordGuid || null)) continue;
+      const ptxt = this._mediaLineInfo(anc) ? this._navigatorContextText(anc) : this._cleanDisplayText(anc.segments || []).trim();
+      if (!ptxt) continue;
+      crumbEl.append(this._el('span', 'trc-ref-popover-crumb-sep', '›'));
+      const wrap = this._el('span', 'trc-ref-crumb-anc');
+      const segs = (anc?.segments || []).filter((s) => s && !(s.type === 'text' && !String(s.text || '').trim()));
+      let kindClass = 'trc-ref-crumb-text';
+      if (segs.length === 1) {
+        if (segs[0].type === 'ref') kindClass = 'trc-ref-crumb-ref';
+        else if (segs[0].type === 'datetime') kindClass = 'trc-ref-crumb-date';
+        else if (segs[0].type === 'mention') kindClass = 'trc-ref-crumb-mention';
       }
+      const aEl = this._el('button', 'trc-ref-popover-crumb-parent ' + kindClass, ptxt.length > 60 ? ptxt.slice(0, 60) + '…' : ptxt);
+      aEl.type = 'button';
+      aEl.title = 'Zoom to this ancestor line';
+      if (anc.guid) this._ensureElDataset(aEl).dataset.guid = anc.guid;
+      wrap.append(aEl);
+      wrap.append(mkAncActions(anc, wrap, aEl));
+      crumbEl.append(wrap);
+      prev = id || prev;
+    }
+    if (opts.selfRef === true) {
+      crumbEl.append(this._el('span', 'trc-ref-popover-crumb-sep', '›'));
+      const selfBtn = this._el('button', 'trc-ref-crumb-self', '');
+      selfBtn.type = 'button';
+      selfBtn.title = 'This line is the reference itself — jump to it';
+      selfBtn.setAttribute('aria-label', 'This line is the reference itself — jump to it');
+      selfBtn.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); ctx.onJump(opts.lineGuid || ''); });
+      crumbEl.append(selfBtn);
     }
   }
 
@@ -33417,28 +34491,38 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
   // on the ALREADY-INDEXED nested target.children (no getLineItems — the data is
   // resident) so it can render synchronously on the first twisty expand.
   // Depth cap 5, total-node cap 200; task glyphs work; clicking a line jumps.
-  _buildRefChildTree(target, ctx) {
+  _buildRefChildTree(target, ctx, opts = {}) {
+    const maxDepth = opts.maxDepth == null ? 5 : opts.maxDepth;
+    const maxNodes = opts.maxNodes == null ? 200 : opts.maxNodes;
+    const defaultExpandDepth = opts.defaultExpandDepth == null ? Number.POSITIVE_INFINITY : opts.defaultExpandDepth;
+    const highlightGuid = opts.highlightGuid || '';
+    const expandPathGuids = opts.expandPathGuids || null;
     const box = this._el('div', 'refx-wb-tree refx-ref-child-tree');
     let count = 0;
     let capped = false;
     const build = (arr, depth, parentEl) => {
       for (const c of arr || []) {
         if (!c) continue;
-        if (count >= 200) { capped = true; return; }
+        if (count >= maxNodes) { capped = true; return; }
         count++;
         const node = this._el('div', 'refx-wb-tree-node');
+        if (highlightGuid && c.guid === highlightGuid) node.classList.add('refx-zoom-target');
         const lineEl = this._el('div', 'refx-wb-tree-line');
+        if (c.guid) this._ensureElDataset(lineEl).dataset.guid = c.guid;
         lineEl.tabIndex = 0;
         lineEl.setAttribute('role', 'group');
         lineEl.setAttribute('aria-label', 'Child line');
         const hasKids = !!(c.children && c.children.length);
         let kidBox = null;
-        if (hasKids && depth < 5) {
+        const onExpandPath = expandPathGuids && c.guid && expandPathGuids.has(c.guid);
+        const startExpanded = depth <= defaultExpandDepth || onExpandPath;
+        if (hasKids && depth < maxDepth) {
           kidBox = this._el('div', 'refx-wb-tree-kids');
-          const twk = this._el('button', 'refx-wb-act refx-wb-tree-twist', '▾');
+          if (!startExpanded) kidBox.classList.add('refx-hidden');
+          const twk = this._el('button', 'refx-wb-act refx-wb-tree-twist', startExpanded ? '▾' : '▸');
           twk.type = 'button';
-          twk.title = 'Collapse children';
-          twk.setAttribute('aria-expanded', 'true');
+          twk.title = startExpanded ? 'Collapse children' : 'Expand children';
+          twk.setAttribute('aria-expanded', startExpanded ? 'true' : 'false');
           twk.addEventListener('click', (ev) => {
             ev.preventDefault();
             ev.stopPropagation();
@@ -33449,16 +34533,31 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
           });
           lineEl.append(twk);
         } else {
-          lineEl.append(this._el('span', 'refx-wb-tree-dot', '•'));
+          const dot = this._el('span', 'refx-wb-tree-dot', '•');
+          dot.title = 'Zoom in';
+          dot.tabIndex = 0;
+          lineEl.append(dot);
           if (hasKids) capped = true; // children exist below the depth floor
         }
         if (this._isTaskLikeLine(c)) lineEl.append(this._buildTaskToggleGlyph(c));
         const txt = this._el('span', 'refx-wb-tree-text');
-        this._renderPreviewLineItem(txt, c, {
-          autoLoadImage: "viewport",
-          openSource: false,
-          resolveLine: () => this._resolveMediaLineByGuid(c.guid, c?.record?.guid || target?.record?.guid || null),
-        });
+        if (this._mediaLineInfo(c)) {
+          this._renderPreviewLineItem(txt, c, {
+            autoLoadImage: 'viewport',
+            compact: true,
+            openSource: false,
+            alive: ctx.alive,
+            resolveLine: () => this._resolveMediaLineByGuid(c.guid, c?.record?.guid || target?.record?.guid || null),
+          });
+        } else {
+          const segs = c.segments || [];
+          this._renderRefLineText(txt, segs);
+          if (!String(txt.textContent || '').trim()
+              && !txt.querySelector?.('.lineitem-ref, .tlr-seg-ref, .lineitem-linkobj')) {
+            const plain = this._cleanDisplayText(segs).trim();
+            if (plain) txt.textContent = plain;
+          }
+        }
         lineEl.append(txt);
         // v3.34.0 (Feature-7 v2): the SAME action set the surface's main row
         // offers, on every child line — ↗ jump, ◧ side panel, plus ✎ edit and
@@ -33483,7 +34582,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       }
     };
     build(target.children || [], 1, box);
-    if (capped) box.append(this._el('div', 'refx-wb-missing', 'Outline truncated (5 levels / 200 lines) — jump to the source for the rest.'));
+    if (capped) box.append(this._el('div', 'refx-wb-missing', 'Outline truncated (' + maxDepth + ' levels / ' + maxNodes + ' lines) — jump to the source for the rest.'));
     return box;
   }
 
@@ -33647,8 +34746,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     el.className = 'refx-inline-refs';
     el.setAttribute('contenteditable', 'false');
     el.dataset.refxInlineKey = key;
-    // Keep Thymer's editor from treating interactions inside the section as
-    // document selection/typing. (Inner handlers run at target phase first.)
+    this._wireRefSurfaceChipNav(el);
     el.addEventListener('mousedown', (ev) => ev.stopPropagation());
 
     const header = document.createElement('div');
@@ -33657,32 +34755,22 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     title.className = 'refx-inline-refs-title';
     title.textContent = '↙ Linked References';
     header.appendChild(title);
-    const filter = document.createElement('input');
-    filter.type = 'text';
-    filter.className = 'refx-inline-refs-filter';
-    filter.placeholder = 'Filter direct references…';
-    filter.setAttribute('aria-label', 'Filter direct linked references');
-    header.appendChild(filter);
-    // v3.60.0 F3: global-filter active note (hidden until filters are set)
-    const gfNote = document.createElement('span');
-    gfNote.className = 'refx-gf-note';
-    gfNote.title = 'Global reference filters are active — click to open Settings';
-    gfNote.style.display = 'none';
-    gfNote.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); this._openSettingsModal(); });
-    header.appendChild(gfNote);
-    // A5: sort control — reorders the rendered rows/groups client-side.
+
+    const filterToggle = document.createElement('button');
+    filterToggle.type = 'button';
+    filterToggle.className = 'refx-inline-refs-filter-toggle';
+    filterToggle.textContent = '⌕';
+    filterToggle.title = 'Filter references';
+    filterToggle.setAttribute('aria-expanded', 'false');
+    header.appendChild(filterToggle);
+
     const sort = document.createElement('button');
     sort.type = 'button';
     sort.className = 'refx-inline-refs-sort';
     sort.textContent = '⇅';
     sort.title = 'Sort linked references';
     header.appendChild(sort);
-    const collapseAll = document.createElement('button');
-    collapseAll.type = 'button';
-    collapseAll.className = 'refx-inline-refs-collapse-all';
-    collapseAll.textContent = '⊟';
-    collapseAll.title = 'Collapse all source groups';
-    header.appendChild(collapseAll);
+
     const wb = document.createElement('button');
     wb.type = 'button';
     wb.className = 'refx-inline-refs-wb';
@@ -33690,11 +34778,13 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     wb.title = 'Add this target to the Reference Workbench';
     wb.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); this._wbAdd(targetGuid); });
     header.appendChild(wb);
+
     const pin = document.createElement('button');
     pin.type = 'button';
     pin.className = 'refx-inline-refs-pin';
     pin.textContent = '📌';
     header.appendChild(pin);
+
     const close = document.createElement('button');
     close.type = 'button';
     close.className = 'refx-inline-refs-close';
@@ -33704,27 +34794,27 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     header.appendChild(close);
     el.appendChild(header);
 
-    // v4.40.0: a LINE target's linked references open with the ORIGINAL block
-    // above them. v4.40.1: it renders as a NORMAL reference row — the same
-    // source-record group header and foldable context row as every backlink
-    // below it — because that is the presentation the reader already knows.
-    // Record targets keep the old shape (their context is the page itself),
-    // matching the menu's `r.isText` gate.
-    const contextSection = this._isLineRefTarget(targetGuid)
-      ? this._buildRefRowContextStrip('refx-inline-refs-context')
-      : null;
-    if (contextSection) el.appendChild(contextSection);
+    const filtersPanel = document.createElement('div');
+    filtersPanel.className = 'refx-inline-refs-filters refx-hidden';
 
-    // v3.56.0 F2: chip filter row (between header and body; rendered after
-    // data loads, so it starts empty).
+    const filter = document.createElement('input');
+    filter.type = 'text';
+    filter.className = 'refx-inline-refs-filter';
+    filter.placeholder = 'Filter direct references…';
+    filter.setAttribute('aria-label', 'Filter direct linked references');
+    filtersPanel.appendChild(filter);
+
+    const gfNote = document.createElement('span');
+    gfNote.className = 'refx-gf-note';
+    gfNote.title = 'Global reference filters are active — click to open Settings';
+    gfNote.style.display = 'none';
+    gfNote.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); this._openSettingsModal(); });
+    filtersPanel.appendChild(gfNote);
+
     const chipRow = document.createElement('div');
     chipRow.className = 'refx-inline-refs-chips';
-    el.appendChild(chipRow);
-
-    // R7: facet bar (below chips, above body; populated after async fill).
-    const facetBar = document.createElement('div');
-    facetBar.className = 'refx-r7-facet-bar';
-    el.appendChild(facetBar);
+    filtersPanel.appendChild(chipRow);
+    el.appendChild(filtersPanel);
 
     const body = document.createElement('div');
     body.className = 'refx-inline-refs-body';
@@ -33733,19 +34823,6 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     loading.textContent = 'Loading references…';
     body.appendChild(loading);
     el.appendChild(body);
-
-    // v4.48.6: the inline surface reads top-to-bottom as target context,
-    // direct references, then the transitive topology. The chain remains its
-    // own synchronously mounted sibling, so context/direct body replacement or
-    // failure cannot detach it. Popup surfaces deliberately retain chain-first
-    // ordering inside their compact 380px menu.
-    const chainSection = this._isLineRefTarget(targetGuid)
-      ? this._appendLazyRefChainTree(el, targetGuid, {
-          surface: "inline",
-          label: "All reference paths",
-          deferRoot: true,
-        })
-      : null;
 
     const entry = {
       hostLineGuid,
@@ -33759,28 +34836,32 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       titleEl: title,
       bodyEl: body,
       filterEl: filter,
+      filtersPanelEl: filtersPanel,
+      filtersEl: filtersPanel,
+      filterToggleEl: filterToggle,
       chipRowEl: chipRow,
-      r7FacetBarEl: facetBar,
-      contextEl: contextSection,
-      chainEl: chainSection,
-      chipFilters: new Map(),  // key -> 'include' | 'exclude'
+      chipFilters: new Map(),
       chipOverflowOpen: false,
       collapsedGroups: new Set(),
       collapseDefaultSeen: new Set(),
       collapseStateFromMeta: false,
       currentGroupGuids: new Set(),
-      collapseAllEl: collapseAll,
       pinned: this._isPinned(hostLineGuid, targetGuid),
       pinEl: pin,
       globalFilterNoteEl: gfNote
     };
     this._paintPinButton(entry);
     pin.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); this._togglePin(entry); });
-    collapseAll.addEventListener('click', (ev) => {
+
+    filterToggle.addEventListener('click', (ev) => {
       ev.preventDefault(); ev.stopPropagation();
-      this._toggleAllInlineRefGroups(entry);
+      const open = filtersPanel.classList.toggle('refx-hidden');
+      const expanded = !open;
+      filterToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+      if (expanded) filter.focus();
     });
-    // A5: sort menu → re-render the section in the chosen order.
+    filterToggle.addEventListener('mousedown', (ev) => ev.stopPropagation());
+
     sort.addEventListener('click', (ev) => {
       ev.preventDefault(); ev.stopPropagation();
       this._openSortMenu(ev, [
@@ -33791,8 +34872,6 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       ], entry.sortMode || 'source', (m) => { entry.sortMode = m; this._fillInlineRefs(key, entry).catch(() => {}); });
     });
 
-    // Esc in the filter: an open row editor closes first; otherwise the whole
-    // section collapses. Everything else stays out of Thymer's editor.
     filter.addEventListener('keydown', (ev) => {
       ev.stopPropagation();
       if (ev.key !== 'Escape') return;
@@ -33805,31 +34884,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
 
     hostNode.insertAdjacentElement('afterend', el);
     this._inlineRefs.set(key, entry);
-    if (contextSection) {
-      const alive = () => this._inlineRefs.get(key) === entry && !entry.aborted;
-      const hydrateInlineContext = () => Promise.resolve(this._hydrateRefRowContext(contextSection, targetGuid, {
-        rowsClass: 'refx-inline-refs-context-rows',
-        alive,
-        // Same capability set as this section's own reference rows.
-        hostLineGuid: entry.hostLineGuid || null,
-        canEdit: true,
-        onEmbed: (g) => this._sectionToggleEmbed(entry, g),
-        actionsFor: (line, getRow) => [
-          { label: '↗', title: 'Jump to line', fn: () => { this._bridgeJump(line?.guid || '', {}); } },
-          { label: '✎', title: 'Edit line', fn: () => this._beginInlineRowEdit(entry, getRow(), line) },
-          { label: '◧', title: 'Open in side panel', fn: () => { this._bridgeJump(line?.guid || '', { newPanel: true }); } },
-          this._inlineRowEmbedAction(entry, line),
-        ],
-      })).catch((error) => this._recordRefxError(error, 'inline refs context hydration'));
-      // While the fold pref is collapsed the strip defers hydration; the
-      // twisty's first expand runs this same closure (see the strip builder).
-      if (this.loadBoolSetting('refx_ctx_start_collapsed_v1', true)) contextSection._refxHydrateOnExpand = hydrateInlineContext;
-      else hydrateInlineContext();
-    }
-    this._ensureCardObserver(); // keep-alive must run even with zero cards open
-    this._paintInlineRefsCollapseAll(entry);
-    // Schedule the registry-first fill immediately. Collapse-meta hydration is
-    // independent and must not gate the first @linkto query.
+    this._ensureCardObserver();
     entry.fillGeneration = ++this._inlineFillGen;
     const fillGeneration = entry.fillGeneration;
     entry.fillTimer = setTimeout(() => {
@@ -33844,7 +34899,6 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
           entry.collapsedGroups = persisted;
           entry.collapseStateFromMeta = true;
         }
-        this._paintInlineRefsCollapseAll(entry);
         if (entry._rawItems) this._applyInlineRefsFilter(entry);
         else if (entry.collapseStateFromMeta && entry.bodyEl?.querySelector?.('.refx-inline-refs-group')) {
           this._applyInlineRefsGroupCollapse(entry);
@@ -33852,6 +34906,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       }).catch(() => {});
     }
   }
+
 
   _removeInlineRefs(key) {
     const e = this._inlineRefs.get(key);
@@ -34024,7 +35079,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     if (!this.isExistingRecordGuid(targetGuid)) {
       // v3.33.0 (OPT-IN, ADDITIVE): a LINE target has no NATIVE property refs,
       // but records may reference it via a configured `lineRefProperties`
-      // property (org-remark "Source Line"). Surface those as the same
+      // property (org-remark "line-guid property"). Surface those as the same
       // "Property references" group.
       // v3.68.0: also active when autoLineRefs is ON (auto-detect any line-guid property).
       if ((!this._lineRefProps || this._lineRefProps.length === 0) && !this._autoLineRefs) return [];
@@ -34624,7 +35679,8 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
   // Inline-section policy only. Other _renderRefsGroups consumers keep their
   // historical eager context unless a caller explicitly passes deferContext.
   // A configured threshold replaces both size triggers; without it the tuned
-  // defaults are 12 shown rows or 8 distinct source records.
+  // defaults are 12 shown rows or 8 distinct source records. Size is the only
+  // trigger (v4.51.1).
   _shouldDeferRefContext(shown) {
     if (this._eagerContext === true) return false;
     const rows = Array.isArray(shown) ? shown : [];
@@ -34633,36 +35689,11 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     const hasConfigured = Number.isFinite(configured) && configured > 0;
     const rowThreshold = hasConfigured ? Math.max(1, Math.floor(configured)) : 12;
     const sourceThreshold = hasConfigured ? Math.max(1, Math.floor(configured)) : 8;
-    const large = rows.length >= rowThreshold || sourceGuids.size >= sourceThreshold;
-
-    let reg = null;
-    try { reg = window.g_universe && window.g_universe.itemsByGuid; } catch (e) {}
-    let registryAvailable = false;
-    if (reg && typeof reg.size === 'number') registryAvailable = reg.size > 0;
-    else if (reg) { for (const _guid in reg) { registryAvailable = true; break; } }
-    if (!registryAvailable) return true;
-
-    const registryHas = (guid) => {
-      if (!guid || !reg) return false;
-      try { if (typeof reg.has === 'function') return reg.has(guid); } catch (e) {}
-      return Object.prototype.hasOwnProperty.call(reg, guid);
-    };
-    const registryGet = (guid) => {
-      if (!registryHas(guid)) return null;
-      try { return typeof reg.get === 'function' ? reg.get(guid) : reg[guid]; } catch (e) { return null; }
-    };
-    const sourceWarmFromShown = new Set();
-    for (const line of rows) {
-      const srcGuid = line?.record?.guid || '';
-      if (!srcGuid) continue;
-      if (line?._fromRegistry) { sourceWarmFromShown.add(srcGuid); continue; }
-      const st = registryGet(line?.guid || '');
-      if (st && st.rguid === srcGuid) sourceWarmFromShown.add(srcGuid);
-    }
-    const cold = [...sourceGuids].some((guid) => !this._recordNameCache?.has?.(guid)
-      && !registryHas(guid)
-      && !sourceWarmFromShown.has(guid));
-    return large || cold;
+    // v4.51.1: the path IS the row, so a cold source no longer defers it (the
+    // v4.7.2 registry/name-cache probe hid every path behind "▸ context" right
+    // after launch). Only section size defers; the drain queue still spreads
+    // the fills across frames.
+    return rows.length >= rowThreshold || sourceGuids.size >= sourceThreshold;
   }
 
   // Add one visible, row-local loader. It never fans out: a click starts only
@@ -34751,6 +35782,8 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       g.push(line);
     }
 
+    const flat = opts.flat === true;
+
     // Keep source-tree promises on the body so filter-only rerenders reuse them.
     // A new render token invalidates every older queue targeting this same body.
     const treeCache = opts.treeCache || bodyEl.__refxContextTreeCache || new Map();
@@ -34770,10 +35803,6 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       canEdit: opts.canEdit !== false, // inline/wb-linked-refs surfaces edit by default
       onEmbed: opts.onEmbed || null,
       targetGuid: opts.targetGuid || '',
-      // Only the Block Context strip (via _hydrateRefRowContext) sets this —
-      // the generic linked-refs pump, delete-guard modal, and Workbench rows
-      // deliberately mount NO remark chips this release.
-      isBlockContext: opts.isBlockContext === true
     };
     const contextSourceCap = opts.contextCap == null ? 20 : opts.contextCap;
     const deferContext = opts.deferContext === true;
@@ -34851,13 +35880,13 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         ? rawActions.filter((action) => !/^Edit(?:\s|$)/i.test(String(action?.title || "")))
         : rawActions;
       const row = this._buildRefContextRow(line, {
-        showRecordCrumb: false, // the group header carries the record name
+        showRecordCrumb: flat,
         tag: 'div', // rows host the ✎ textarea editor — can't be a <button>
         rowClass: 'refx-inline-refs-row',
         actions,
         onCrumbJump: (g) => this._bridgeJump(g, {}),
       });
-      groupEl.appendChild(row.rowEl);
+      (flat ? bodyEl : groupEl).appendChild(row.rowEl);
       if (srcGuid && deferContext) {
         this._attachDeferredRefContext(ctx, line, row, callerAlive);
       } else if (srcGuid && (treeCache.has(srcGuid) || contextSources.size < contextSourceCap)) {
@@ -34869,10 +35898,16 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     // Workbench, popover, facet, and linked-refs card callers retain the exact
     // synchronous contract. Only inline-section callers opt into the Promise.
     if (!opts.chunked) {
-      for (const [srcGuid, groupLines] of groups) {
-        const groupEl = renderGroupHeader(srcGuid, groupLines, false);
-        for (const line of groupLines) renderRow(groupEl, srcGuid, line);
-        bodyEl.appendChild(groupEl);
+      if (flat) {
+        for (const [srcGuid, groupLines] of groups) {
+          for (const line of groupLines) renderRow(null, srcGuid, line);
+        }
+      } else {
+        for (const [srcGuid, groupLines] of groups) {
+          const groupEl = renderGroupHeader(srcGuid, groupLines, false);
+          for (const line of groupLines) renderRow(groupEl, srcGuid, line);
+          bodyEl.appendChild(groupEl);
+        }
       }
       if (!deferContext) this._drainRefContextQueue(ctx, contextJobs);
       return true;
@@ -34880,23 +35915,37 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
 
     return (async () => {
       let sliceStartedAt = performance.now();
-      for (const [srcGuid, groupLines] of groups) {
-        if (!ctx.alive()) return false;
-        const groupEl = renderGroupHeader(srcGuid, groupLines, true);
-        // Check after the header because cold source-name resolution can itself
-        // consume the slice budget. Never yield in the middle of a row.
-        if (performance.now() - sliceStartedAt >= 8) {
-          await this._yieldMacrotask();
-          if (!ctx.alive()) return false;
-          sliceStartedAt = performance.now();
+      if (flat) {
+        for (const [srcGuid, groupLines] of groups) {
+          for (const line of groupLines) {
+            if (!ctx.alive()) return false;
+            renderRow(null, srcGuid, line);
+            if (performance.now() - sliceStartedAt >= 8) {
+              await this._yieldMacrotask();
+              if (!ctx.alive()) return false;
+              sliceStartedAt = performance.now();
+            }
+          }
         }
-        for (const line of groupLines) {
+      } else {
+        for (const [srcGuid, groupLines] of groups) {
           if (!ctx.alive()) return false;
-          renderRow(groupEl, srcGuid, line);
+          const groupEl = renderGroupHeader(srcGuid, groupLines, true);
+          // Check after the header because cold source-name resolution can itself
+          // consume the slice budget. Never yield in the middle of a row.
           if (performance.now() - sliceStartedAt >= 8) {
             await this._yieldMacrotask();
             if (!ctx.alive()) return false;
             sliceStartedAt = performance.now();
+          }
+          for (const line of groupLines) {
+            if (!ctx.alive()) return false;
+            renderRow(groupEl, srcGuid, line);
+            if (performance.now() - sliceStartedAt >= 8) {
+              await this._yieldMacrotask();
+              if (!ctx.alive()) return false;
+              sliceStartedAt = performance.now();
+            }
           }
         }
       }
@@ -34916,9 +35965,6 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     const targetGuid = String(entry.targetGuid || "");
     const limit = this._REF_CHAIN_LEVEL_RESOLVE_LIMIT;
     let rawRows = (items || []).map((line) => this._refLevelIncomingRow(line)).filter(Boolean);
-    const remarks = this._refLevelRemarkRows(targetGuid);
-    const seen = new Set(rawRows.map((row) => row.guid));
-    for (const remark of remarks) if (!seen.has(remark.guid)) rawRows.push(remark);
     const isCapped = options.isCapped === true;
     const result = this._refLevelRowsFromCandidates(targetGuid, rawRows, {
       direction: "in",
@@ -35050,6 +36096,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         entry.titleEl.textContent = `↙ ${warmCount} Linked Reference${warmCount === 1 ? '' : 's'} (updating…)`;
         entry.bodyEl.textContent = '';
         await this._renderRefsGroups(entry.bodyEl, warmSorted.slice(0, WARM_PAGE_SIZE), {
+          flat: true,
           chunked: true,
           deferContext: this._shouldDeferRefContext(warmSorted),
           alive: () => !entry.aborted && this._inlineRefs.get(key) === entry,
@@ -35215,7 +36262,8 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     // the consumer satisfies the contract rule (reference-surface-v1.md:61).
     const isCapped = items.length >= this._maxResults;
     const capNote = isCapped ? ` — showing first ${items.length}, more may exist` : '';
-    entry.titleEl.textContent = `↙ ${total} Linked Reference${total === 1 ? '' : 's'}` + titleSuffix + capNote;
+    entry.titleEl.textContent = `↙ ${total} Linked Reference${total === 1 ? '' : 's'}` + capNote;
+    entry.titleEl.title = titleSuffix ? titleSuffix.replace(/^ — /, '').trim() : '';
     // Store raw items for chip filtering
     entry._rawItems = items;
     entry._rawPropRecs = propRecs;
@@ -35255,8 +36303,6 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       empty.className = 'refx-inline-refs-empty';
       empty.textContent = 'No referencing lines found.';
       entry.bodyEl.appendChild(empty);
-      // v3.56.0 F1: unlinked mentions subsection (lazy, collapsed by default)
-      this._appendUnlinkedSection(entry);
       // v3.60.0 F1+F2: deep connections + suggested connections subsection (lazy)
       if (this.isExistingRecordGuid(targetGuid)) this._appendDeepConnectionsSection(entry);
       return;
@@ -35284,34 +36330,28 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     entry.bodyEl.appendChild(linksContainer);
     entry._r2LinksContainer = linksContainer;
 
-    // v4.20.0 R7 — same-paint native facet bar:
-    // When _capturedBackrefs is available, compute the facet snapshot
-    // synchronously HERE (before _renderRefsGroups) so the bar and the rows
-    // land in the same browser paint with exact counts and no broker dependency.
-    // The snapshot also populates entry._r7NativeEdgeMap for client-side filtering.
-    let _r7RenderedNative = false;
-    if (_capturedBackrefs) {
-      try {
-        const nativeSnap = this._r7NativeFacetSnapshot(_capturedBackrefs, entry);
-        if (nativeSnap) {
-          this._renderR7FacetBar(entry, nativeSnap, targetGuid);
-          _r7RenderedNative = true;
-        }
-      } catch (_) {}
-    }
-
     // Render the first page.
-    // v4.18.0: thread the context-tree cache from the warm pass (if it ran) into the
-    // async render so source trees already fetched during the warm scan are reused
-    // instead of being refetched for ~100 source records.
     const firstPage = filteredItems.slice(0, PAGE_SIZE);
+    if (this._isLineRefTarget(targetGuid)) {
+      const homeCtx = {
+        alive: () => !entry.aborted && this._inlineRefs.get(key) === entry,
+        onJump: (g) => { this._bridgeJump(g, {}); },
+        treeCache: entry.bodyEl.__refxContextTreeCache,
+        hostLineGuid: entry.hostLineGuid || null,
+        canEdit: true,
+        onEmbed: (g) => this._sectionToggleEmbed(entry, g),
+        targetGuid: entry.targetGuid || targetGuid,
+      };
+      await this._appendRefHomeRow(linksContainer, targetGuid, homeCtx);
+      if (firstPage.length) this._appendRefHomeSep(linksContainer);
+    }
     if (firstPage.length) {
       await this._renderRefsGroups(linksContainer, firstPage, {
+        flat: true,
         chunked: true,
         deferContext,
         treeCache: entry.bodyEl.__refxContextTreeCache,
-        alive: () => !entry.aborted && this._inlineRefs.get(key) === entry, // rows live in entry.el either way
-        // v3.34.0: inline section edits + embeds → its children/ancestors do too.
+        alive: () => !entry.aborted && this._inlineRefs.get(key) === entry,
         hostLineGuid: entry.hostLineGuid || null,
         canEdit: true,
         targetGuid: entry.targetGuid || targetGuid,
@@ -35326,15 +36366,6 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         collapseEntry: entry,
       });
       if (entry.aborted || this._inlineRefs.get(key) !== entry || entry._r2FillId !== thisFillId) return;
-    }
-
-    // R7 broker fallback: for line targets / journal pages where _capturedBackrefs
-    // is null, fall back to the original broker snapshot path (late render, "≥N" labels).
-    if (!_r7RenderedNative) {
-      try {
-        const r7Snapshot = this._r7FacetSnapshot(targetGuid);
-        this._renderR7FacetBar(entry, r7Snapshot, targetGuid);
-      } catch (_) {}
     }
 
     if (filteredItems.length > PAGE_SIZE) {
@@ -35361,6 +36392,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         // Append rows into the links container — never after the footer sections
         // (R2 F2: groups always precede propRefs/SDK/unlinked/deep sections).
         await this._renderRefsGroups(linksContainer, nextPage, {
+          flat: true,
           chunked: true,
           deferContext,
           alive: () => !entry.aborted && this._inlineRefs.get(key) === entry,
@@ -35403,8 +36435,6 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       this._renderSdkPropertyRefsGroup(entry.bodyEl, sdkSection);
     }
 
-    // v3.56.0 F1: unlinked mentions subsection (lazy, collapsed by default)
-    this._appendUnlinkedSection(entry);
     // v3.60.0 F1+F2: deep connections + suggested connections subsection (lazy)
     if (this.isExistingRecordGuid(targetGuid)) this._appendDeepConnectionsSection(entry);
 
@@ -35603,6 +36633,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
           const shownFirst = filteredItems.slice(0, chipPageSize);
           if (shownFirst.length) {
             await this._renderRefsGroups(chipLinksContainer, shownFirst, {
+              flat: true,
               chunked: true,
               deferContext: chipDeferContext,
               alive: () => !entry.aborted && entry._r2FillId === chipFillId,
@@ -35627,6 +36658,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
               const existing = chipLinksContainer.querySelector('.refx-inline-refs-showmore');
               if (existing) existing.remove();
               await this._renderRefsGroups(chipLinksContainer, nextPage, {
+                flat: true,
                 chunked: true,
                 deferContext: chipDeferContext,
                 alive: () => !entry.aborted && entry._r2FillId === chipFillId,
@@ -35655,9 +36687,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
             this._renderPropertyRefsGroup(entry.bodyEl, shownProps, entry.targetGuid || '');
           }
         }
-        // Re-append unlinked section and deep connections section if they were wiped
-        const prev = entry.bodyEl.querySelector('.refx-unlinked-section');
-        if (!prev) this._appendUnlinkedSection(entry);
+        // Re-append deep connections section if it was wiped
         if (!entry.bodyEl.querySelector('.refx-deep-section') && this.isExistingRecordGuid(entry.targetGuid)) {
           this._appendDeepConnectionsSection(entry);
         }
@@ -35719,12 +36749,24 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
   // with chip filter (chip filter is applied at render time; this is applied
   // on top of whatever is currently rendered).
   _applyInlineRefsFilter(entry) {
-    const q = (entry.filterEl?.value || '').trim().toLowerCase();
+    const q = (entry.filterEl?.value || '').trim();
+    const plan = q ? this._searchPlan(q) : null;
     for (const groupEl of entry.bodyEl.querySelectorAll('.refx-inline-refs-group')) {
-      const gname = (groupEl.querySelector('.refx-inline-refs-group-name')?.textContent || '').toLowerCase();
+      if (!groupEl._refxFilterKey) {
+        const gtext = (groupEl.querySelector('.refx-inline-refs-group-name')?.textContent || '').trim();
+        groupEl._refxFilterKey = gtext ? this._searchKey(gtext) : null;
+      }
       let visible = 0;
       for (const rowEl of groupEl.querySelectorAll('.refx-inline-refs-row')) {
-        const hit = !q || gname.includes(q) || (rowEl.textContent || '').toLowerCase().includes(q);
+        if (!rowEl._refxFilterKey) {
+          const rtext = (rowEl.textContent || '').trim();
+          rowEl._refxFilterKey = rtext ? this._searchKey(rtext) : null;
+        }
+        const groupHit = !plan || (groupEl._refxFilterKey
+          && this._searchMatchFromKey(groupEl._refxFilterKey, plan, { strict: false }).score >= 0);
+        const rowHit = !plan || (rowEl._refxFilterKey
+          && this._searchMatchFromKey(rowEl._refxFilterKey, plan, { strict: false }).score >= 0);
+        const hit = groupHit || rowHit;
         rowEl.classList.toggle('refx-hidden', !hit);
         if (hit) visible += 1;
       }
@@ -35743,7 +36785,6 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         entry.collapsedGroups.add(guid);
       }
     }
-    this._paintInlineRefsCollapseAll(entry);
   }
 
   _paintInlineRefGroup(groupEl, collapsed) {
@@ -35763,18 +36804,8 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       const guid = groupEl.dataset?.refxSourceGuid || '';
       if (guid) this._paintInlineRefGroup(groupEl, entry.collapsedGroups.has(guid));
     }
-    this._paintInlineRefsCollapseAll(entry);
   }
 
-  _paintInlineRefsCollapseAll(entry) {
-    const button = entry?.collapseAllEl;
-    if (!button) return;
-    const guids = [...(entry.currentGroupGuids || [])];
-    const allCollapsed = guids.length > 0 && guids.every((guid) => entry.collapsedGroups.has(guid));
-    button.textContent = allCollapsed ? '⊞' : '⊟';
-    button.title = allCollapsed ? 'Expand all source groups' : 'Collapse all source groups';
-    button.disabled = guids.length === 0;
-  }
 
   _toggleAllInlineRefGroups(entry) {
     const guids = [...(entry?.currentGroupGuids || [])];
@@ -35816,222 +36847,13 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     try { document.querySelectorAll('.refx-inline-refs').forEach((n) => n.remove()); } catch (e) {}
   }
 
-  // ---- v3.56.0 F1: Unlinked mentions (Roam's Unlinked References) ----
-  //
-  // A lazy collapsed footer subsection inside the inline refs section. Only
-  // scanned when the user clicks "Unlinked mentions - scan". Searches the
-  // workspace for lines containing the target's display name (or any alias)
-  // that do NOT already have a ref segment to the target. Each hit gets an
-  // amber "unlinked" pill and a "Link" button that splices in a real ref seg.
 
-  // Append the collapsible "Unlinked mentions" footer to an inline section's body.
-  _appendUnlinkedSection(entry) {
-    if (!entry || !entry.bodyEl) return;
-    // gated on config (default true)
-    const cfg = (this.getConfiguration && this.getConfiguration()) || {};
-    const unlinkedEnabled = !(cfg.custom && cfg.custom.unlinkedMentions === false);
-    if (!unlinkedEnabled) return;
-    const wrap = this._el('div', 'refx-unlinked-section');
-    const toggle = this._el('button', 'refx-unlinked-toggle', 'Unlinked mentions — scan');
-    toggle.type = 'button';
-    toggle.title = 'Scan for lines that mention this target by name but have no reference link';
-    let scanState = { scanned: false, offset: 0, hits: [], scanning: false };
-    toggle.addEventListener('mousedown', (ev) => ev.stopPropagation());
-    toggle.addEventListener('click', (ev) => {
-      ev.preventDefault(); ev.stopPropagation();
-      if (!scanState.scanned && !scanState.scanning) {
-        this._runUnlinkedScan(entry, wrap, toggle, scanState).catch(() => {});
-      } else if (scanState.scanned) {
-        // toggle visibility of results
-        const body = wrap.querySelector('.refx-unlinked-body');
-        if (body) body.classList.toggle('refx-hidden');
-      }
-    });
-    wrap.appendChild(toggle);
-    entry.bodyEl.appendChild(wrap);
-  }
-
-  // Build the phrase set for an unlinked scan: the target's display name plus
-  // any alias titles used in existing ref segments pointing at the target.
-  _unlinkedPhrases(targetGuid) {
-    const isRecord = !!this.data.getRecord(targetGuid);
-    const phrases = new Set();
-    // Primary name
-    let primary = '';
-    if (isRecord) {
-      try { const r = this.data.getRecord(targetGuid); primary = (r && r.getName && r.getName()) || ''; } catch (e) {}
-    } else {
-      primary = this._lineTextByGuid(targetGuid) || '';
-    }
-    if (primary.length >= (isRecord ? 4 : 12)) phrases.add(primary.trim());
-    // Collect alias titles from all live ref segments in the registry
-    const byGuid = (window.g_universe && window.g_universe.itemsByGuid) || {};
-    for (const guid in byGuid) {
-      const it = byGuid[guid];
-      if (!it || it.is_deleted || it.is_trashed) continue;
-      const segs = this._segmentsFromState(it);
-      for (const seg of segs) {
-        if (seg.type !== 'ref' && seg.type !== 'linkobj') continue;
-        const segGuid = (seg.text && typeof seg.text === 'object' && seg.text.guid) ? seg.text.guid : (typeof seg.text === 'string' ? seg.text : '');
-        if (segGuid !== targetGuid) continue;
-        const title = (seg.text && typeof seg.text === 'object' && seg.text.title) ? String(seg.text.title).trim() : '';
-        if (title && title.length >= (isRecord ? 4 : 12) && title !== primary.trim()) phrases.add(title);
-      }
-    }
-    return [...phrases].filter(Boolean);
-  }
 
   async _queryUnlinkedTextCandidates(phrase, limit = 60) {
     try { return (await this.data.searchByQuery(String(phrase || ''), limit))?.lines || []; }
     catch (e) { return []; }
   }
 
-  // Run the unlinked scan: search for each phrase, collect hits (lines that
-  // do NOT already ref the target), render them into the subsection body.
-  async _runUnlinkedScan(entry, wrap, toggle, scanState) {
-    const targetGuid = entry.targetGuid;
-    if (!targetGuid || scanState.scanning) return;
-    scanState.scanning = true;
-    toggle.textContent = 'Unlinked mentions — scanning…';
-    const phrases = this._unlinkedPhrases(targetGuid);
-    if (phrases.length === 0) {
-      toggle.textContent = 'Unlinked mentions — no search phrase found';
-      scanState.scanning = false; scanState.scanned = true;
-      return;
-    }
-    // Build a set of guids that already reference the target (from the existing
-    // linked refs data — so we can exclude them).
-    const alreadyLinked = new Set();
-    for (const item of (entry._rawItems || [])) {
-      const g = item && item.guid;
-      if (g) alreadyLinked.add(g);
-    }
-    // Also exclude the target's own lines
-    const isRecord = !!this.data.getRecord(targetGuid);
-    // Collect hits: search each phrase, dedupe, exclude already-linked + target-own
-    const seen = new Set();
-    const hits = [];
-    const maxHitsPerPhrase = 60;
-    for (const phrase of phrases) {
-      if (hits.length >= 30 && scanState.offset === 0) break;
-      const candidates = await this._queryUnlinkedTextCandidates(phrase, maxHitsPerPhrase);
-      for (const line of candidates) {
-        if (!line || !line.guid) continue;
-        if (seen.has(line.guid)) continue;
-        seen.add(line.guid);
-        // Exclude self, already-linked lines, and own record lines
-        if (alreadyLinked.has(line.guid)) continue;
-        if (line.guid === targetGuid) continue;
-        const srcGuid = (line.record && line.record.guid) || '';
-        if (isRecord && srcGuid === targetGuid) continue; // target's own lines
-        // Check no ref segment to target already exists
-        const segs = (line.segments) || [];
-        let hasRef = false;
-        for (const seg of segs) {
-          if (seg.type !== 'ref' && seg.type !== 'linkobj') continue;
-          const sg = (seg.text && typeof seg.text === 'object' && seg.text.guid) ? seg.text.guid : (typeof seg.text === 'string' ? seg.text : '');
-          if (sg === targetGuid) { hasRef = true; break; }
-        }
-        if (hasRef) continue;
-        // Match check: the display text must contain the phrase at a word boundary
-        // (case-insensitive). A bare .includes() match fires mid-word -- e.g. a
-        // record named "Task" surfaces "Tasks", "Multitasking", etc.
-        const txt = this._cleanDisplayText(segs).toLowerCase();
-        const phLow = phrase.toLowerCase();
-        const phIdx = txt.indexOf(phLow);
-        if (phIdx < 0) continue;
-        const _isWordBound = (c) => !c || !/[\p{L}\p{N}]/u.test(c);
-        if (!_isWordBound(txt[phIdx - 1]) || !_isWordBound(txt[phIdx + phLow.length])) continue;
-        hits.push({ line, phrase });
-        if (hits.length >= 30) break;
-      }
-    }
-    scanState.hits = hits;
-    scanState.scanned = true;
-    scanState.scanning = false;
-    // Render body
-    const body = this._el('div', 'refx-unlinked-body');
-    wrap.appendChild(body);
-    const headerLabel = hits.length === 0 ? 'Unlinked mentions — none found' : `Unlinked mentions — ${hits.length}${hits.length >= 30 ? '+' : ''}`;
-    toggle.textContent = headerLabel;
-    if (hits.length === 0) return;
-    // "Link all (N)" header action
-    const linkAllBtn = this._el('button', 'refx-unlinked-link-all', `Link all (${hits.length})`);
-    linkAllBtn.type = 'button';
-    linkAllBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-    linkAllBtn.addEventListener('click', async (ev) => {
-      ev.preventDefault(); ev.stopPropagation();
-      linkAllBtn.disabled = true;
-      linkAllBtn.textContent = 'Linking…';
-      let linked = 0;
-      for (const { line, phrase } of hits) {
-        const caret = this._caretInfo();
-        if (caret && caret.lineGuid === line.guid) continue; // skip caret line
-        const ok = await this._linkUnlinkedHit(line, phrase, targetGuid);
-        if (ok) linked++;
-        await new Promise((r) => setTimeout(r, 60));
-      }
-      linkAllBtn.textContent = `Linked ${linked}`;
-    });
-    body.appendChild(linkAllBtn);
-    // Render rows
-    for (const { line, phrase } of hits.slice(0, 30)) {
-      const caretInfo = this._caretInfo();
-      const isCaretLine = caretInfo && caretInfo.lineGuid === line.guid;
-      const rowEl = this._el('div', 'refx-unlinked-row');
-      // Source record crumb
-      const srcGuid = (line.record && line.record.guid) || '';
-      if (srcGuid) {
-        const crumb = this._el('span', 'refx-unlinked-crumb', this.getOrLoadRecordName(srcGuid));
-        crumb.title = 'Open record';
-        crumb.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); this._bridgeJump(srcGuid, {}); });
-        rowEl.appendChild(crumb);
-        rowEl.appendChild(this._el('span', 'refx-unlinked-sep', '›'));
-      }
-      // Line text with matched phrase highlighted
-      const txt = this._cleanDisplayText(line.segments || '');
-      const lineEl = this._el('span', 'refx-unlinked-line', txt.length > 200 ? txt.slice(0, 200) + '…' : txt);
-      rowEl.appendChild(lineEl);
-      // Amber "unlinked" pill
-      rowEl.appendChild(this._el('span', 'refx-unlinked-pill', 'unlinked'));
-      // Link button (disabled when caret is on this line)
-      const linkBtn = this._el('button', 'refx-unlinked-link' + (isCaretLine ? ' is-disabled' : ''), 'Link');
-      linkBtn.type = 'button';
-      linkBtn.disabled = isCaretLine;
-      if (isCaretLine) linkBtn.title = 'Cannot link the line you are currently editing';
-      linkBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-      linkBtn.addEventListener('click', async (ev) => {
-        ev.preventDefault(); ev.stopPropagation();
-        const cur = this._caretInfo();
-        if (cur && cur.lineGuid === line.guid) { this._toast('Cannot link the line you are editing'); return; }
-        linkBtn.disabled = true;
-        linkBtn.textContent = '…';
-        const ok = await this._linkUnlinkedHit(line, phrase, targetGuid);
-        if (ok) {
-          rowEl.style.opacity = '0.4';
-          linkBtn.textContent = '✓';
-        } else {
-          linkBtn.disabled = false;
-          linkBtn.textContent = 'Link';
-        }
-      });
-      rowEl.appendChild(linkBtn);
-      body.appendChild(rowEl);
-    }
-    // F1: "Scan next 30" continuation removed -- scanState.offset is never
-    // incremented, hits are hard-capped at 30, so hits.length > 30 is unreachable.
-    // Removed the dead branch; the header label already shows "30+" when capped.
-  }
-
-  // ---- v3.60.0 F1+F2: Deep connections + Suggested connections ----
-  //
-  // Lazy collapsed subsection below Unlinked mentions. Appears only for RECORD
-  // targets. On scan: one registry pass builds reverseRefIndex + rguidIndex, then
-  // BFS backward from targetGuid (depth 2) finds 2-hop paths. Suggested
-  // connections (F2) are computed from the same index with zero extra registry
-  // walks.
-
-  // Append the collapsible "Deep connections" footer to an inline section body.
   _appendDeepConnectionsSection(entry) {
     if (!entry || !entry.bodyEl) return;
     const cfg = (this.getConfiguration && this.getConfiguration()) || {};
@@ -36067,16 +36889,99 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     return null;
   }
 
-  // Single registry pass: build reverseRefIndex (targetGuid -> [lineState]) and
-  // rguidIndex (recordGuid -> [lineState]). Bounded to MAX_REG lines.
-  _buildRefIndexes() {
+  // v4.55.0 WO-17: shared stamped connection indexes. Cold sync callers get null
+  // and a background build; async callers await _connIndexesReady().
+  _connIndexes() {
+    const stamp = this._refLevelCacheStamp();
+    const cache = this._connIndexCache;
+    const ttl = this._CONN_INDEX_TTL_MS;
+    if (cache && cache.stamp === stamp && Date.now() - cache.builtAt < ttl) {
+      const diag = this._connDiagnostics;
+      if (diag) diag.indexHits++;
+      return cache;
+    }
+    const diag = this._connDiagnostics;
+    if (diag) diag.indexCold++;
+    this._scheduleConnIndexBuild(stamp);
+    return null;
+  }
+
+  _scheduleConnIndexBuild(stamp) {
+    if (this._unloaded || this._isUnloading) return;
+    if (this._connIndexBuildQueued && this._connIndexBuildStamp === stamp) return;
+    this._connIndexBuildQueued = true;
+    this._connIndexBuildStamp = stamp;
+    const buildGen = ++this._connIndexBuildGeneration;
+    const job = this._runBackgroundWork('connection-index', async (generation) => {
+      try {
+        const built = await this._buildConnIndexesChunked(generation, stamp);
+        if (!built || buildGen !== this._connIndexBuildGeneration) return null;
+        if (this._refLevelCacheStamp() !== stamp) return null;
+        if (generation && !(await this._recheckBackgroundGate(generation))) return null;
+        this._connIndexCache = built;
+        const diag = this._connDiagnostics;
+        if (diag) diag.indexBuilds++;
+        return built;
+      } finally {
+        if (this._connIndexBuildStamp === stamp) this._connIndexBuildQueued = false;
+      }
+    });
+    this._connIndexReadyPromise = job;
+    this._connIndexReadyStamp = stamp;
+  }
+
+  async _connIndexesReady() {
+    const stamp = this._refLevelCacheStamp();
+    const cache = this._connIndexCache;
+    if (cache && cache.stamp === stamp && Date.now() - cache.builtAt < this._CONN_INDEX_TTL_MS) {
+      return cache;
+    }
+    this._connIndexes();
+    if (this._connIndexReadyPromise && this._connIndexReadyStamp === stamp) {
+      const result = await this._connIndexReadyPromise;
+      if (result) return result;
+    }
+    if (this._connIndexCache && this._connIndexCache.stamp === stamp) return this._connIndexCache;
+    const built = await this._buildConnIndexesChunked(null, stamp);
+    if (built && this._refLevelCacheStamp() === stamp) {
+      this._connIndexCache = built;
+      const diag = this._connDiagnostics;
+      if (diag) diag.indexBuilds++;
+      return built;
+    }
+    return this._connIndexCache;
+  }
+
+  async _buildConnIndexesChunked(generation, stamp) {
     const MAX_REG = 80000;
+    const YIELD_EVERY = 2000;
     const registry = (window.g_universe && window.g_universe.itemsByGuid) || {};
     const keys = Object.keys(registry);
     const cap = Math.min(keys.length, MAX_REG);
-    const reverseRefIndex = new Map(); // targetGuid -> [lineState]
-    const rguidIndex = new Map();      // recordGuid -> [lineState]
+    const reverseRefIndex = new Map();
+    const rguidIndex = new Map();
+    const forwardRefIndex = new Map();
+    const ownerByLine = new Map();
+    const childrenByLine = new Map();
+    const journalDayMemo = new Map();
+    const journalDayOf = (ownerGuid) => {
+      const og = String(ownerGuid || "");
+      if (!og) return null;
+      if (journalDayMemo.has(og)) return journalDayMemo.get(og);
+      let day = null;
+      try {
+        const rec = this.data.getRecord?.(og);
+        const jd = rec?.getJournalDetails?.();
+        day = (jd && (jd.date || jd.isoDate || jd.day)) ? String(jd.date || jd.isoDate || jd.day) : null;
+      } catch (e) {}
+      journalDayMemo.set(og, day);
+      return day;
+    };
     for (let i = 0; i < cap; i++) {
+      if (generation && i > 0 && i % YIELD_EVERY === 0) {
+        if (!(await this._recheckBackgroundGate(generation))) return null;
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
       const st = registry[keys[i]];
       if (!st || st.is_deleted || st.is_trashed) continue;
       const rg = st.rguid || st.parent_guid;
@@ -36084,19 +36989,1590 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         let arr = rguidIndex.get(rg);
         if (!arr) { arr = []; rguidIndex.set(rg, arr); }
         arr.push(st);
+        if (st.guid) ownerByLine.set(st.guid, rg);
+      }
+      const pg = st.parent_guid;
+      if (pg && st.guid) {
+        let kids = childrenByLine.get(pg);
+        if (!kids) { kids = []; childrenByLine.set(pg, kids); }
+        kids.push(st.guid);
       }
       const segs = st.text_segments;
       if (!segs || segs.length < 2) continue;
+      const refs = [];
       for (let j = 0; j < segs.length - 1; j += 2) {
-        if (segs[j] !== 'ref') continue;
+        if (segs[j] !== "ref") continue;
         const tg = this._decodeRefPayload(segs[j + 1]);
         if (!tg) continue;
+        refs.push(tg);
         let bucket = reverseRefIndex.get(tg);
         if (!bucket) { bucket = []; reverseRefIndex.set(tg, bucket); }
         bucket.push(st);
+        if (rg) {
+          let fwd = forwardRefIndex.get(rg);
+          if (!fwd) { fwd = new Set(); forwardRefIndex.set(rg, fwd); }
+          fwd.add(tg);
+        }
+      }
+      if (refs.length > 1 && refs.length <= 8) {
+        const hasParent = !!rg;
+        const hasDay = !!journalDayOf(rg);
+        for (let pi = 0; pi < refs.length; pi++) {
+          for (let qi = pi + 1; qi < refs.length; qi++) {
+            this._connCooccurNotePair(refs[pi], refs[qi], { line: true, parent: hasParent, day: hasDay });
+          }
+        }
       }
     }
-    return { reverseRefIndex, rguidIndex };
+    const childRefInbound = new Map();
+    for (let i = 0; i < cap; i++) {
+      const st = registry[keys[i]];
+      if (!st || st.is_deleted || st.is_trashed) continue;
+      const refs = this._connRefsFromLineState(st);
+      if (!refs.length || !st.guid) continue;
+      let ancestor = st.parent_guid;
+      for (let gen = 1; ancestor && gen <= 2; gen++) {
+        for (const tg of refs) {
+          let arr = childRefInbound.get(tg);
+          if (!arr) { arr = []; childRefInbound.set(tg, arr); }
+          arr.push({ carrier: ancestor, viaLine: st.guid });
+        }
+        const pst = registry[ancestor];
+        ancestor = pst && pst.parent_guid;
+      }
+    }
+    return {
+      reverseRefIndex,
+      rguidIndex,
+      forwardRefIndex,
+      ownerByLine,
+      childrenByLine,
+      childRefInbound,
+      builtAt: Date.now(),
+      stamp,
+    };
+  }
+
+  // Single registry pass: build reverseRefIndex (targetGuid -> [lineState]) and
+  // rguidIndex (recordGuid -> [lineState]). Bounded to MAX_REG lines.
+  async _buildRefIndexes() {
+    const idx = await this._connIndexesReady();
+    if (!idx) {
+      return { reverseRefIndex: new Map(), rguidIndex: new Map(), forwardRefIndex: new Map() };
+    }
+    return {
+      reverseRefIndex: idx.reverseRefIndex,
+      rguidIndex: idx.rguidIndex,
+      forwardRefIndex: idx.forwardRefIndex,
+    };
+  }
+
+  _connHopWeight(srcGuid, dstGuid) {
+    if (!this._connStrengthEnabled) return 0;
+    const src = String(srcGuid || "");
+    const dst = String(dstGuid || "");
+    if (!src || !dst || src === dst) return 0;
+    let store = null;
+    try { store = this._connTraversalLoad(); } catch (e) { return 0; }
+    if (!store) return 0;
+    const edge = store[src + ">" + dst];
+    if (!edge) return 0;
+    const n = Math.max(0, Number(edge.n) || 0);
+    if (!n) return 0;
+    const ageMs = Date.now() - (Number(edge.last) || 0);
+    const ageDays = ageMs / 86400000;
+    const raw = n * Math.exp(-ageDays / 30);
+    return Math.min(60, Math.round(raw));
+  }
+
+  _connCooccurStorageKey() {
+    const workspaceGuid = this._wbWorkspaceGuid();
+    return workspaceGuid ? "refx_cooccur_v1:" + workspaceGuid : "";
+  }
+
+  _connCooccurPairKey(aGuid, bGuid) {
+    const a = String(aGuid || "");
+    const b = String(bGuid || "");
+    if (!a || !b || a === b) return "";
+    return a < b ? a + "|" + b : b + "|" + a;
+  }
+
+  _connCooccurLoad() {
+    const key = this._connCooccurStorageKey();
+    if (!key) return null;
+    if (this._connCooccurCache && this._connCooccurCacheKey === key) return this._connCooccurCache;
+    let store = {};
+    try {
+      const raw = localStorage.getItem(key);
+      const parsed = raw ? JSON.parse(raw) : {};
+      store = (parsed && typeof parsed === "object" && !Array.isArray(parsed)) ? parsed : {};
+    } catch (e) { store = {}; }
+    this._connCooccurCache = store;
+    this._connCooccurCacheKey = key;
+    return store;
+  }
+
+  _seedCooccurFromDisk() {
+    const key = this._connCooccurStorageKey();
+    if (!key) return;
+    let raw = null;
+    try { raw = localStorage.getItem(key); } catch (e) { return; }
+    if (!raw) return;
+    let obj = null;
+    try { obj = JSON.parse(raw); } catch (e) { return; }
+    if (!obj || typeof obj !== "object") return;
+    const maxAge = 7 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const store = this._connCooccurLoad() || {};
+    let n = 0;
+    for (const pk in obj) {
+      if (n >= this._connCooccurStoreMax) break;
+      const e = obj[pk];
+      if (!e || typeof e !== "object") continue;
+      if (typeof e.last === "number" && (now - e.last) > maxAge) continue;
+      const live = store[pk];
+      if (live && live.fromDisk !== true) continue;
+      if (live) continue;
+      store[pk] = {
+        line: Number(e.line) || 0,
+        parent: Number(e.parent) || 0,
+        day: Number(e.day) || 0,
+        last: Number(e.last) || 0,
+        fromDisk: true,
+      };
+      n++;
+    }
+    this._connCooccurCache = store;
+    this._connCooccurCacheKey = key;
+  }
+
+  _connCooccurGet(aGuid, bGuid) {
+    const store = this._connCooccurLoad();
+    const pk = this._connCooccurPairKey(aGuid, bGuid);
+    if (!store || !pk) return null;
+    return store[pk] || null;
+  }
+
+  _connCooccurNotePair(aGuid, bGuid, rel = {}) {
+    const pk = this._connCooccurPairKey(aGuid, bGuid);
+    if (!pk) return;
+    let store = this._connCooccurLoad();
+    if (!store) store = {};
+    const now = Date.now();
+    const prev = store[pk] || { line: 0, parent: 0, day: 0, last: 0 };
+    const entry = {
+      line: (Number(prev.line) || 0) + (rel.line ? 1 : 0),
+      parent: (Number(prev.parent) || 0) + (rel.parent ? 1 : 0),
+      day: (Number(prev.day) || 0) + (rel.day ? 1 : 0),
+      last: now,
+      fromDisk: false,
+    };
+    store[pk] = entry;
+    const entries = Object.entries(store);
+    if (entries.length > this._connCooccurStoreMax) {
+      entries.sort((a, b) => (Number(b[1]?.last) || 0) - (Number(a[1]?.last) || 0));
+      const trimmed = {};
+      for (let i = 0; i < this._connCooccurStoreMax; i++) trimmed[entries[i][0]] = entries[i][1];
+      this._connCooccurCache = trimmed;
+    } else {
+      this._connCooccurCache = store;
+    }
+    this._scheduleCooccurPersist();
+  }
+
+  _scheduleCooccurPersist() {
+    if (this._connCooccurPersistT || this._isUnloading) return;
+    this._connCooccurPersistT = setTimeout(() => {
+      this._connCooccurPersistT = 0;
+      this._persistCooccurStore();
+    }, 5000);
+  }
+
+  _persistCooccurStore() {
+    const key = this._connCooccurStorageKey();
+    const store = this._connCooccurCache;
+    if (!key || !store) return;
+    try {
+      const entries = Object.entries(store).filter(([, e]) => e && !e.fromDisk);
+      if (entries.length > this._connCooccurStoreMax) {
+        entries.sort((a, b) => (Number(b[1].last) || 0) - (Number(a[1].last) || 0));
+        entries.length = this._connCooccurStoreMax;
+      }
+      const obj = {};
+      for (const [pk, e] of entries) {
+        obj[pk] = { line: Number(e.line) || 0, parent: Number(e.parent) || 0, day: Number(e.day) || 0, last: Number(e.last) || 0 };
+      }
+      localStorage.setItem(key, JSON.stringify(obj));
+    } catch (e) {}
+  }
+
+  _connCooccurScore(inputGuids, candidateGuid) {
+    const cand = String(candidateGuid || "");
+    if (!cand) return 0;
+    let score = 0;
+    for (const g of (inputGuids || [])) {
+      const pair = this._connCooccurGet(g, cand);
+      if (!pair) continue;
+      score += Number(pair.day) || 0;
+      score += Math.min(3, Number(pair.line) || 0);
+      score += Math.min(2, Number(pair.parent) || 0);
+    }
+    return score;
+  }
+
+  _connCooccurEvidenceLabel(inputGuids, candidateGuid, directLinked) {
+    if (directLinked) return "";
+    let days = 0;
+    for (const g of (inputGuids || [])) {
+      const pair = this._connCooccurGet(g, candidateGuid);
+      if (pair) days = Math.max(days, Number(pair.day) || 0);
+    }
+    if (!days) return "";
+    return "never linked · appears with this on " + days + (days === 1 ? " day" : " days");
+  }
+
+  _connTraversalStorageKey() {
+    const workspaceGuid = this._wbWorkspaceGuid();
+    return workspaceGuid ? "refx_traversal_v1:" + workspaceGuid : "";
+  }
+
+  _connTrailStorageKey() {
+    const workspaceGuid = this._wbWorkspaceGuid();
+    return workspaceGuid ? "refx_trail_v1:" + workspaceGuid : "";
+  }
+
+  _connTraversalLoad() {
+    const key = this._connTraversalStorageKey();
+    if (!key) return null;
+    if (this._connTraversalCache && this._connTraversalCacheKey === key) return this._connTraversalCache;
+    let store = {};
+    try {
+      const raw = localStorage.getItem(key);
+      const parsed = raw ? JSON.parse(raw) : {};
+      store = (parsed && typeof parsed === "object" && !Array.isArray(parsed)) ? parsed : {};
+    } catch (e) { store = {}; }
+    this._connTraversalCache = store;
+    this._connTraversalCacheKey = key;
+    return store;
+  }
+
+  _connTraversalPersist(store) {
+    const key = this._connTraversalStorageKey();
+    if (!key || !store) return;
+    try { localStorage.setItem(key, JSON.stringify(store)); } catch (e) {}
+  }
+
+  _connTrailPersistSoon() {
+    const key = this._connTrailStorageKey();
+    if (!key || !this._refxTrail) return;
+    if (this._connTrailPersistT) clearTimeout(this._connTrailPersistT);
+    this._connTrailPersistT = setTimeout(() => {
+      this._connTrailPersistT = 0;
+      try { localStorage.setItem(key, JSON.stringify(this._refxTrail)); } catch (e) {}
+    }, 250);
+  }
+
+  _connRecordHop(srcGuid, dstGuid, how) {
+    const src = String(srcGuid || "");
+    const dst = String(dstGuid || "");
+    if (!src || !dst || src === dst) return;
+    let store = null;
+    try { store = this._connTraversalLoad(); } catch (e) { return; }
+    if (!store) return;
+    const edgeKey = src + ">" + dst;
+    const now = Date.now();
+    const prev = store[edgeKey] || { n: 0, last: 0 };
+    store[edgeKey] = { n: Math.max(0, Number(prev.n) || 0) + 1, last: now };
+    const entries = Object.entries(store);
+    if (entries.length > 1000) {
+      entries.sort((a, b) => (Number(b[1]?.last) || 0) - (Number(a[1]?.last) || 0));
+      const trimmed = {};
+      for (let i = 0; i < 1000; i++) trimmed[entries[i][0]] = entries[i][1];
+      this._connTraversalCache = trimmed;
+      this._connTraversalPersist(trimmed);
+    } else {
+      this._connTraversalPersist(store);
+    }
+    const trail = this._refxTrail || (typeof window !== "undefined" ? window.__refxTrail : null);
+    if (trail && Array.isArray(trail.ring)) {
+      const cap = Math.max(1, Number(trail.cap) || 50);
+      const label = String(this.getOrLoadRecordName(dst) || this._lineTextByGuid(dst) || dst).trim();
+      trail.ring.push({ guid: dst, label, ts: now, how: String(how || "jump") });
+      while (trail.ring.length > cap) trail.ring.shift();
+      this._connTrailPersistSoon();
+      this._wbTrailNotifyChanged();
+    }
+  }
+
+  _connTrailLoadOnce() {
+    if (this._wbTrailLoaded) return;
+    this._wbTrailLoaded = true;
+    const key = this._connTrailStorageKey();
+    if (!key || !this._refxTrail) return;
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      const ring = (parsed && Array.isArray(parsed.ring)) ? parsed.ring
+        : (Array.isArray(parsed) ? parsed : null);
+      if (!ring || !ring.length) return;
+      const cap = Math.max(1, Number(parsed?.cap || this._refxTrail.cap) || 50);
+      this._refxTrail.cap = cap;
+      this._refxTrail.ring = ring.slice(-cap);
+    } catch (e) {}
+  }
+
+  _wbTrailPaintFingerprint(ring) {
+    return (ring || []).map((e) => String(e.guid || "") + ":" + String(e.ts || 0) + ":" + String(e.label || "")).join("|");
+  }
+
+  _wbTrailHopDisplay(entry) {
+    const label = String(entry?.label || entry?.guid || "").trim();
+    const rt = this._relativeTime(entry?.ts);
+    const datePart = rt?.absShort ? String(rt.absShort).split(",")[0].trim() : "";
+    const full = datePart ? datePart + " › " + label : label;
+    return full.length > 14 ? full.slice(0, 14) + "…" : full;
+  }
+
+  _wbTrailHopTitle(entry) {
+    const label = String(entry?.label || entry?.guid || "").trim();
+    const rt = this._relativeTime(entry?.ts);
+    return rt?.rel ? label + " · " + rt.rel : label;
+  }
+
+  _wbTrailRing() {
+    return (this._refxTrail && Array.isArray(this._refxTrail.ring)) ? this._refxTrail.ring
+      : ((typeof window !== "undefined" && window.__refxTrail && Array.isArray(window.__refxTrail.ring)) ? window.__refxTrail.ring : []);
+  }
+
+  _wbTrailNotifyChanged() {
+    this._wbTrailPaintFp = "";
+    let panelEl = null;
+    try {
+      const panel = this._wbLivePanel();
+      panelEl = panel?.getElement?.() || null;
+    } catch (e) {}
+    if (panelEl && this._wbTrailEl?.isConnected) this._wbLiveTrailPaint(panelEl);
+  }
+
+  _wbTrailDistinctRecordGuids() {
+    const seen = new Set();
+    const out = [];
+    for (const entry of this._wbTrailRing()) {
+      const g = String(entry?.guid || "").trim();
+      if (!g || seen.has(g)) continue;
+      if (!this.data.getRecord?.(g)) continue;
+      seen.add(g);
+      out.push(g);
+    }
+    return out;
+  }
+
+  _wbTrailStopReplay() {
+    this._wbTrailReplayGen = (this._wbTrailReplayGen || 0) + 1;
+    this._wbTrailReplayActive = false;
+    if (this._wbTrailReplayBtn) {
+      try { this._wbTrailReplayBtn.classList.remove("is-replaying"); this._wbTrailReplayBtn.textContent = "⟳ Replay"; } catch (e) {}
+    }
+    try { if (window.__refxTrailReplayKey) window.removeEventListener("keydown", window.__refxTrailReplayKey, true); } catch (e) {}
+    window.__refxTrailReplayKey = null;
+  }
+
+  _wbTrailClear() {
+    const armed = this._wbTrailClearArmTs && Date.now() - this._wbTrailClearArmTs < 4000;
+    if (!armed) {
+      this._wbTrailClearArmTs = Date.now();
+      this._toast("Press ✕ again to clear trail");
+      return;
+    }
+    this._wbTrailClearArmTs = 0;
+    if (this._refxTrail) this._refxTrail.ring = [];
+    const key = this._connTrailStorageKey();
+    if (key) { try { localStorage.removeItem(key); } catch (e) {} }
+    this._wbTrailStopReplay();
+    this._wbTrailNotifyChanged();
+    this._toast("Trail cleared");
+  }
+
+  _wbTrailShowFullModal() {
+    const ring = this._wbTrailRing();
+    if (!ring.length) return;
+    this._openModal({
+      title: "Reference trail (" + ring.length + " hops)",
+      saveLabel: "Close",
+      render: (body) => {
+        const list = this._el("div", "refx-wb-trail-modal");
+        for (const entry of ring) {
+          const row = this._el("button", "refx-wb-vmenu-row", this._wbTrailHopDisplay(entry));
+          row.type = "button";
+          row.title = this._wbTrailHopTitle(entry);
+          const guid = entry.guid;
+          row.addEventListener("click", (ev) => {
+            ev.preventDefault(); ev.stopPropagation();
+            if (guid) this._bridgeJump(guid, {});
+          });
+          list.append(row);
+        }
+        body.append(list);
+        return { value: () => "", canSave: () => true, enterSaves: false };
+      },
+      onSave: () => {},
+    });
+  }
+
+  _wbTrailSaveAsStackModal() {
+    const guids = this._wbTrailDistinctRecordGuids();
+    if (!guids.length) { this._toast("No resolvable records in trail"); return; }
+    this._openModal({
+      title: "Save trail as stack",
+      saveLabel: "Save",
+      render: (body) => {
+        const input = this._el("input", "refalias-input");
+        input.type = "text";
+        input.placeholder = "Stack name";
+        body.append(input);
+        return {
+          value: () => input.value.trim(),
+          canSave: () => !!input.value.trim(),
+          enterSaves: true,
+          focusEl: input,
+        };
+      },
+      onSave: (name) => {
+        this._wbStackSaveTargets(name, guids).then((ok) => {
+          if (ok) this._toast("Saved " + guids.length + " trail record" + (guids.length === 1 ? "" : "s") + " to stack");
+        });
+      },
+    });
+  }
+
+  async _wbTrailReplay() {
+    if (this._wbTrailReplayActive) { this._wbTrailStopReplay(); this._toast("Replay cancelled"); return; }
+    const ring = this._wbTrailRing();
+    if (!ring.length) return;
+    const gen = ++this._wbTrailReplayGen;
+    try { window.__refxTrailReplayGen = gen; } catch (e) {}
+    this._wbTrailReplayActive = true;
+    const replayBtn = this._wbTrailReplayBtn;
+    if (replayBtn) replayBtn.classList.add("is-replaying");
+    const escapeFn = (ev) => {
+      if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); this._wbTrailStopReplay(); this._toast("Replay cancelled"); }
+    };
+    try { window.removeEventListener("keydown", window.__refxTrailReplayKey, true); } catch (e) {}
+    window.__refxTrailReplayKey = escapeFn;
+    window.addEventListener("keydown", escapeFn, true);
+    const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    for (let i = 0; i < ring.length; i++) {
+      if (gen !== this._wbTrailReplayGen || this._unloaded) break;
+      let livePanel = null;
+      try { livePanel = this._wbLivePanel(); } catch (e) {}
+      if (!livePanel) break;
+      const entry = ring[i];
+      if (replayBtn) replayBtn.textContent = "⟳ " + (i + 1) + "/" + ring.length;
+      try { await this._bridgeJump(entry.guid, {}); } catch (e) {}
+      if (gen !== this._wbTrailReplayGen || this._unloaded) break;
+      if (i < ring.length - 1) await delay(900);
+    }
+    if (gen === this._wbTrailReplayGen) this._wbTrailStopReplay();
+  }
+
+  _wbLiveTrailEnsure(panelEl, items) {
+    if (!this._wbTrailEnabled) {
+      if (this._wbTrailEl) { try { this._wbTrailEl.remove(); } catch (e) {} this._wbTrailEl = null; }
+      this._wbTrailPaintFp = "";
+      return;
+    }
+    this._connTrailLoadOnce();
+    const scroller = panelEl.querySelector(".panel-scroller-y") || panelEl;
+    if (!this._wbTrailEl || !this._wbTrailEl.isConnected || this._wbTrailEl.parentElement !== scroller) {
+      if (this._wbTrailEl) { try { this._wbTrailEl.remove(); } catch (e) {} }
+      this._wbTrailEl = this._el("div", "refx-wb-trail");
+      this._wbTrailEl.setAttribute("contenteditable", "false");
+      try {
+        if (this._wbTabsEl && this._wbTabsEl.isConnected && this._wbTabsEl.parentElement === scroller) {
+          if (this._wbTabsEl.nextSibling) scroller.insertBefore(this._wbTrailEl, this._wbTabsEl.nextSibling);
+          else scroller.appendChild(this._wbTrailEl);
+        } else if (scroller.firstChild) scroller.insertBefore(this._wbTrailEl, scroller.firstChild);
+        else scroller.appendChild(this._wbTrailEl);
+      } catch (e) { try { scroller.appendChild(this._wbTrailEl); } catch (e2) {} }
+    }
+    this._wbLiveTrailPaint(panelEl);
+  }
+
+  _wbLiveTrailPaint(panelEl) {
+    if (!this._wbTrailEnabled) {
+      if (this._wbTrailEl) { try { this._wbTrailEl.remove(); } catch (e) {} this._wbTrailEl = null; }
+      this._wbTrailPaintFp = "";
+      return;
+    }
+    const ring = this._wbTrailRing();
+    let el = this._wbTrailEl;
+    if (!ring.length) {
+      this._wbTrailPaintFp = "";
+      if (el) { el.hidden = true; if (el.replaceChildren) el.replaceChildren(); else el.innerHTML = ""; }
+      return;
+    }
+    const fp = this._wbTrailPaintFingerprint(ring);
+    if (fp === this._wbTrailPaintFp && el && el.isConnected && !el.hidden) return;
+    this._wbTrailPaintFp = fp;
+    if (!el || !el.isConnected) {
+      el = this._el("div", "refx-wb-trail");
+      el.setAttribute("contenteditable", "false");
+      this._wbTrailEl = el;
+    }
+    el.hidden = false;
+    const scroller = panelEl.querySelector(".panel-scroller-y") || panelEl;
+    if (this._wbTabsEl && this._wbTabsEl.isConnected && this._wbTabsEl.parentElement === scroller) {
+      try {
+        if (el.parentElement !== scroller || el.previousElementSibling !== this._wbTabsEl) {
+          if (this._wbTabsEl.nextSibling) scroller.insertBefore(el, this._wbTabsEl.nextSibling);
+          else scroller.appendChild(el);
+        }
+      } catch (e) { try { scroller.appendChild(el); } catch (e2) {} }
+    } else if (el.parentElement !== scroller) {
+      try { scroller.appendChild(el); } catch (e) {}
+    }
+    if (el.replaceChildren) el.replaceChildren(); else el.innerHTML = "";
+    const visible = ring.slice(-8);
+    if (ring.length > 8) {
+      const more = this._el("button", "refx-wb-trail-more", "…");
+      more.type = "button";
+      more.title = "Show all " + ring.length + " hops";
+      more.addEventListener("click", (ev) => { ev.preventDefault(); ev.stopPropagation(); this._wbTrailShowFullModal(); });
+      el.append(more);
+      el.append(this._el("span", "refx-wb-trail-sep", "›"));
+    }
+    for (let i = 0; i < visible.length; i++) {
+      if (i > 0) el.append(this._el("span", "refx-wb-trail-sep", "›"));
+      const entry = visible[i];
+      const btn = this._el("button", "refx-wb-trail-hop", this._wbTrailHopDisplay(entry));
+      btn.type = "button";
+      btn.title = this._wbTrailHopTitle(entry);
+      const guid = entry.guid;
+      btn.addEventListener("click", (ev) => {
+        ev.preventDefault(); ev.stopPropagation();
+        if (guid) this._bridgeJump(guid, {});
+      });
+      el.append(btn);
+    }
+    const saveBtn = this._wbBtn("⇩ Save trail as stack", "Save distinct trail records as a named Workbench stack", () => this._wbTrailSaveAsStackModal());
+    saveBtn.classList.add("refx-wb-trail-act");
+    el.append(saveBtn);
+    const replayBtn = this._wbBtn("⟳ Replay", "Replay hops oldest → newest (click again or Escape to cancel)", () => { this._wbTrailReplay().catch(() => {}); });
+    replayBtn.classList.add("refx-wb-trail-act");
+    this._wbTrailReplayBtn = replayBtn;
+    if (this._wbTrailReplayActive) replayBtn.classList.add("is-replaying");
+    el.append(replayBtn);
+    const clearBtn = this._wbBtn("✕", "Clear trail (press twice)", () => this._wbTrailClear());
+    clearBtn.classList.add("refx-wb-trail-act");
+    el.append(clearBtn);
+  }
+
+  _connEvidenceReferencers(guid) {
+    guid = String(guid || "");
+    if (!guid) return [];
+    const out = [];
+    const seen = new Set();
+    const stamp = this._refLevelCacheStamp();
+    const cache = this._connIndexCache;
+    if (cache && cache.stamp === stamp && Date.now() - cache.builtAt < this._CONN_INDEX_TTL_MS) {
+      for (const st of (cache.reverseRefIndex.get(guid) || [])) {
+        const lg = String(st?.guid || "");
+        if (!lg || seen.has(lg)) continue;
+        seen.add(lg);
+        out.push(st);
+      }
+    }
+    const limit = this._REF_CHAIN_LEVEL_RESOLVE_LIMIT;
+    const key = this._refLevelCacheKey(guid, "in", limit);
+    const cached = this._refLevelCache.get(key);
+    if (cached && cached.stamp === stamp && Array.isArray(cached.result)) {
+      const registry = (window.g_universe && window.g_universe.itemsByGuid) || {};
+      for (const row of cached.result) {
+        const lg = String(row?.guid || "");
+        if (!lg || seen.has(lg)) continue;
+        seen.add(lg);
+        out.push(registry[lg] || { guid: lg, rguid: row.sourceRecordGuid, parent_guid: null });
+      }
+    }
+    return out;
+  }
+
+  _connEvidenceJournalTs(recordGuid) {
+    recordGuid = String(recordGuid || "");
+    if (!recordGuid) return 0;
+    let rec = null;
+    try { rec = this.data.getRecord?.(recordGuid) || null; } catch (e) {}
+    if (rec) {
+      try {
+        const details = rec.getJournalDetails?.();
+        if (details?.date) {
+          const ts = Date.parse(String(details.date));
+          if (!Number.isNaN(ts)) return ts;
+        }
+      } catch (e) {}
+      try {
+        const name = String(rec.getName?.() || "").trim();
+        const ts = Date.parse(name);
+        if (!Number.isNaN(ts)) return ts;
+      } catch (e) {}
+    }
+    const cached = String(this.getOrLoadRecordName(recordGuid) || "").trim();
+    const ts = Date.parse(cached);
+    return Number.isNaN(ts) ? 0 : ts;
+  }
+
+  _connEvidenceStructuralParentLabel(lineSt) {
+    if (!lineSt) return "";
+    const registry = (window.g_universe && window.g_universe.itemsByGuid) || {};
+    const lineGuid = String(lineSt.guid || "");
+    const owner = String(lineSt.rguid || lineSt.parent_guid || "");
+    const parentGuid = String(lineSt.parent_guid || "");
+    if (!lineGuid || !parentGuid || parentGuid === owner) return "";
+    const parent = registry[parentGuid];
+    if (!parent) return "";
+    let label = "";
+    try { label = this._lineTextByGuid(parentGuid) || this._refLevelLineText(parentGuid) || ""; } catch (e) {}
+    label = String(label || "").trim();
+    if (!label) return "";
+    return label.length > 40 ? label.slice(0, 40) + "…" : label;
+  }
+
+  _connEvidenceLabel(guid) {
+    guid = String(guid || "");
+    if (!guid) return "";
+    const parts = [];
+    try {
+      const countInfo = this.getCachedCountInfo(guid);
+      if (countInfo && typeof countInfo.count === "number") {
+        parts.push(String(countInfo.count) + (countInfo.capped ? "+" : "") + " refs");
+      }
+    } catch (e) {}
+    const referencers = this._connEvidenceReferencers(guid);
+    let bestTs = 0;
+    for (const st of referencers) {
+      const rg = String(st.rguid || st.parent_guid || "");
+      const ts = this._connEvidenceJournalTs(rg);
+      if (ts > bestTs) bestTs = ts;
+    }
+    if (bestTs) {
+      const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      parts.push("last " + days[new Date(bestTs).getDay()]);
+    }
+    const parentCounts = new Map();
+    for (const st of referencers) {
+      const lbl = this._connEvidenceStructuralParentLabel(st);
+      if (!lbl) continue;
+      parentCounts.set(lbl, (parentCounts.get(lbl) || 0) + 1);
+    }
+    let bestParent = "", bestN = 0;
+    for (const [lbl, n] of parentCounts) {
+      if (n > bestN) { bestN = n; bestParent = lbl; }
+    }
+    if (bestParent) parts.push("in " + bestParent);
+    return parts.join(" · ");
+  }
+
+  _connHopNode(guid, kind, recordGuid, label) {
+    const g = String(guid || "");
+    const rg = String(recordGuid || g);
+    const hopLabel = label || this.getOrLoadRecordName(g) || this._connLineLabel(g) || "Untitled";
+    return {
+      guid: g,
+      kind: kind || "ref",
+      recordGuid: rg,
+      label: hopLabel,
+      dateLabel: "",
+    };
+  }
+
+  _connLineLabel(lineGuid) {
+    const g = String(lineGuid || "");
+    if (!g) return "";
+    try {
+      const text = this._lineTextByGuid(g);
+      if (text) return text;
+    } catch (e) {}
+    const st = (window.g_universe && window.g_universe.itemsByGuid) ? window.g_universe.itemsByGuid[g] : null;
+    if (st && st.text_segments) {
+      try { return this._cleanDisplayText(st.text_segments).trim(); } catch (e2) {}
+    }
+    return g;
+  }
+
+  _connRefsFromLineState(st) {
+    const refs = [];
+    const segs = st && st.text_segments;
+    if (!segs || segs.length < 2) return refs;
+    for (let j = 0; j < segs.length - 1; j += 2) {
+      if (segs[j] !== "ref") continue;
+      const tg = this._decodeRefPayload(segs[j + 1]);
+      if (tg) refs.push(tg);
+    }
+    return refs;
+  }
+
+  _connChildRefTargets(lineGuid, childrenByLine, registry, maxGen, maxFan) {
+    const out = [];
+    const seen = new Set();
+    const queue = [{ guid: lineGuid, gen: 0 }];
+    let fan = 0;
+    while (queue.length && fan < maxFan) {
+      const { guid, gen } = queue.shift();
+      if (gen >= maxGen) continue;
+      const kids = childrenByLine.get(guid) || [];
+      for (const kid of kids) {
+        if (fan >= maxFan) break;
+        fan++;
+        const st = registry[kid];
+        if (!st) continue;
+        for (const tg of this._connRefsFromLineState(st)) {
+          const key = kid + ">" + tg;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          out.push({ viaLine: kid, target: tg });
+        }
+        queue.push({ guid: kid, gen: gen + 1 });
+      }
+    }
+    return out;
+  }
+
+  _connPathHopPenalty(hop) {
+    if (!hop) return 0;
+    if (hop.kind === "contains") return 1000;
+    if (hop.kind === "child-ref") return 500;
+    return 0;
+  }
+
+  _connPathSortPenalty(path) {
+    let penalty = 0;
+    for (const hop of (path?.hops || [])) penalty += this._connPathHopPenalty(hop);
+    return penalty;
+  }
+
+  _connTrivialContainment(fromGuid, toGuid, result, indexes) {
+    if (!result?.paths?.length || result.trivial) return result;
+    if (result.paths.length !== 1) return result;
+    const hops = result.paths[0].hops || [];
+    if (hops.length !== 2) return result;
+    const ownerByLine = indexes?.ownerByLine || new Map();
+    const h0 = hops[0];
+    const h1 = hops[1];
+    if (h1.kind !== "contains") return result;
+    const from = String(fromGuid || "");
+    const to = String(toGuid || "");
+    if (ownerByLine.get(h0.guid) === h1.guid && h0.guid === from && h1.guid === to) {
+      return {
+        ...result,
+        paths: [],
+        trivial: {
+          kind: "line-on-record",
+          lineGuid: h0.guid,
+          recordGuid: h1.guid,
+          lineLabel: this._connLineLabel(h0.guid) || h0.label,
+          recordLabel: this.getOrLoadRecordName(h1.guid) || h1.label,
+        },
+      };
+    }
+    if (ownerByLine.get(h1.guid) === h0.guid && h0.guid === from && h1.guid === to) {
+      return {
+        ...result,
+        paths: [],
+        trivial: {
+          kind: "record-contains-line",
+          lineGuid: h1.guid,
+          recordGuid: h0.guid,
+          lineLabel: this._connLineLabel(h1.guid) || h1.label,
+          recordLabel: this.getOrLoadRecordName(h0.guid) || h0.label,
+        },
+      };
+    }
+    return result;
+  }
+
+  _connRunJob(fn) {
+    if (this._unloaded || this._isUnloading) {
+      return Promise.resolve({ paths: [], complete: false, capReason: "unloaded" });
+    }
+    const jobGeneration = this._connJobGeneration;
+    return new Promise((resolve) => {
+      const job = {
+        fn,
+        resolve,
+        generation: jobGeneration,
+        controller: null,
+      };
+      try { if (typeof AbortController === "function") job.controller = new AbortController(); } catch (e) {}
+      if (!this._connJobQueue) this._connJobQueue = [];
+      this._connJobQueue.push(job);
+      this._drainConnJobs();
+    });
+  }
+
+  _drainConnJobs() {
+    if (!this._connActiveJobs) this._connActiveJobs = new Set();
+    const maxConcurrent = this._CONN_MAX_CONCURRENCY;
+    while (this._connActiveJobs.size < maxConcurrent && this._connJobQueue?.length) {
+      this._startConnJob(this._connJobQueue.shift());
+    }
+  }
+
+  _startConnJob(job) {
+    if (!job) return;
+    this._connActiveJobs.add(job);
+    const diag = this._connDiagnostics;
+    if (diag) {
+      diag.active++;
+      diag.pathJobs++;
+      diag.maxConcurrent = Math.max(diag.maxConcurrent, diag.active);
+    }
+    const timeoutMs = Math.max(1, Number(this._CONN_JOB_TIMEOUT_MS) || 1);
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      try { job.controller?.abort(); } catch (e) {}
+      if (diag) diag.pathTimeouts++;
+    }, timeoutMs);
+    Promise.resolve(job.fn(job.controller?.signal))
+      .then((result) => {
+        if (settled || job.generation !== this._connJobGeneration) return;
+        if (diag) {
+          if (result?.paths?.length) diag.pathsFound += result.paths.length;
+          if (result?.capReason === "node-budget" || result?.capReason === "frontier-cap") {
+            diag.pathBudgetHits++;
+          }
+        }
+        job.resolve(result || { paths: [], complete: false, capReason: "empty" });
+      })
+      .catch(() => {
+        if (!settled && job.generation === this._connJobGeneration) {
+          job.resolve({ paths: [], complete: false, capReason: "error" });
+        }
+      })
+      .finally(() => {
+        settled = true;
+        clearTimeout(timer);
+        this._connActiveJobs.delete(job);
+        if (diag) diag.active = Math.max(0, diag.active - 1);
+        this._drainConnJobs();
+      });
+  }
+
+  async _connPathsBetween(aGuid, bGuid, opts = {}) {
+    return this._connRunJob(async (signal) => {
+      if (signal?.aborted) return { paths: [], complete: false, capReason: "aborted" };
+      const indexes = opts.indexes || await this._connIndexesReady();
+      if (!indexes) return { paths: [], complete: false, capReason: "no-index" };
+      const reverseRefIndex = indexes.reverseRefIndex;
+      const forwardRefIndex = indexes.forwardRefIndex;
+      const rguidIndex = indexes.rguidIndex;
+      const ownerByLine = indexes.ownerByLine || new Map();
+      const childrenByLine = indexes.childrenByLine || new Map();
+      const childRefInbound = indexes.childRefInbound || new Map();
+      const registry = (window.g_universe && window.g_universe.itemsByGuid) || {};
+      const maxDepth = Math.max(1, Math.min(12, Math.floor(Number(opts.maxDepth ?? this._connMaxDepth) || this._connMaxDepth)));
+      const frontierCap = 400;
+      const nodeBudget = 4000;
+      const maxPaths = Math.max(1, Math.min(10, Number(opts.maxPaths) || 10));
+      const a = String(aGuid || "");
+      const b = String(bGuid || "");
+      if (!a || !b) return { paths: [], complete: true, capReason: null };
+      if (a === b) {
+        const hop = this._connHopNode(a, "ref", a);
+        return { paths: [{ hops: [hop], score: 0 }], complete: true, capReason: null };
+      }
+
+      const ownerA = ownerByLine.get(a);
+      const ownerB = ownerByLine.get(b);
+      if (ownerA && ownerA === b) {
+        return {
+          paths: [],
+          complete: true,
+          capReason: null,
+          trivial: {
+            kind: "line-on-record",
+            lineGuid: a,
+            recordGuid: b,
+            lineLabel: this._connLineLabel(a) || a,
+            recordLabel: this.getOrLoadRecordName(b) || b,
+          },
+        };
+      }
+      if (ownerB && ownerB === a) {
+        return {
+          paths: [],
+          complete: true,
+          capReason: null,
+          trivial: {
+            kind: "record-contains-line",
+            lineGuid: b,
+            recordGuid: a,
+            lineLabel: this._connLineLabel(b) || b,
+            recordLabel: this.getOrLoadRecordName(a) || a,
+          },
+        };
+      }
+
+      const isLineGuid = (g) => ownerByLine.has(g);
+      const shouldExpandRecordLines = (node) => node === a || node === b;
+
+      const propInboundMemo = new Map();
+      const propOutboundMemo = new Map();
+      const getPropertyInbound = async (guid) => {
+        const key = String(guid || "");
+        if (propInboundMemo.has(key)) return propInboundMemo.get(key);
+        const set = new Set();
+        try {
+          const api = typeof window !== "undefined" ? window.__thymerBackrefs : null;
+          let entries = null;
+          if (typeof api?.getPropertyBackrefs === "function") {
+            entries = await api.getPropertyBackrefs(key);
+          } else {
+            const rec = this.data.getRecord?.(key);
+            if (typeof rec?.getBackReferenceRecords === "function") {
+              const refs = await rec.getBackReferenceRecords();
+              entries = (Array.isArray(refs) ? refs : []).map((r) => ({ recordGuid: r && r.guid }));
+            }
+          }
+          for (const e of (Array.isArray(entries) ? entries : [])) {
+            const g = e && e.recordGuid;
+            if (g) set.add(g);
+          }
+        } catch (e) {}
+        propInboundMemo.set(key, set);
+        return set;
+      };
+      const getPropertyOutbound = async (guid) => {
+        const key = String(guid || "");
+        if (propOutboundMemo.has(key)) return propOutboundMemo.get(key);
+        const set = new Set();
+        try {
+          const rec = this.data.getRecord?.(key);
+          for (const p of (rec?.getAllProperties?.() || [])) {
+            for (const val of this.getPropertyCandidateValues(p)) {
+              if (val) set.add(val);
+            }
+          }
+        } catch (e) {}
+        propOutboundMemo.set(key, set);
+        return set;
+      };
+
+      const expandForward = async (node, depth) => {
+        const edges = [];
+        if (isLineGuid(node)) {
+          const owner = ownerByLine.get(node);
+          if (owner) {
+            edges.push({
+              guid: owner,
+              kind: "contains",
+              recordGuid: owner,
+              label: "on " + (this.getOrLoadRecordName(owner) || owner),
+            });
+          }
+          const st = registry[node];
+          for (const tg of this._connRefsFromLineState(st)) {
+            edges.push({ guid: tg, kind: "ref", recordGuid: tg });
+          }
+          for (const row of this._connChildRefTargets(node, childrenByLine, registry, 2, 50)) {
+            edges.push({
+              guid: row.target,
+              kind: "child-ref",
+              recordGuid: row.target,
+              label: "via child",
+              viaLine: row.viaLine,
+            });
+          }
+          return edges;
+        }
+        for (const tg of (forwardRefIndex.get(node) || [])) {
+          edges.push({ guid: tg, kind: "ref", recordGuid: tg });
+        }
+        if (shouldExpandRecordLines(node)) {
+          const lines = rguidIndex.get(node) || [];
+          let lineCount = 0;
+          for (const st of lines) {
+            if (lineCount >= 200) break;
+            const lg = st && st.guid;
+            if (!lg) continue;
+            lineCount++;
+            edges.push({
+              guid: lg,
+              kind: "contains",
+              recordGuid: node,
+              label: "contains " + (this._connLineLabel(lg) || lg),
+            });
+          }
+        }
+        if (depth === 0) {
+          const propN = await getPropertyOutbound(node);
+          for (const g of propN) {
+            if (!(forwardRefIndex.get(node)?.has(g))) {
+              edges.push({ guid: g, kind: "property", recordGuid: g });
+            }
+          }
+        }
+        return edges;
+      };
+
+      const expandBackward = async (node, depth) => {
+        const edges = [];
+        if (isLineGuid(node)) {
+          const owner = ownerByLine.get(node);
+          if (owner) {
+            edges.push({
+              guid: owner,
+              kind: "contains",
+              recordGuid: owner,
+              label: "on " + (this.getOrLoadRecordName(owner) || owner),
+            });
+          }
+          const st = registry[node];
+          for (const tg of this._connRefsFromLineState(st)) {
+            edges.push({ guid: tg, kind: "ref", recordGuid: tg });
+          }
+          for (const row of this._connChildRefTargets(node, childrenByLine, registry, 2, 50)) {
+            edges.push({
+              guid: row.target,
+              kind: "child-ref",
+              recordGuid: row.target,
+              label: "via child",
+              viaLine: row.viaLine,
+            });
+          }
+          return edges;
+        }
+        for (const st of (reverseRefIndex.get(node) || [])) {
+          const rg = st.rguid || st.parent_guid;
+          if (rg) edges.push({ guid: rg, kind: "ref", recordGuid: rg });
+          if (st.guid) {
+            edges.push({
+              guid: st.guid,
+              kind: "ref",
+              recordGuid: st.rguid || st.parent_guid || st.guid,
+            });
+          }
+        }
+        for (const row of (childRefInbound.get(node) || [])) {
+          if (!row?.carrier) continue;
+          edges.push({
+            guid: row.carrier,
+            kind: "child-ref",
+            recordGuid: ownerByLine.get(row.carrier) || row.carrier,
+            label: "via child",
+            viaLine: row.viaLine,
+          });
+        }
+        if (shouldExpandRecordLines(node)) {
+          const lines = rguidIndex.get(node) || [];
+          let lineCount = 0;
+          for (const st of lines) {
+            if (lineCount >= 200) break;
+            const lg = st && st.guid;
+            if (!lg) continue;
+            lineCount++;
+            edges.push({
+              guid: lg,
+              kind: "contains",
+              recordGuid: node,
+              label: "contains " + (this._connLineLabel(lg) || lg),
+            });
+          }
+        }
+        if (depth === 0) {
+          const propN = await getPropertyInbound(node);
+          const refBack = new Set();
+          for (const st of (reverseRefIndex.get(node) || [])) {
+            const rg = st.rguid || st.parent_guid;
+            if (rg) refBack.add(rg);
+          }
+          for (const g of propN) {
+            if (!refBack.has(g)) edges.push({ guid: g, kind: "property", recordGuid: g });
+          }
+        }
+        return edges;
+      };
+
+      const forwardVisited = new Map();
+      const backwardVisited = new Map();
+      forwardVisited.set(a, { parent: null, hop: this._connHopNode(a, "ref", a) });
+      backwardVisited.set(b, { parent: null, hop: this._connHopNode(b, "ref", b) });
+      let forwardFrontier = [a];
+      let backwardFrontier = [b];
+      let nodesVisited = 2;
+      let capReason = null;
+      let complete = true;
+      const foundPaths = [];
+      const seenPathKeys = new Set();
+
+      const reconstructPath = (meet) => {
+        const forwardHops = [];
+        let cur = meet;
+        while (cur) {
+          const entry = forwardVisited.get(cur);
+          if (!entry) break;
+          forwardHops.unshift(entry.hop);
+          cur = entry.parent;
+        }
+        const backwardHops = [];
+        cur = meet;
+        while (cur) {
+          const entry = backwardVisited.get(cur);
+          if (!entry) break;
+          backwardHops.push(entry.hop);
+          cur = entry.parent;
+        }
+        const hops = forwardHops.concat(backwardHops.slice(1));
+        let score = 0;
+        for (let i = 1; i < hops.length; i++) {
+          score += this._connHopWeight(hops[i - 1].guid, hops[i].guid);
+          score += this._connPathHopPenalty(hops[i]);
+        }
+        const key = hops.map((h) => h.guid + ":" + (h.kind || "ref")).join(">");
+        if (seenPathKeys.has(key)) return null;
+        seenPathKeys.add(key);
+        return { hops, score };
+      };
+
+      const noteMeeting = (meet) => {
+        const path = reconstructPath(meet);
+        if (path) foundPaths.push(path);
+      };
+
+      if (backwardVisited.has(a)) noteMeeting(a);
+
+      for (let depth = 0; depth < maxDepth; depth++) {
+        if (signal?.aborted) return { paths: [], complete: false, capReason: "aborted" };
+        if (foundPaths.length >= maxPaths) break;
+        if (capReason) break;
+
+        const nextForward = [];
+        let forwardLevel = 0;
+        for (const node of forwardFrontier) {
+          const neighbors = await expandForward(node, depth);
+          for (const edge of neighbors) {
+            const nb = edge.guid;
+            if (!nb || forwardVisited.has(nb)) continue;
+            forwardLevel++;
+            if (forwardLevel > frontierCap) { capReason = "frontier-cap"; complete = false; break; }
+            if (nodesVisited >= nodeBudget) { capReason = "node-budget"; complete = false; break; }
+            forwardVisited.set(nb, {
+              parent: node,
+              hop: this._connHopNode(nb, edge.kind, edge.recordGuid || nb, edge.label),
+            });
+            nodesVisited++;
+            nextForward.push(nb);
+            if (backwardVisited.has(nb)) noteMeeting(nb);
+          }
+          if (capReason) break;
+        }
+        forwardFrontier = nextForward;
+        if (foundPaths.length >= maxPaths || capReason) break;
+
+        const nextBackward = [];
+        let backwardLevel = 0;
+        for (const node of backwardFrontier) {
+          const neighbors = await expandBackward(node, depth);
+          for (const edge of neighbors) {
+            const nb = edge.guid;
+            if (!nb || backwardVisited.has(nb)) continue;
+            backwardLevel++;
+            if (backwardLevel > frontierCap) { capReason = "frontier-cap"; complete = false; break; }
+            if (nodesVisited >= nodeBudget) { capReason = "node-budget"; complete = false; break; }
+            backwardVisited.set(nb, {
+              parent: node,
+              hop: this._connHopNode(nb, edge.kind, edge.recordGuid || nb, edge.label),
+            });
+            nodesVisited++;
+            nextBackward.push(nb);
+            if (forwardVisited.has(nb)) noteMeeting(nb);
+          }
+          if (capReason) break;
+        }
+        backwardFrontier = nextBackward;
+      }
+
+      foundPaths.sort((x, y) => {
+        if (x.hops.length !== y.hops.length) return x.hops.length - y.hops.length;
+        const px = this._connPathSortPenalty(x);
+        const py = this._connPathSortPenalty(y);
+        if (px !== py) return px - py;
+        return y.score - x.score;
+      });
+      const shortestLen = foundPaths[0]?.hops?.length || 0;
+      const shortestPaths = shortestLen
+        ? foundPaths.filter((p) => p.hops.length === shortestLen)
+        : foundPaths;
+      const raw = {
+        paths: shortestPaths.slice(0, maxPaths),
+        complete,
+        capReason,
+      };
+      return this._connTrivialContainment(a, b, raw, indexes);
+    });
+  }
+
+  _connSharedNeighbours(guids, opts = {}) {
+    const diag = this._connDiagnostics;
+    if (diag) diag.sharedQueries++;
+    const inputGuids = [...new Set((guids || []).filter(Boolean))];
+    if (!inputGuids.length) return [];
+
+    let reverseRefIndex = opts.reverseRefIndex;
+    let rguidIndex = opts.rguidIndex;
+    let ownerByLine = opts.ownerByLine;
+    if (!reverseRefIndex || !rguidIndex) {
+      const idx = this._connIndexes();
+      if (!idx) return [];
+      reverseRefIndex = idx.reverseRefIndex;
+      rguidIndex = idx.rguidIndex;
+      ownerByLine = idx.ownerByLine;
+    }
+    if (!ownerByLine) ownerByLine = new Map();
+
+    const directSourceGuids = opts.directSourceGuids || new Set();
+    const WORKBENCH_STATE_NAME = this._WB_STATE_RECORD || "Reference Workbench State";
+    const inputSet = new Set(inputGuids);
+    const minCo = inputGuids.length <= 1 ? 2 : 2;
+
+    const ownersFor = (guid) => {
+      const owner = ownerByLine.get(guid);
+      return owner ? new Set([owner]) : new Set();
+    };
+
+    const referrersFor = (targetGuid) => {
+      const refs = new Set();
+      for (const st of (reverseRefIndex.get(targetGuid) || [])) {
+        const rg = st.rguid || st.parent_guid;
+        if (rg && rg !== targetGuid) refs.add(rg);
+      }
+      return refs;
+    };
+
+    const outboundFor = (recordGuid) => {
+      const out = new Set();
+      for (const st of (rguidIndex.get(recordGuid) || [])) {
+        const segs = st.text_segments || [];
+        for (let i = 0; i < segs.length - 1; i += 2) {
+          if (segs[i] !== "ref") continue;
+          const tg = this._decodeRefPayload(segs[i + 1]);
+          if (tg && tg !== recordGuid) out.add(tg);
+        }
+      }
+      return out;
+    };
+
+    const directBetweenInputs = new Set();
+    for (const g of inputGuids) {
+      const out = outboundFor(g);
+      for (const other of inputGuids) {
+        if (other !== g && out.has(other)) directBetweenInputs.add(other);
+      }
+    }
+
+    const referrersByInput = new Map();
+    const ownersByInput = new Map();
+    for (const g of inputGuids) {
+      referrersByInput.set(g, referrersFor(g));
+      ownersByInput.set(g, ownersFor(g));
+    }
+
+    const sharedOwnerGuids = new Set();
+    if (inputGuids.length > 1) {
+      let firstOwner = null;
+      let allShareOwner = true;
+      for (const g of inputGuids) {
+        const owners = ownersByInput.get(g) || new Set();
+        const og = owners.size === 1 ? [...owners][0] : null;
+        if (!og) { allShareOwner = false; break; }
+        if (firstOwner === null) firstOwner = og;
+        else if (firstOwner !== og) { allShareOwner = false; break; }
+      }
+      if (allShareOwner && firstOwner) sharedOwnerGuids.add(firstOwner);
+    }
+
+    if (inputGuids.length === 1) {
+      const onlyReferrers = referrersByInput.get(inputGuids[0]);
+      const onlyOwners = ownersByInput.get(inputGuids[0]);
+      if ((!onlyReferrers || onlyReferrers.size === 0) && (!onlyOwners || onlyOwners.size === 0)) return [];
+    }
+
+    const outboundConnected = new Set();
+    if (inputGuids.length === 1) {
+      for (const tg of outboundFor(inputGuids[0])) outboundConnected.add(tg);
+    }
+
+    const results = [];
+    for (const [refTarget, lines] of reverseRefIndex) {
+      const candidateGuid = refTarget;
+      if (inputSet.has(candidateGuid)) continue;
+      if (directBetweenInputs.has(candidateGuid)) continue;
+      const candRec = this.data.getRecord?.(candidateGuid);
+      if (!candRec) continue;
+      if (directSourceGuids.has(candidateGuid)) continue;
+      if (inputGuids.length === 1 && outboundConnected.has(candidateGuid)) continue;
+      try { const n = candRec.getName?.() || ""; if (n === WORKBENCH_STATE_NAME) continue; } catch (e) {}
+      try { if (candRec.getJournalDetails?.()) continue; } catch (e) {}
+
+      const srcGuids = new Set();
+      for (const st of lines) {
+        const rg = st.rguid || st.parent_guid;
+        if (rg) srcGuids.add(rg);
+      }
+
+      const shared = [];
+      let coCount = 0;
+      let sharedVia = "reference";
+      for (const g of inputGuids) {
+        const targetReferers = referrersByInput.get(g) || new Set();
+        let overlap = 0;
+        for (const sg of srcGuids) {
+          if (targetReferers.has(sg)) overlap++;
+        }
+        if (overlap > 0) {
+          shared.push(g);
+          if (inputGuids.length === 1) coCount = overlap;
+          else coCount++;
+        }
+      }
+      if (inputGuids.length > 1 && coCount < minCo) continue;
+      if (inputGuids.length === 1 && coCount < minCo) continue;
+
+      const cooccurScore = this._connCooccurScore(inputGuids, candidateGuid);
+      results.push({
+        guid: candidateGuid,
+        name: this.getOrLoadRecordName(candidateGuid) || "Untitled",
+        shared,
+        coCount,
+        cooccurScore,
+        sharedVia,
+      });
+    }
+
+    if (sharedOwnerGuids.size > 0) {
+      for (const ownerGuid of sharedOwnerGuids) {
+        if (inputSet.has(ownerGuid)) continue;
+        if (directSourceGuids.has(ownerGuid)) continue;
+        const ownerName = this.getOrLoadRecordName(ownerGuid) || "Untitled";
+        results.push({
+          guid: ownerGuid,
+          name: ownerName,
+          shared: [...inputGuids],
+          coCount: inputGuids.length,
+          cooccurScore: 0,
+          sharedVia: "owner",
+          ownerLabel: "both on " + ownerName,
+        });
+      }
+    }
+
+    if (inputGuids.length === 1) {
+      results.sort((a, b) => b.coCount - a.coCount || (b.cooccurScore || 0) - (a.cooccurScore || 0)
+        || this._connHopWeight(inputGuids[0], b.guid) - this._connHopWeight(inputGuids[0], a.guid));
+    } else {
+      results.sort((a, b) => b.coCount - a.coCount || (b.cooccurScore || 0) - (a.cooccurScore || 0)
+        || String(a.name).localeCompare(String(b.name)));
+    }
+    return results.slice(0, 10);
+  }
+
+  _connDirectlyLinked(aGuid, bGuid, indexes) {
+    const a = String(aGuid || "");
+    const b = String(bGuid || "");
+    if (!a || !b || a === b) return true;
+    const fwd = indexes?.forwardRefIndex;
+    if (!fwd) return false;
+    return !!(fwd.get(a)?.has(b) || fwd.get(b)?.has(a));
+  }
+
+  _connFillPathTrail(trail, hops) {
+    for (let i = 0; i < (hops || []).length; i++) {
+      const hop = hops[i];
+      if (i > 0) {
+        if (hop.kind === "property") {
+          trail.appendChild(this._el("span", "refx-deep-trail-prop", " via " + (hop.label || "property") + " →"));
+        } else if (hop.kind === "contains" && hop.label) {
+          trail.appendChild(this._el("span", "refx-deep-trail-prop", " " + hop.label + " →"));
+        } else if (hop.kind === "child-ref") {
+          trail.appendChild(this._el("span", "refx-deep-trail-prop", " via child →"));
+        } else {
+          trail.appendChild(this._el("span", "refx-deep-trail-arrow", " → "));
+        }
+      }
+      const label = hop.label || this.getOrLoadRecordName(hop.guid) || hop.guid || "Untitled";
+      const node = this._el("span", "refx-deep-trail-node", label);
+      node.title = "Open";
+      node.addEventListener("click", (ev) => {
+        ev.preventDefault(); ev.stopPropagation();
+        this._closeModal();
+        this._bridgeJump(hop.guid, {});
+      });
+      trail.appendChild(node);
+    }
+  }
+
+  _connAppendTrivialContainment(parent, trivial) {
+    if (!trivial) return;
+    const line = this._el("span", "refx-deep-trail-node", trivial.lineLabel || trivial.lineGuid);
+    line.title = "Open";
+    line.addEventListener("click", (ev) => {
+      ev.preventDefault(); ev.stopPropagation();
+      this._closeModal();
+      this._bridgeJump(trivial.lineGuid, {});
+    });
+    const record = this._el("span", "refx-deep-trail-node", trivial.recordLabel || trivial.recordGuid);
+    record.title = "Open";
+    record.addEventListener("click", (ev) => {
+      ev.preventDefault(); ev.stopPropagation();
+      this._closeModal();
+      this._bridgeJump(trivial.recordGuid, {});
+    });
+    const wrap = this._el("div", "refx-conn-paths-trivial");
+    if (trivial.kind === "record-contains-line") {
+      wrap.appendChild(record);
+      wrap.appendChild(this._el("span", "refx-conn-paths-trivial-text", " contains "));
+      wrap.appendChild(line);
+    } else {
+      wrap.appendChild(line);
+      wrap.appendChild(this._el("span", "refx-conn-paths-trivial-text", " is a line on "));
+      wrap.appendChild(record);
+    }
+    parent.appendChild(wrap);
+  }
+
+  _connAppendPathsResult(parent, fromGuid, toGuid, result, opts = {}) {
+    const fromName = this.getOrLoadRecordName(fromGuid) || this._connLineLabel(fromGuid) || fromGuid;
+    const toName = this.getOrLoadRecordName(toGuid) || this._connLineLabel(toGuid) || toGuid;
+    if (!opts.skipPairHead) {
+      parent.appendChild(this._el("div", "refx-conn-paths-pair-head", fromName + " → " + toName));
+    }
+    if (result?.trivial) {
+      this._connAppendTrivialContainment(parent, result.trivial);
+      return;
+    }
+    if (!result?.paths?.length) {
+      parent.appendChild(this._el("div", "refx-conn-paths-note", "No path within 3 hops"));
+      if (result && !result.complete && result.capReason) {
+        parent.appendChild(this._el(
+          "div",
+          "refx-conn-paths-note",
+          "Search hit its budget before exhausting 3 hops (" + result.capReason + ")."
+        ));
+      }
+      return;
+    }
+    if (result && !result.complete && result.capReason) {
+      parent.appendChild(this._el(
+        "div",
+        "refx-conn-paths-note",
+        "Showing paths found before the search budget was reached (" + result.capReason + ")."
+      ));
+    }
+    for (const path of result.paths) {
+      const row = this._el("div", "refx-deep-row");
+      const trail = this._el("span", "refx-deep-trail");
+      this._connFillPathTrail(trail, path.hops);
+      row.appendChild(trail);
+      parent.appendChild(row);
+    }
+  }
+
+  _connRenderPathsContainer(fromGuid, toGuid, result) {
+    const container = this._el("div", "refx-conn-paths");
+    const fromName = this.getOrLoadRecordName(fromGuid) || this._connLineLabel(fromGuid) || fromGuid;
+    const toName = this.getOrLoadRecordName(toGuid) || this._connLineLabel(toGuid) || toGuid;
+    let headText = fromName + " → " + toName;
+    if (result?.trivial) headText += " · related";
+    else if (!result?.paths?.length) headText += " · No path within 3 hops";
+    else headText += " · " + result.paths.length + " path" + (result.paths.length === 1 ? "" : "s");
+    if (result && !result.complete && result.capReason) headText += " (budget: " + result.capReason + ")";
+    container.appendChild(this._el("div", "refx-conn-paths-head", headText));
+    this._connAppendPathsResult(container, fromGuid, toGuid, result, { skipPairHead: true });
+    return container;
+  }
+
+  _connShowPathsResult(fromGuid, toGuid, result) {
+    const content = this._connRenderPathsContainer(fromGuid, toGuid, result);
+    this._openModal({
+      title: "Path",
+      saveLabel: "Close",
+      onSave: () => {},
+      render: (body) => {
+        const scroll = this._el("div", "refx-conn-paths-modal");
+        scroll.style.maxHeight = "min(60vh, 520px)";
+        scroll.style.overflowY = "auto";
+        scroll.appendChild(content);
+        body.append(scroll);
+        return {};
+      },
+    });
+  }
+
+  _connOpenPathTargetPicker(fromGuid) {
+    if (!this._connEnabled || !fromGuid || this._modal || this._link) return;
+    // Reference-menu opens have no caret. Synthetic [[ mode with lineGuid:null
+    // is safe: _pickLink intercepts before _findBracketRange / _resolveLineItemByGuid.
+    this._enterLinkMode({
+      lineGuid: null,
+      pageGuid: null,
+      offset: 0,
+      anchorNode: null,
+      caretEl: null,
+      synthetic: true,
+    }, "record");
+    // Set after _enterLinkMode: its internal _exitLinkMode clears one-shot flags.
+    this._pendingConnPath = { fromGuid };
+  }
+
+  async _wbConnPathsAmongItems() {
+    const owner = this._wbOwner;
+    if (!this._wbOwnerCurrent(owner)) return;
+    const items = await this._wbLoadLive(null, owner);
+    if (!this._wbOwnerCurrent(owner)) return;
+    const pinned = items.filter((it) => it.pinned);
+    const guids = [...new Set((pinned.length ? pinned : items).map((it) => it.target).filter(Boolean))];
+    if (guids.length < 2) {
+      this._toast("Need at least two Workbench items.");
+      return;
+    }
+    const idx = await this._connIndexesReady();
+    const pairs = [];
+    let skippedDirect = 0;
+    outer: for (let i = 0; i < guids.length; i++) {
+      for (let j = i + 1; j < guids.length; j++) {
+        const a = guids[i];
+        const b = guids[j];
+        if (this._connDirectlyLinked(a, b, idx)) { skippedDirect++; continue; }
+        pairs.push([a, b]);
+        if (pairs.length >= 6) break outer;
+      }
+    }
+    const container = this._el("div", "refx-conn-paths");
+    let headText = pairs.length + " pair" + (pairs.length === 1 ? "" : "s");
+    if (skippedDirect) headText += " · " + skippedDirect + " directly linked skipped";
+    container.appendChild(this._el("div", "refx-conn-paths-head", headText));
+    if (!pairs.length) {
+      container.appendChild(this._el("div", "refx-conn-paths-note", "All candidate pairs are directly linked."));
+    } else {
+      for (const [a, b] of pairs) {
+        const out = await this._connPathsBetween(a, b, { indexes: idx, maxPaths: 3 });
+        this._connAppendPathsResult(container, a, b, out);
+      }
+    }
+    this._openModal({
+      title: "Path",
+      saveLabel: "Close",
+      onSave: () => {},
+      render: (body) => {
+        const scroll = this._el("div", "refx-conn-paths-modal");
+        scroll.style.maxHeight = "min(60vh, 520px)";
+        scroll.style.overflowY = "auto";
+        scroll.appendChild(container);
+        body.append(scroll);
+        return {};
+      },
+    });
   }
 
   // BFS backward from targetGuid, depth 2. Returns paths [{sourceLine, sourceRecGuid,
@@ -36240,59 +38716,14 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
   // that reference BOTH the candidate and the target. Uses the already-built
   // reverseRefIndex + rguidIndex. Returns [{recordGuid, score}] sorted by score desc, top 10.
   _scoreSuggestedConnections(targetGuid, directSourceGuids, reverseRefIndex, rguidIndex) {
-    const WORKBENCH_STATE_NAME = this._WB_STATE_RECORD || 'Reference Workbench State';
-
-    // Build a set of all records that ref the target (direct incomers)
-    const targetReferers = new Set(); // record guids
-    for (const st of (reverseRefIndex.get(targetGuid) || [])) {
-      const rg = st.rguid || st.parent_guid;
-      if (rg && rg !== targetGuid) targetReferers.add(rg);
-    }
-    if (targetReferers.size === 0) return [];
-
-    // Build a set of records that the TARGET already outbound-connects to
-    // (target's own lines that contain a ref chip to some candidate)
-    const outboundConnected = new Set();
-    for (const st of (rguidIndex ? (rguidIndex.get(targetGuid) || []) : [])) {
-      const segs = st.text_segments || [];
-      for (let i = 0; i < segs.length - 1; i += 2) {
-        if (segs[i] !== 'ref') continue;
-        const tg = this._decodeRefPayload(segs[i + 1]);
-        if (tg && tg !== targetGuid) outboundConnected.add(tg);
-      }
-    }
-
-    // For each other record in the reverseRefIndex, count overlap with targetReferers
-    // "co-reference": how many source records ref BOTH this candidate AND target
-    const scores = new Map(); // candidateGuid -> coref count
-    for (const [refTarget, lines] of reverseRefIndex) {
-      if (refTarget === targetGuid) continue;
-      const candidateGuid = refTarget; // treat each refTarget as a candidate
-      // Only score existing records
-      const candRec = this.data.getRecord?.(candidateGuid);
-      if (!candRec) continue;
-      if (directSourceGuids.has(candidateGuid)) continue; // already a direct ref
-      if (candidateGuid === targetGuid) continue;
-      if (outboundConnected.has(candidateGuid)) continue; // target already refs this candidate
-      // Skip WB State record
-      try { const n = candRec.getName?.() || ''; if (n === WORKBENCH_STATE_NAME) continue; } catch (_) {}
-      // Skip journal pages (journal->journal suggests are noisy)
-      try { if (candRec.getJournalDetails?.()) continue; } catch (_) {}
-      // Count sources that ref this candidate AND also ref target
-      let coCount = 0;
-      const srcGuids = new Set();
-      for (const st of lines) {
-        const rg = st.rguid || st.parent_guid;
-        if (rg) srcGuids.add(rg);
-      }
-      for (const sg of srcGuids) {
-        if (targetReferers.has(sg)) coCount++;
-      }
-      if (coCount >= 2) scores.set(candidateGuid, coCount);
-    }
-
-    const sorted = [...scores.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
-    return sorted.map(([g, score]) => ({ recordGuid: g, score }));
+    const neighbours = this._connSharedNeighbours([targetGuid], {
+      directSourceGuids,
+      reverseRefIndex,
+      rguidIndex,
+    });
+    return neighbours.map((row) => ({ recordGuid: row.guid, score: row.coCount }))
+      .sort((a, b) => b.score - a.score
+        || this._connHopWeight(targetGuid, b.recordGuid) - this._connHopWeight(targetGuid, a.recordGuid));
   }
 
   async _runDeepConnectionsScan(entry, wrap, toggle, scanState) {
@@ -36302,7 +38733,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     toggle.textContent = 'Deep connections — scanning…';
 
     // Build registry indexes (single pass)
-    const { reverseRefIndex, rguidIndex } = this._buildRefIndexes();
+    const { reverseRefIndex, rguidIndex } = await this._buildRefIndexes();
 
     // Gather direct source record guids (already shown in the main section)
     const directSourceGuids = new Set();
@@ -36419,7 +38850,10 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       nameEl.title = 'Open record';
       nameEl.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); this._bridgeJump(recordGuid, {}); });
       row.appendChild(nameEl);
-      row.appendChild(this._el('span', 'refx-deep-sug-score', score + ' shared references'));
+      const scoreEl = this._el('span', 'refx-deep-sug-score', score + ' shared references');
+      row.appendChild(scoreEl);
+      const sugEvidence = this._connEvidenceLabel(recordGuid);
+      if (sugEvidence) row.appendChild(this._el('span', 'refx-deep-sug-evidence', sugEvidence));
 
       if (typeof window !== 'undefined' && window.__refgraph) {
         const graphBtn = this._el('button', 'refx-deep-sug-graph', '◎');
@@ -36579,35 +39013,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     });
   }
 
-  // Splice a ref segment over the matched phrase span in the source line.
-  // Uses _liveSegs + text grapheme walk to find exact span.
-  async _linkUnlinkedHit(line, phrase, targetGuid) {
-    try {
-      const li = await this._resolveLineItemByGuid(line.guid);
-      if (!li) return false;
-      const segs = this._segmentsFromState(
-        ((window.g_universe && window.g_universe.itemsByGuid) || {})[line.guid] || { text_segments: [] }
-      ).length ? this._segmentsFromState(
-        ((window.g_universe && window.g_universe.itemsByGuid) || {})[line.guid]
-      ) : (li.segments || []);
-      // Use the same flat-text model as _spliceRefOverPhrase (non-text segs -> ' ')
-      // so gate and splice agree. _cleanDisplayText can render ref chips as their
-      // alias titles, which diverges from what the splice will find.
-      const flatText = segs.map((s) => (typeof s.text === 'string' ? s.text : ' ')).join('');
-      const phLow = phrase.toLowerCase();
-      const idx = flatText.toLowerCase().indexOf(phLow);
-      if (idx < 0) return false;
-      // Splice: returns segs unchanged (same identity) when no match found.
-      const result = this._spliceRefOverPhrase(segs, phrase, targetGuid);
-      if (result === segs) return false; // splice made no change -- nothing to write
-      await li.setSegments(result);
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
 
-  // Splice a ref segment over the first occurrence of `phrase` in `segs`.
   // Walks the text content grapheme by grapheme, finds the span, and rebuilds.
   _spliceRefOverPhrase(segs, phrase, targetGuid, opts = {}) {
     const norm = (s) => s.toLowerCase();
@@ -38001,6 +40407,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
   // panel.closed path syncs the icon too; the direct sync here covers a missed
   // event.
   _wbToggle() {
+    if (this._wbKillSwitchBlock()) return;
     const panel = this._wbLivePanel();
     if (panel) { try { this.ui.closePanel(panel); } catch (e) {} this._wbLiveTeardownObserver(); this._wbSyncStatusIcon(); return; }
     this._openWorkbenchLive().catch(() => {});
@@ -38230,6 +40637,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
   // inline sections use, with a PER-ITEM filter persisted on the shelf item.
   // Returns the source-record guids (for event-driven cache invalidation).
   async _wbFillLinkedRefs(bodyEl, item, alive) {
+    this._wireRefSurfaceChipNav(bodyEl);
     const filter = document.createElement("input");
     filter.type = "text";
     filter.className = "refx-inline-refs-filter refx-wb-filter";
@@ -38269,6 +40677,19 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     const maxItems = 30;
     const shown = flines.slice(0, maxItems);
     const editHost = { editing: null, targetGuid: item.guid };
+    if (this._isLineRefTarget(item.guid)) {
+      const homeCtx = {
+        alive: alive || (() => bodyEl.isConnected),
+        onJump: (g) => { this._bridgeJump(g, {}); },
+        treeCache: listEl.__refxContextTreeCache || (listEl.__refxContextTreeCache = new Map()),
+        hostLineGuid: item.hostLineGuid || null,
+        canEdit: true,
+        onEmbed: item.hostLineGuid ? ((g) => { this._wbEmbedRefRow(item.hostLineGuid, g); }) : null,
+        targetGuid: item.guid,
+      };
+      await this._appendRefHomeRow(listEl, item.guid, homeCtx);
+      if (shown.length) this._appendRefHomeSep(listEl);
+    }
     if (shown.length) {
       this._renderRefsGroups(listEl, shown, {
         alive: alive || (() => bodyEl.isConnected),
@@ -38456,10 +40877,83 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     this._wbBackingValidatedGuid = guid;
     this._wbBackingValidatedCollectionGuid = receipt.collectionGuid;
     this._wbLivePanelId = panel?.getId?.() || null;
+    this._wbAdoptBootAt = Date.now();
+    this._wbAdoptBootRuns = 0;
     return true;
   }
 
+  _wbKillSwitchActive() {
+    if (this._wbEnabled === false) return true;
+    try { return localStorage.getItem("refx_wb_disable") === "1"; } catch (e) { return false; }
+  }
+
+  _wbKillSwitchBlock() {
+    if (!this._wbKillSwitchActive()) return false;
+    this._toast(this._wbEnabled === false ? "Workbench disabled in plugin settings" : "Workbench disabled by refx_wb_disable");
+    return true;
+  }
+
+  _wbResetStormCounters() {
+    this._wbRefreshRunTimes = [];
+    this._wbRefreshLastAt = 0;
+    this._wbRefreshStormBackoffUntil = 0;
+    this._wbAdoptBootAt = 0;
+    this._wbAdoptBootRuns = 0;
+    this._wbStormTripped = false;
+    this._wbTabsFingerprint = "";
+    this._wbRelatedPaintFp = "";
+    this._wbSharedPaintFp = "";
+    this._wbTrailPaintFp = "";
+  }
+
+  _wbStormTrip() {
+    if (this._wbStormTripped) return;
+    this._wbStormTripped = true;
+    if (this._wbLiveRefreshT) { try { clearTimeout(this._wbLiveRefreshT); } catch (e) {} this._wbLiveRefreshT = 0; }
+    this._wbLiveTeardownObserver({ keepStorm: true });
+    this._toast("Workbench paused (refresh storm) — reopen it to retry");
+  }
+
+  _wbRefreshStormRecordRun() {
+    const now = Date.now();
+    this._wbRefreshLastAt = now;
+    this._wbRefreshRunTimes.push(now);
+    const cutoff30 = now - 30000;
+    this._wbRefreshRunTimes = this._wbRefreshRunTimes.filter((t) => t >= cutoff30);
+    const cutoff5 = now - 5000;
+    const in5 = this._wbRefreshRunTimes.filter((t) => t >= cutoff5).length;
+    if (this._wbRefreshRunTimes.length >= 60) {
+      console.warn("[RefX] Workbench refresh storm — shutting down");
+      this._wbStormTrip();
+      return;
+    }
+    if (in5 > 20) {
+      this._wbRefreshStormBackoffUntil = now + 5000;
+      console.warn("[RefX] Workbench refresh storm — backing off");
+    }
+  }
+
+  _wbMutationIgnored(node) {
+    if (!node || node.nodeType !== 1) return false;
+    try {
+      if (node.matches?.(".refx-wb-tabs, .refx-wb-trail, .refx-wb-related, .refx-wb-shared, .refx-wb-filterbar, .refx-wb-vmenu, .refx-wb-stack-menu, .refx-wb-hdr")) return true;
+      if (node.closest?.(".refx-wb-tabs, .refx-wb-trail, .refx-wb-related, .refx-wb-filterbar, .refx-wb-vmenu, .refx-wb-stack-menu, .refx-wb-hdr")) return true;
+      if (node.matches?.(".refx-wb-shared")) return true;
+      if (node.closest?.(".refx-wb-shared")) return true;
+    } catch (e) {}
+    return false;
+  }
+
+  _wbTabsFingerprintOf(items) {
+    return (items || []).map((it) => String(it.lineGuid || "") + ":" + (it.collapsed ? "c" : "e") + (it.pinned ? "p" : "u")).join("|");
+  }
+
+  _wbRelatedPaintFingerprint(chips) {
+    return (chips || []).map((c) => String(c.guid || "") + ":" + String(c.evidence || "")).join("|");
+  }
+
   _wbAdoptVisibleBacking(panelHint = null) {
+    if (this._wbKillSwitchBlock()) return false;
     const owner = this._wbOwner;
     const receipt = this._wbReadPersistedBackingReceipt();
     if (!receipt?.guid || !receipt.collectionGuid || !this._wbOwnerCurrent(owner)) return false;
@@ -38475,6 +40969,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
   }
 
   _wbSchedulePanelAdoption(panel) {
+    if (this._wbKillSwitchBlock()) return false;
     if (!panel || !this._wbReadPersistedBackingGuid() || !this._wbOwnerCurrent()) return false;
     const owner = this._wbOwner;
     let panelKey = panel;
@@ -38857,6 +41352,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
   }
 
   async _openWorkbenchLive(silent) {
+    if (this._wbKillSwitchBlock()) return;
     const owner = this._wbOwner;
     if (!this._wbOwnerCurrent(owner)) return;
     const initialized = await this._wbLiveInit(null, owner);
@@ -38883,17 +41379,30 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
 
   _wbLiveScheduleRefresh(delay) {
     const owner = this._wbOwner;
-    if (!this._wbOwnerCurrent(owner) || !this._wbBackingGuid) return false;
+    if (!this._wbOwnerCurrent(owner) || !this._wbBackingGuid || this._wbStormTripped) return false;
     const refreshSeq = ++this._wbRefreshSeq;
+    const wait = Math.max(0, delay == null ? 120 : Number(delay) || 0);
     if (this._wbLiveRefreshT) { try { clearTimeout(this._wbLiveRefreshT); } catch (e) {} }
     this._wbLiveRefreshT = setTimeout(() => {
       this._wbLiveRefreshT = 0;
-      if (!this._wbOwnerCurrent(owner) || refreshSeq !== this._wbRefreshSeq) return;
+      if (!this._wbOwnerCurrent(owner) || refreshSeq !== this._wbRefreshSeq || this._wbStormTripped) return;
+      const now = Date.now();
+      if (now < this._wbRefreshStormBackoffUntil) {
+        this._wbLiveScheduleRefresh(this._wbRefreshStormBackoffUntil - now);
+        return;
+      }
+      const sinceLast = this._wbRefreshLastAt ? now - this._wbRefreshLastAt : 250;
+      if (sinceLast < 250) {
+        this._wbLiveScheduleRefresh(250 - sinceLast);
+        return;
+      }
       this._runBackgroundWork('visible-workbench-refresh', async (generation) => {
-        if (!this._wbRefreshCurrent(owner, generation, refreshSeq)) return false;
-        return this._wbLiveRefresh(generation, owner, refreshSeq);
+        if (!this._wbRefreshCurrent(owner, generation, refreshSeq) || this._wbStormTripped) return false;
+        const ok = await this._wbLiveRefresh(generation, owner, refreshSeq);
+        if (ok !== false) this._wbRefreshStormRecordRun();
+        return ok;
       }).catch(() => {});
-    }, Math.max(0, delay == null ? 120 : Number(delay) || 0));
+    }, wait);
     return true;
   }
 
@@ -38902,6 +41411,14 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
   // (called from panel.navigated, record.updated on the backing record, and the
   // keep-alive observer) — no polling.
   async _wbLiveRefresh(backgroundGeneration, owner = this._wbOwner, refreshSeq = this._wbRefreshSeq) {
+    if (this._wbStormTripped) return false;
+    if (this._wbAdoptBootAt) {
+      const bootAge = Date.now() - this._wbAdoptBootAt;
+      if (bootAge <= 10000) {
+        this._wbAdoptBootRuns++;
+        if (this._wbAdoptBootRuns > 15) { this._wbStormTrip(); return false; }
+      }
+    }
     if (!backgroundGeneration || !this._wbRefreshCurrent(owner, backgroundGeneration, refreshSeq)) return false;
     const panel = this._wbLivePanel();
     if (!panel) { this._wbLiveTeardownObserver(); this._wbSyncStatusIcon(); return; }
@@ -38917,6 +41434,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     try { const ar = panel.getActiveRecord && panel.getActiveRecord(); if (ar && ar.guid === this._wbBackingGuid && panel.setTitle) panel.setTitle("Reference Workbench"); } catch (e) {}
     const items = await this._wbLoadLive(backgroundGeneration, owner, refreshSeq);
     if (!this._wbRefreshCurrent(owner, backgroundGeneration, refreshSeq)) return false;
+    this._wbStackListCache = null;
     panelEl.classList.add("refx-wb-live");
     const byLine = new Map(items.map((it) => [it.lineGuid, it]));
     this._wbLiveEnsureObserver(panelEl);
@@ -38931,9 +41449,14 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     }
     if (!this._wbRefreshCurrent(owner, backgroundGeneration, refreshSeq)) return false;
     this._wbLiveFilterBarEnsure(panelEl, items);
+    this._wbLiveTabsEnsure(panelEl, items);
+    this._wbLiveTrailEnsure(panelEl, items);
+    this._wbLiveSharedEnsure(panelEl, items);
     this._wbLiveApplyFilter();
     this._wbSyncStatusIcon();
     this._wbPokeDatacore();
+    this._wbRelatedScheduleRefresh();
+    this._wbSharedScheduleRefresh();
     return true;
   }
 
@@ -39131,6 +41654,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       } catch (e) {}
     }
     const label = dangling ? "(target deleted)" : (name || "…");
+    el._refxFilterKey = name ? this._searchKey(name) : null;
     const twist = this._wbBtn(it.collapsed ? "▸" : "▾", it.collapsed ? "Expand" : "Collapse", () => this._wbLiveToggleCollapse(it));
     twist.classList.add("refx-wb-hdr-twist");
     el.append(twist);
@@ -39142,16 +41666,13 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     const tsEl = this._mkTimestampSpan(it.line);
     if (tsEl) { tsEl.title = "Added " + tsEl.title.replace(/^Created /, ""); el.append(tsEl); }
     // v3.23.0: Roam's clickable linked-reference COUNT badge ("107"). Click →
-    // toggle an inline "Linked References" section under the item (reuses the
-    // inline-refs machinery — filter/sort/pin/close come with it). Hidden at 0.
+    // open linked references as a separate Workbench shelf item.
     if (it.target && !dangling) {
       const cnt = this._el("span", "refx-wb-hdr-count refx-wb-hdr-count-empty");
-      cnt.title = "Linked references — click to expand";
+      cnt.title = "Open linked references as a Workbench item";
       cnt.addEventListener("click", (ev) => {
         ev.preventDefault(); ev.stopPropagation();
-        const item = el.closest(".refx-wb-item");
-        if (!item) return;
-        this._toggleInlineRefsFor(this.findPanelStateForNode(item), it.target, item, it.lineGuid).catch(() => {});
+        this._wbAdd(it.target, { kind: "linked-refs" });
       });
       el.append(cnt);
       this.getCountInfoForGuid(it.target).then(async (info) => {
@@ -39373,7 +41894,9 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
 
   async _wbLiveSwapToMain(it) {
     const panel = this._wbMainPanel();
-    const ok = await this._bridgeJump(it.target, panel ? { panel } : {});
+    let fromGuid = null;
+    try { fromGuid = panel?.getActiveRecord?.()?.guid || null; } catch (e) {}
+    const ok = await this._bridgeJump(it.target, panel ? { panel, from: fromGuid } : { from: fromGuid });
     if (ok === false) { this._toast("Couldn't open that in the main panel."); return; }
     if (!it.pinned) await this._wbLiveRemove(it, true); // pinned items stay on the shelf (Roam parity)
   }
@@ -39381,6 +41904,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
   async _wbLiveRemove(it, silent) {
     const owner = this._wbOwner;
     if (!this._wbOwnerCurrent(owner)) return;
+    this._wbPushClosed(it);
     const h = this._wbHeaders.get(it.lineGuid);
     if (h) { try { if (h.slot) h.slot.remove(); h.el.remove(); } catch (e) {} this._wbHeaders.delete(it.lineGuid); }
     try { await it.line.delete(); } catch (e) {}
@@ -39392,6 +41916,1019 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
   _wbTargetLabel(guid) {
     if (this.data.getRecord(guid)) return this.getOrLoadRecordName(guid) || guid;
     return this._readableLineTitle(guid) || this._lineTextByGuid(guid) || guid;
+  }
+
+  _wbClosedStorageKey() { return "refx_wb_closed_v1:" + (this.workspaceGuid || ""); }
+  _wbStackLoadedStorageKey() { return "refx_wb_stack_v1:" + (this.workspaceGuid || ""); }
+
+  _wbPushClosed(it) {
+    if (!it || !it.target) return;
+    const key = this._wbClosedStorageKey();
+    let list = [];
+    try { list = JSON.parse(localStorage.getItem(key) || "[]"); } catch (e) { list = []; }
+    const entry = { target: it.target, variant: it.variant || "full", pinned: !!it.pinned, ts: Date.now() };
+    list = list.filter((x) => !(x.target === entry.target && (x.variant || "full") === entry.variant));
+    list.unshift(entry);
+    if (list.length > 10) list.length = 10;
+    try { localStorage.setItem(key, JSON.stringify(list)); } catch (e) {}
+  }
+
+  _wbClosedList() {
+    try { return JSON.parse(localStorage.getItem(this._wbClosedStorageKey()) || "[]"); } catch (e) { return []; }
+  }
+
+  async _wbReopenLast() {
+    const owner = this._wbOwner;
+    if (!this._wbOwnerCurrent(owner)) return;
+    const key = this._wbClosedStorageKey();
+    let list = this._wbClosedList();
+    if (!list.length) { this._toast("Nothing to reopen"); return; }
+    const entry = list.shift();
+    try { localStorage.setItem(key, JSON.stringify(list)); } catch (e) {}
+    const kind = entry.variant === "refs" ? "linked-refs" : null;
+    await this._wbAddLive(entry.target, { kind });
+    if (!this._wbOwnerCurrent(owner)) return;
+    if (entry.pinned) {
+      const items = await this._wbLoadLive(null, owner);
+      const it = items.find((x) => x.target === entry.target && x.variant === (entry.variant || "full"));
+      if (it && !it.pinned) await this._wbLiveTogglePin(it);
+    }
+    if (!this._wbOwnerCurrent(owner)) return;
+    const name = this._wbTargetLabel(entry.target);
+    this._toast("Reopened: " + (name.length > 40 ? name.slice(0, 40) + "…" : name));
+  }
+
+  async _wbWriteShelfLine(rec, after, item) {
+    const props = { itemref: item.target, refx_wb: 1, refx_variant: item.variant || "full" };
+    if (item.pinned) props.refx_pinned = "1";
+    if (item.collapsed) props.refx_collapsed = "1";
+    return rec.createLineItem(null, after, "transclusion", null, props);
+  }
+
+  async _wbClearRecordLines(rec) {
+    if (!rec) return;
+    let lines = [];
+    try { lines = (await rec.getLineItems(false)) || []; } catch (e) { return; }
+    for (const li of lines) { try { await li.delete(); } catch (e) {} }
+  }
+
+  _wbParseShelfLines(lines) {
+    const out = [];
+    for (const li of lines || []) {
+      if (!li || li.type !== "transclusion" || !li.props || !li.props.refx_wb) continue;
+      out.push({
+        target: li.props.itemref || null,
+        variant: li.props.refx_variant || "full",
+        pinned: li.props.refx_pinned === "1" || li.props.refx_pinned === 1,
+        collapsed: li.props.refx_collapsed === "1" || li.props.refx_collapsed === 1,
+      });
+    }
+    return out;
+  }
+
+  async _wbStackCollection() {
+    const colGuid = this._wbBackingValidatedCollectionGuid;
+    if (!colGuid) return null;
+    try {
+      const cols = (await this.data.getAllCollections()) || [];
+      return cols.find((c) => String(c.guid || c.getGuid?.()) === String(colGuid)) || null;
+    } catch (e) { return null; }
+  }
+
+  async _wbStackList(force = false) {
+    if (!force && this._wbStackListCache) return this._wbStackListCache;
+    const col = await this._wbStackCollection();
+    if (!col) return (this._wbStackListCache = []);
+    let recs = [];
+    try { recs = (await col.getAllRecords()) || []; } catch (e) { return (this._wbStackListCache = []); }
+    const prefix = this._WB_STACK_PREFIX;
+    this._wbStackListCache = recs.filter((r) => {
+      try { return String(r.getName?.() || "").startsWith(prefix); } catch (e) { return false; }
+    }).sort((a, b) => String(a.getName?.() || "").localeCompare(String(b.getName?.() || "")));
+    return this._wbStackListCache;
+  }
+
+  _wbStackDisplayName(rec) {
+    try { return String(rec.getName?.() || "").slice(this._WB_STACK_PREFIX.length).trim() || "(unnamed)"; }
+    catch (e) { return "(unnamed)"; }
+  }
+
+  async _wbStackFindByName(name) {
+    const trimmed = String(name || "").trim();
+    if (!trimmed) return null;
+    const full = this._WB_STACK_PREFIX + trimmed;
+    const stacks = await this._wbStackList(true);
+    return stacks.find((r) => String(r.getName?.() || "").trim() === full) || null;
+  }
+
+  async _wbStackSave(name, overwriteGuid) {
+    const owner = this._wbOwner;
+    if (!this._wbOwnerCurrent(owner)) return false;
+    this._wbStackListCache = null;
+    const trimmed = String(name || "").trim();
+    if (!trimmed) { this._toast("Stack name required"); return false; }
+    const rec = this._wbBackingRecord;
+    if (!rec) return false;
+    const items = await this._wbLoadLive(null, owner);
+    if (!this._wbOwnerCurrent(owner)) return false;
+    const ordered = [...items.filter((x) => x.pinned), ...items.filter((x) => !x.pinned)];
+    const col = await this._wbStackCollection();
+    if (!col) { this._toast("Couldn't find the Workbench collection"); return false; }
+    let stackRec = null;
+    if (overwriteGuid) {
+      const stacks = await this._wbStackList(true);
+      stackRec = stacks.find((r) => (r.guid || r.getGuid?.()) === overwriteGuid) || null;
+    }
+    if (!stackRec) stackRec = await this._wbStackFindByName(trimmed);
+    if (!stackRec) {
+      let createdGuid = null;
+      try { createdGuid = col.createRecord(this._WB_STACK_PREFIX + trimmed); } catch (e) { createdGuid = null; }
+      if (!createdGuid) { this._toast("Couldn't create stack"); return false; }
+      for (let attempt = 0; attempt < 6 && !stackRec; attempt++) {
+        let recs = [];
+        try { recs = (await col.getAllRecords()) || []; } catch (e) { break; }
+        stackRec = recs.find((candidate) => (candidate.guid || candidate.getGuid?.()) === createdGuid) || null;
+        if (!stackRec && attempt < 5) await new Promise((resolve) => setTimeout(resolve, 90));
+      }
+      if (!stackRec) { this._toast("Couldn't create stack"); return false; }
+    }
+    await this._wbClearRecordLines(stackRec);
+    let after = null;
+    for (const it of ordered) {
+      if (!this._wbOwnerCurrent(owner)) return false;
+      try {
+        const line = await this._wbWriteShelfLine(stackRec, after, it);
+        after = line;
+      } catch (e) { this._toast("Couldn't save stack"); return false; }
+    }
+    this._wbStackListCache = null;
+    try { localStorage.setItem(this._wbStackLoadedStorageKey(), stackRec.guid || stackRec.getGuid?.() || ""); } catch (e) {}
+    this._toast("Saved stack: " + trimmed);
+    return true;
+  }
+
+  async _wbStackSaveTargets(name, guids, overwriteGuid) {
+    const owner = this._wbOwner;
+    if (!this._wbOwnerCurrent(owner)) return false;
+    this._wbStackListCache = null;
+    const trimmed = String(name || "").trim();
+    if (!trimmed) { this._toast("Stack name required"); return false; }
+    const targets = (guids || []).map((g) => String(g || "").trim()).filter(Boolean);
+    if (!targets.length) { this._toast("Nothing to save"); return false; }
+    const col = await this._wbStackCollection();
+    if (!col) { this._toast("Couldn't find the Workbench collection"); return false; }
+    let stackRec = null;
+    if (overwriteGuid) {
+      const stacks = await this._wbStackList(true);
+      stackRec = stacks.find((r) => (r.guid || r.getGuid?.()) === overwriteGuid) || null;
+    }
+    if (!stackRec) stackRec = await this._wbStackFindByName(trimmed);
+    if (!stackRec) {
+      let createdGuid = null;
+      try { createdGuid = col.createRecord(this._WB_STACK_PREFIX + trimmed); } catch (e) { createdGuid = null; }
+      if (!createdGuid) { this._toast("Couldn't create stack"); return false; }
+      for (let attempt = 0; attempt < 6 && !stackRec; attempt++) {
+        let recs = [];
+        try { recs = (await col.getAllRecords()) || []; } catch (e) { break; }
+        stackRec = recs.find((candidate) => (candidate.guid || candidate.getGuid?.()) === createdGuid) || null;
+        if (!stackRec && attempt < 5) await new Promise((resolve) => setTimeout(resolve, 90));
+      }
+      if (!stackRec) { this._toast("Couldn't create stack"); return false; }
+    }
+    await this._wbClearRecordLines(stackRec);
+    let after = null;
+    for (const target of targets) {
+      if (!this._wbOwnerCurrent(owner)) return false;
+      if (!this.data.getRecord?.(target)) continue;
+      try {
+        const line = await this._wbWriteShelfLine(stackRec, after, { target, variant: "full", pinned: false, collapsed: false });
+        after = line;
+      } catch (e) { this._toast("Couldn't save stack"); return false; }
+    }
+    this._wbStackListCache = null;
+    try { localStorage.setItem(this._wbStackLoadedStorageKey(), stackRec.guid || stackRec.getGuid?.() || ""); } catch (e) {}
+    this._toast("Saved stack: " + trimmed);
+    return true;
+  }
+
+  async _wbStackLoad(stackGuid) {
+    const owner = this._wbOwner;
+    if (!stackGuid || !this._wbOwnerCurrent(owner)) return;
+    const loadedKey = this._wbStackLoadedStorageKey();
+    if (localStorage.getItem(loadedKey) === stackGuid) {
+      const stacks = await this._wbStackList();
+      const rec = stacks.find((r) => (r.guid || r.getGuid?.()) === stackGuid);
+      this._toast("Stack already loaded" + (rec ? ": " + this._wbStackDisplayName(rec) : ""));
+      return;
+    }
+    const stacks = await this._wbStackList();
+    const stackRec = stacks.find((r) => (r.guid || r.getGuid?.()) === stackGuid);
+    if (!stackRec) { this._toast("Stack not found"); return; }
+    let stackLines = [];
+    try { stackLines = (await stackRec.getLineItems(false)) || []; } catch (e) { this._toast("Couldn't read stack"); return; }
+    const stackItems = this._wbParseShelfLines(stackLines);
+    const backing = this._wbBackingRecord;
+    if (!backing) return;
+    let items = await this._wbLoadLive(null, owner);
+    if (!this._wbOwnerCurrent(owner)) return;
+    for (const it of items.filter((x) => !x.pinned)) {
+      try { await it.line.delete(); } catch (e) {}
+      if (!this._wbOwnerCurrent(owner)) return;
+    }
+    items = await this._wbLoadLive(null, owner);
+    const present = new Set(items.map((it) => this._wbSemanticKey(it.target, it.variant)));
+    let after = items.filter((x) => x.pinned).length ? items.filter((x) => x.pinned).slice(-1)[0].line : null;
+    for (const si of stackItems) {
+      const key = this._wbSemanticKey(si.target, si.variant);
+      if (present.has(key)) continue;
+      if (!this._wbOwnerCurrent(owner)) return;
+      try {
+        const line = await this._wbWriteShelfLine(backing, after, si);
+        present.add(key);
+        after = line;
+      } catch (e) { this._toast("Couldn't load stack"); return; }
+    }
+    try { localStorage.setItem(loadedKey, stackGuid); } catch (e) {}
+    this._wbStackListCache = null;
+    this._wbLiveScheduleRefresh();
+    this._toast("Loaded stack: " + this._wbStackDisplayName(stackRec));
+  }
+
+  async _wbStackLoadByIndex(index) {
+    const stacks = await this._wbStackList();
+    const rec = stacks[index];
+    if (!rec) { this._toast("No stack at position " + (index + 1)); return; }
+    await this._wbStackLoad(rec.guid || rec.getGuid?.());
+  }
+
+  async _wbStackDelete(guid) {
+    const owner = this._wbOwner;
+    if (!guid || !this._wbOwnerCurrent(owner)) return;
+    const stacks = await this._wbStackList(true);
+    const rec = stacks.find((r) => (r.guid || r.getGuid?.()) === guid);
+    if (!rec) return;
+    let trashed = false;
+    try {
+      if (typeof rec.trash === "function") { await rec.trash(); trashed = true; }
+      else if (typeof this.data.trashRecord === "function") { await this.data.trashRecord(guid); trashed = true; }
+    } catch (e) {}
+    if (!trashed) { this._toast("Couldn't delete stack"); return; }
+    this._wbStackListCache = null;
+    const loadedKey = this._wbStackLoadedStorageKey();
+    if (localStorage.getItem(loadedKey) === guid) { try { localStorage.removeItem(loadedKey); } catch (e) {} }
+    this._toast("Stack deleted");
+  }
+
+  _wbStackSaveModal(onSaved) {
+    this._openModal({
+      title: "Save Workbench stack",
+      saveLabel: "Save",
+      render: (body) => {
+        const input = this._el("input", "refalias-input");
+        input.type = "text";
+        input.placeholder = "Stack name";
+        body.append(input);
+        return {
+          value: () => input.value.trim(),
+          canSave: () => !!input.value.trim(),
+          enterSaves: true,
+          focusEl: input,
+        };
+      },
+      onSave: (name) => { this._wbStackSave(name).then((ok) => { if (ok && onSaved) onSaved(); }); },
+    });
+  }
+
+  _wbLiveStackMenu(ev) {
+    try { for (const n of document.querySelectorAll(".refx-wb-stack-menu")) n.remove(); } catch (e) {}
+    const pop = this._el("div", "refx-wb-vmenu refx-wb-stack-menu");
+    const saveRow = this._el("button", "refx-wb-vmenu-row", "Save as…");
+    saveRow.type = "button";
+    saveRow.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); });
+    saveRow.addEventListener("click", (e) => {
+      e.preventDefault(); e.stopPropagation();
+      try { pop.remove(); } catch (er) {}
+      this._wbStackSaveModal(() => {});
+    });
+    pop.append(saveRow);
+    this._wbStackList().then((stacks) => {
+      if (!pop.isConnected) return;
+      const loadedGuid = localStorage.getItem(this._wbStackLoadedStorageKey());
+      for (const rec of stacks) {
+        const guid = rec.guid || rec.getGuid?.();
+        const row = this._el("div", "refx-wb-stack-row");
+        const loadBtn = this._el("button", "refx-wb-vmenu-row refx-wb-stack-load", this._wbStackDisplayName(rec));
+        loadBtn.type = "button";
+        loadBtn.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); });
+        loadBtn.addEventListener("click", (e) => {
+          e.preventDefault(); e.stopPropagation();
+          try { pop.remove(); } catch (er) {}
+          this._wbStackLoad(guid).catch(() => {});
+        });
+        const editBtn = this._el("button", "refx-wb-stack-edit", "✎");
+        editBtn.type = "button";
+        editBtn.title = "Overwrite with current shelf";
+        editBtn.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); });
+        editBtn.addEventListener("click", (e) => {
+          e.preventDefault(); e.stopPropagation();
+          if (this._wbStackOverwriteArm === guid) {
+            this._wbStackOverwriteArm = null;
+            try { pop.remove(); } catch (er) {}
+            this._wbStackSave(this._wbStackDisplayName(rec), guid).catch(() => {});
+            return;
+          }
+          this._wbStackOverwriteArm = guid;
+          const confirm = pop.querySelector(".refx-wb-stack-confirm[data-guid='" + guid + "']");
+          if (confirm) confirm.textContent = "Overwrite \"" + this._wbStackDisplayName(rec) + "\"? Click ✎ again";
+        });
+        const delBtn = this._el("button", "refx-wb-stack-del", "✕");
+        delBtn.type = "button";
+        delBtn.title = "Delete stack";
+        delBtn.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); });
+        delBtn.addEventListener("click", (e) => {
+          e.preventDefault(); e.stopPropagation();
+          if (this._wbStackDeleteArm === guid) {
+            this._wbStackDeleteArm = null;
+            try { pop.remove(); } catch (er) {}
+            this._wbStackDelete(guid).catch(() => {});
+            return;
+          }
+          this._wbStackDeleteArm = guid;
+          const confirm = pop.querySelector(".refx-wb-stack-confirm[data-guid='" + guid + "']");
+          if (confirm) confirm.textContent = "Delete \"" + this._wbStackDisplayName(rec) + "\"? Click ✕ again";
+        });
+        const confirm = this._el("div", "refx-wb-stack-confirm refx-wb-missing");
+        confirm.dataset.guid = guid;
+        row.append(loadBtn, editBtn, delBtn, confirm);
+        pop.append(row);
+      }
+      if (loadedGuid) {
+        const upd = this._el("button", "refx-wb-vmenu-row", "Update current");
+        upd.type = "button";
+        upd.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); });
+        upd.addEventListener("click", (e) => {
+          e.preventDefault(); e.stopPropagation();
+          try { pop.remove(); } catch (er) {}
+          const rec = stacks.find((r) => (r.guid || r.getGuid?.()) === loadedGuid);
+          if (rec) this._wbStackSave(this._wbStackDisplayName(rec), loadedGuid).catch(() => {});
+        });
+        pop.append(upd);
+      }
+    }).catch(() => {});
+    document.body.append(pop);
+    try {
+      const r = (ev && ev.currentTarget && ev.currentTarget.getBoundingClientRect && ev.currentTarget.getBoundingClientRect()) || { left: 200, bottom: 200 };
+      pop.style.left = Math.min(r.left, window.innerWidth - 220) + "px";
+      pop.style.top = (r.bottom + 4) + "px";
+    } catch (e) {}
+    const dismiss = () => {
+      try { pop.remove(); } catch (er) {}
+      this._wbStackDeleteArm = null;
+      this._wbStackOverwriteArm = null;
+      document.removeEventListener("mousedown", close, true);
+      document.removeEventListener("keydown", onKey, true);
+    };
+    const close = (e) => { if (!pop.contains(e.target)) dismiss(); };
+    const onKey = (e) => { if (e.key === "Escape") dismiss(); };
+    setTimeout(() => {
+      document.addEventListener("mousedown", close, true);
+      document.addEventListener("keydown", onKey, true);
+    }, 0);
+  }
+
+  _wbReopenMenu(ev) {
+    const list = this._wbClosedList();
+    const pop = this._el("div", "refx-wb-vmenu refx-wb-reopen-menu");
+    if (!list.length) {
+      const empty = this._el("div", "refx-wb-missing", "Nothing recently closed");
+      pop.append(empty);
+    } else {
+      for (const entry of list) {
+        const label = this._wbTargetLabel(entry.target) + (entry.variant === "refs" ? " (refs)" : "") + (entry.pinned ? " 📌" : "");
+        const row = this._el("button", "refx-wb-vmenu-row", label.length > 48 ? label.slice(0, 48) + "…" : label);
+        row.type = "button";
+        row.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); });
+        row.addEventListener("click", (e) => {
+          e.preventDefault(); e.stopPropagation();
+          try { pop.remove(); } catch (er) {}
+          const key = this._wbClosedStorageKey();
+          let cur = this._wbClosedList();
+          cur = cur.filter((x) => !(x.target === entry.target && (x.variant || "full") === (entry.variant || "full")));
+          try { localStorage.setItem(key, JSON.stringify(cur)); } catch (e2) {}
+          const kind = entry.variant === "refs" ? "linked-refs" : null;
+          this._wbAddLive(entry.target, { kind }).then(async () => {
+            if (entry.pinned) {
+              const items = await this._wbLoadLive(null, this._wbOwner);
+              const it = items.find((x) => x.target === entry.target && x.variant === (entry.variant || "full"));
+              if (it && !it.pinned) await this._wbLiveTogglePin(it);
+            }
+            this._toast("Reopened: " + this._wbTargetLabel(entry.target));
+          }).catch(() => {});
+        });
+        pop.append(row);
+      }
+    }
+    document.body.append(pop);
+    try {
+      const r = (ev && ev.currentTarget && ev.currentTarget.getBoundingClientRect && ev.currentTarget.getBoundingClientRect()) || { left: 200, bottom: 200 };
+      pop.style.left = Math.min(r.left, window.innerWidth - 220) + "px";
+      pop.style.top = (r.bottom + 4) + "px";
+    } catch (e) {}
+    const close = (e) => { if (!pop.contains(e.target)) { try { pop.remove(); } catch (er) {} document.removeEventListener("mousedown", close, true); } };
+    setTimeout(() => document.addEventListener("mousedown", close, true), 0);
+  }
+
+  _wbLiveTabTitle(it) {
+    const h = this._wbHeaders.get(it.lineGuid);
+    if (h && h.el) {
+      const t = h.el.querySelector(".refx-wb-hdr-title");
+      const txt = t && (t.textContent || "").trim();
+      if (txt && txt !== "…") return txt;
+    }
+    if (it.target) return this._wbTargetLabel(it.target);
+    return "…";
+  }
+
+  _wbLiveTabsActiveLineGuid(panelEl) {
+    if (!panelEl) return null;
+    const scroller = panelEl.querySelector(".panel-scroller-y") || panelEl;
+    const scrollTop = scroller.scrollTop || 0;
+    const headers = [...panelEl.querySelectorAll(".refx-wb-hdr")].filter((h) => h.offsetParent !== null && !h.closest(".refx-wb-filtered"));
+    if (!headers.length) return null;
+    let best = headers[0];
+    let bestDist = Math.abs((best.offsetTop || 0) - 8 - scrollTop);
+    for (const h of headers) {
+      const dist = Math.abs((h.offsetTop || 0) - 8 - scrollTop);
+      if (dist < bestDist) { bestDist = dist; best = h; }
+    }
+    return best.dataset.refxWbLine || null;
+  }
+
+  _wbLiveActiveItem() {
+    const panel = this._wbLivePanel();
+    let panelEl = null;
+    try { panelEl = panel && panel.getElement(); } catch (e) {}
+    if (!panelEl) return null;
+    const lineGuid = this._wbLiveTabsActiveLineGuid(panelEl);
+    if (!lineGuid) return null;
+    const h = this._wbHeaders.get(lineGuid);
+    return (h && h.el && h.el.__wbIt) || null;
+  }
+
+  _wbLiveMoveActive(dir) {
+    const panel = this._wbLivePanel();
+    let panelEl = null;
+    try { panelEl = panel && panel.getElement(); } catch (e) {}
+    if (!panelEl) return;
+    const headers = [...panelEl.querySelectorAll(".refx-wb-hdr")].filter((h) => h.offsetParent !== null && !h.closest(".refx-wb-filtered"));
+    if (!headers.length) return;
+    const activeGuid = this._wbLiveTabsActiveLineGuid(panelEl);
+    let idx = headers.findIndex((h) => h.dataset.refxWbLine === activeGuid);
+    if (idx < 0) idx = 0;
+    idx = Math.max(0, Math.min(headers.length - 1, idx + dir));
+    const h = headers[idx];
+    const scroller = panelEl.querySelector(".panel-scroller-y") || panelEl;
+    scroller.scrollTop = Math.max(0, (h.offsetTop || 0) - 8);
+    try { h.focus({ preventScroll: true }); } catch (e) { try { h.focus(); } catch (e2) {} }
+    this._wbLiveTabsUpdateActiveOnly();
+  }
+
+  _wbLiveTabsWireScroll(scroller) {
+    if (this._wbTabsScrollFn && this._wbTabsScrollEl === scroller) return;
+    if (this._wbTabsScrollFn && this._wbTabsScrollEl) {
+      try { this._wbTabsScrollEl.removeEventListener("scroll", this._wbTabsScrollFn); } catch (e) {}
+    }
+    this._wbTabsScrollEl = scroller;
+    this._wbTabsScrollFn = () => {
+      if (this._wbTabsScrollT) return;
+      this._wbTabsScrollT = requestAnimationFrame(() => {
+        this._wbTabsScrollT = 0;
+        this._wbLiveTabsUpdateActiveOnly();
+      });
+    };
+    try { scroller.addEventListener("scroll", this._wbTabsScrollFn, { passive: true }); } catch (e) {
+      try { scroller.addEventListener("scroll", this._wbTabsScrollFn); } catch (e2) {}
+    }
+  }
+
+  _wbLiveTabsUpdateActiveOnly() {
+    if (!this._wbTabsEl || !this._wbTabsEl.isConnected) return;
+    const panel = this._wbLivePanel();
+    let panelEl = null;
+    try { panelEl = panel && panel.getElement(); } catch (e) {}
+    if (!panelEl) return;
+    const activeGuid = this._wbLiveTabsActiveLineGuid(panelEl);
+    for (const tab of this._wbTabsEl.querySelectorAll(".refx-wb-tab")) {
+      tab.classList.toggle("is-active", tab.dataset.refxWbLine === activeGuid);
+    }
+  }
+
+  _wbLiveTabsWireDrag(tab, it) {
+    tab.draggable = true;
+    tab.addEventListener("dragstart", (ev) => {
+      if (!it || !it.lineGuid) return;
+      this._wbDrag = { lineGuid: it.lineGuid };
+      tab.classList.add("refx-wb-tab-dragging");
+      try {
+        ev.dataTransfer.effectAllowed = "move";
+        ev.dataTransfer.setData("text/plain", "refx-wb-tab:" + it.lineGuid);
+      } catch (e) {}
+      ev.stopPropagation();
+    });
+    tab.addEventListener("dragover", (ev) => {
+      if (!this._wbDrag) return;
+      ev.preventDefault(); ev.stopPropagation();
+      try { ev.dataTransfer.dropEffect = "move"; } catch (e) {}
+      const before = this._wbDragIsBefore(tab, ev);
+      tab.classList.toggle("refx-wb-drop-before", before);
+      tab.classList.toggle("refx-wb-drop-after", !before);
+    });
+    tab.addEventListener("dragleave", () => { tab.classList.remove("refx-wb-drop-before", "refx-wb-drop-after"); });
+    tab.addEventListener("drop", (ev) => {
+      if (!this._wbDrag) return;
+      ev.preventDefault(); ev.stopPropagation();
+      const before = this._wbDragIsBefore(tab, ev);
+      const src = this._wbDrag.lineGuid;
+      const dst = it.lineGuid;
+      this._wbDrag = null;
+      tab.classList.remove("refx-wb-drop-before", "refx-wb-drop-after");
+      this._wbClearDragMarks();
+      if (src && dst && src !== dst) this._wbLiveReorder(src, dst, before).catch(() => {});
+    });
+    tab.addEventListener("dragend", () => {
+      this._wbDrag = null;
+      tab.classList.remove("refx-wb-tab-dragging", "refx-wb-drop-before", "refx-wb-drop-after");
+      this._wbClearDragMarks();
+    });
+  }
+
+  _wbLiveTabsEnsure(panelEl, items) {
+    const scroller = panelEl.querySelector(".panel-scroller-y") || panelEl;
+    if (!this._wbTabsEl || !this._wbTabsEl.isConnected || this._wbTabsEl.parentElement !== scroller) {
+      if (this._wbTabsEl) { try { this._wbTabsEl.remove(); } catch (e) {} }
+      this._wbTabsEl = this._el("div", "refx-wb-tabs");
+      this._wbTabsEl.setAttribute("contenteditable", "false");
+      try {
+        if (this._wbFilterBar && this._wbFilterBar.parentElement === scroller) {
+          if (this._wbFilterBar.nextSibling) scroller.insertBefore(this._wbTabsEl, this._wbFilterBar.nextSibling);
+          else scroller.appendChild(this._wbTabsEl);
+        } else if (scroller.firstChild) scroller.insertBefore(this._wbTabsEl, scroller.firstChild);
+        else scroller.appendChild(this._wbTabsEl);
+      } catch (e) { try { scroller.appendChild(this._wbTabsEl); } catch (e2) {} }
+      this._wbLiveTabsWireScroll(scroller);
+    }
+    this._wbLiveTabsPaint(panelEl, items);
+  }
+
+  _wbLiveTabsPaint(panelEl, items) {
+    if (!this._wbTabsEl) return;
+    const fp = this._wbTabsFingerprintOf(items);
+    if (fp === this._wbTabsFingerprint) {
+      this._wbLiveTabsUpdateActiveOnly();
+      return;
+    }
+    this._wbTabsFingerprint = fp;
+    const activeGuid = this._wbLiveTabsActiveLineGuid(panelEl);
+    this._wbTabsEl.replaceChildren ? this._wbTabsEl.replaceChildren() : (this._wbTabsEl.innerHTML = "");
+    const scroller = panelEl.querySelector(".panel-scroller-y") || panelEl;
+    for (const it of items) {
+      const tab = this._el("button", "refx-wb-tab");
+      tab.type = "button";
+      tab.setAttribute("contenteditable", "false");
+      tab.dataset.refxWbLine = it.lineGuid;
+      if (it.collapsed) tab.classList.add("is-collapsed");
+      if (it.pinned) tab.classList.add("is-pinned");
+      if (it.lineGuid === activeGuid) tab.classList.add("is-active");
+      const dot = this._el("span", "refx-wb-tab-dot");
+      tab.append(dot);
+      const title = this._wbLiveTabTitle(it);
+      tab.append(this._el("span", "refx-wb-tab-title", title.length > 18 ? title.slice(0, 18) + "…" : title));
+      tab.title = title;
+      tab.addEventListener("click", (ev) => {
+        ev.preventDefault(); ev.stopPropagation();
+        const hdr = panelEl.querySelector('.refx-wb-hdr[data-refx-wb-line="' + it.lineGuid + '"]');
+        if (hdr) scroller.scrollTop = Math.max(0, (hdr.offsetTop || 0) - 8);
+        this._wbLiveTabsUpdateActiveOnly();
+      });
+      this._wbLiveTabsWireDrag(tab, it);
+      this._wbTabsEl.append(tab);
+    }
+  }
+
+  _wbRelatedJournalKey(guid, rec) {
+    let details = null;
+    try { details = rec?.getJournalDetails?.(); } catch (e) {}
+    if (details) {
+      let date = details.date || details.yyyymmdd || "";
+      if (typeof date === "string") date = date.replace(/-/g, "");
+      else date = String(date || "");
+      if (!date) return null;
+      const coll = String(details.collectionGuid || details.collection || details.collectionId || "");
+      return "J:" + coll + ":" + date;
+    }
+    const g = String(guid || "").trim();
+    const m = /^S-(.+)-0-(\d{8})$/.exec(g);
+    return m ? ("J:" + m[1] + ":" + m[2]) : null;
+  }
+
+  _wbRelatedBuildCanonCtx(items, mainRecGuid) {
+    const map = new Map();
+    const journalDateOf = (key) => (key && key.startsWith("J:") ? key.split(":").pop() : "");
+    const mergeJournalKey = (jk) => {
+      if (!jk) return jk;
+      const date = journalDateOf(jk);
+      if (!date) return jk;
+      for (const existingKey of map.values()) {
+        if (existingKey.startsWith("J:") && journalDateOf(existingKey) === date) return existingKey;
+      }
+      return jk;
+    };
+    const absorb = (guid) => {
+      const g = this._resolveCanonicalLineGuid(String(guid || "").trim());
+      if (!g) return;
+      let rec = null;
+      try { rec = this.data.getRecord?.(g); } catch (e) {}
+      const hostRec = this._wbItemRecordGuid({ guid: g });
+      if (!rec && hostRec) { try { rec = this.data.getRecord?.(hostRec); } catch (e) {} }
+      if (!rec && g.startsWith("S-")) {
+        const synDate = journalDateOf(this._wbRelatedJournalKey(g, null));
+        if (synDate) {
+          try {
+            const ar = this._wbMainPanel()?.getActiveRecord?.();
+            const arRec = ar && (this.data.getRecord?.(this._recordGuidOf(ar)) || this.data.getRecord?.(ar.guid) || ar);
+            if (arRec && journalDateOf(this._wbRelatedJournalKey(ar.guid, arRec)) === synDate) rec = arRec;
+          } catch (e) {}
+        }
+      }
+      let jk = (rec ? this._wbRelatedJournalKey(g, rec) : null) || this._wbRelatedJournalKey(g, null)
+        || (hostRec ? this._wbRelatedJournalKey(hostRec, rec) : null);
+      if (jk) jk = mergeJournalKey(jk);
+      const register = (id, key) => {
+        const k = String(id || "").trim();
+        if (k) map.set(k, key);
+      };
+      if (jk) {
+        register(g, jk);
+        if (hostRec) register(hostRec, jk);
+        if (rec) register(this._recordGuidOf(rec), jk);
+        return;
+      }
+      const key = this.data.getRecord?.(g) ? g : (hostRec || g);
+      register(g, key);
+      if (hostRec && hostRec !== g) register(hostRec, key);
+      if (rec) {
+        const rg = this._recordGuidOf(rec);
+        if (rg) register(rg, map.get(g) || key);
+      }
+    };
+    for (const it of items || []) absorb(it.target);
+    if (mainRecGuid) absorb(mainRecGuid);
+    try {
+      const ar = this._wbMainPanel()?.getActiveRecord?.();
+      if (ar) { absorb(ar.guid); absorb(this._recordGuidOf(ar)); }
+    } catch (e) {}
+    return {
+      key: (guid) => {
+        if (!guid) return "";
+        const g = this._resolveCanonicalLineGuid(String(guid).trim());
+        if (map.has(g)) return map.get(g);
+        absorb(guid);
+        return map.get(g) || g;
+      },
+      same: (a, b) => {
+        if (!a || !b) return false;
+        const ka = map.has(String(a).trim()) ? map.get(String(a).trim()) : null;
+        const kb = map.has(String(b).trim()) ? map.get(String(b).trim()) : null;
+        if (ka && kb) return ka === kb;
+        return this._resolveCanonicalLineGuid(String(a).trim()) === this._resolveCanonicalLineGuid(String(b).trim());
+      },
+    };
+  }
+
+  _wbRelatedCacheKey(items, mainRecGuid, canonCtx) {
+    const fp = (items || []).map((it) => String(it.target || "") + ":" + String(it.variant || "full")).sort().join("|");
+    const mainKey = canonCtx ? canonCtx.key(mainRecGuid) : String(mainRecGuid || "");
+    return fp + "@" + mainKey;
+  }
+
+  _wbRelatedScheduleRefresh(delay) {
+    if (!this._wbRelatedEnabled) {
+      if (this._wbRelatedEl) { try { this._wbRelatedEl.remove(); } catch (e) {} this._wbRelatedEl = null; }
+      return;
+    }
+    const gen = ++this._wbRelatedGen;
+    if (this._wbRelatedT) { try { clearTimeout(this._wbRelatedT); } catch (e) {} this._wbRelatedT = 0; }
+    this._wbRelatedT = setTimeout(() => {
+      this._wbRelatedT = 0;
+      this._wbRelatedRefresh(gen).catch(() => {});
+    }, Math.max(0, delay == null ? 400 : Number(delay) || 0));
+  }
+
+  async _wbRelatedRefresh(gen) {
+    if (!this._wbRelatedEnabled || gen !== this._wbRelatedGen || this._unloaded) return;
+    const owner = this._wbOwner;
+    if (!this._wbOwnerCurrent(owner)) return;
+    const panel = this._wbLivePanel();
+    if (!panel) { if (this._wbRelatedEl) { try { this._wbRelatedEl.hidden = true; } catch (e) {} } return; }
+    let panelEl = null;
+    try { panelEl = panel.getElement && panel.getElement(); } catch (e) {}
+    if (!panelEl || gen !== this._wbRelatedGen) return;
+    const items = await this._wbLoadLive(null, owner);
+    if (gen !== this._wbRelatedGen || !this._wbOwnerCurrent(owner)) return;
+    let mainRecGuid = null;
+    try { const mp = this._wbMainPanel(); const ar = mp && mp.getActiveRecord && mp.getActiveRecord(); mainRecGuid = (ar && ar.guid) || null; } catch (e) {}
+    const canonCtx = this._wbRelatedBuildCanonCtx(items, mainRecGuid);
+    const cacheKey = this._wbRelatedCacheKey(items, mainRecGuid, canonCtx);
+    const now = Date.now();
+    if (!this._wbRelatedCache) this._wbRelatedCache = new Map();
+    let chips = null;
+    const hit = this._wbRelatedCache.get(cacheKey);
+    if (hit && now - Number(hit.ts || 0) < 60000) chips = hit.chips;
+    if (!chips) {
+      chips = await this._wbRelatedGather(items, mainRecGuid, canonCtx);
+      if (gen !== this._wbRelatedGen) return;
+      this._wbRelatedCache.set(cacheKey, { chips, ts: now });
+      if (this._wbRelatedCache.size > 32) {
+        for (const [k, v] of this._wbRelatedCache) {
+          if (now - Number(v.ts || 0) >= 60000) this._wbRelatedCache.delete(k);
+        }
+      }
+    }
+    if (gen !== this._wbRelatedGen) return;
+    this._wbLiveRelatedPaint(panelEl, items, chips || []);
+  }
+
+  async _wbRelatedGather(items, mainRecGuid, canonCtx) {
+    const ctx = canonCtx || this._wbRelatedBuildCanonCtx(items, mainRecGuid);
+    const canon = (guid) => ctx.key(guid);
+    const chips = [];
+    const seenRec = new Set();
+    const skipKeys = new Set();
+    for (const it of items || []) {
+      if (!it || !it.target) continue;
+      skipKeys.add(canon(it.target));
+    }
+    if (mainRecGuid) skipKeys.add(canon(mainRecGuid));
+    const mainName = mainRecGuid ? String(this.getOrLoadRecordName(mainRecGuid) || "").trim() : "";
+    const mainPageLabel = mainName.length > 40 ? mainName.slice(0, 40) + "…" : mainName;
+    for (const it of items || []) {
+      if (chips.length >= 5) break;
+      const targetGuid = it.target;
+      if (!targetGuid) continue;
+      let lines = [];
+      try { lines = await this._queryRefLines(targetGuid); } catch (e) { lines = []; }
+      const targetName = this.data.getRecord(targetGuid)
+        ? (this.getOrLoadRecordName(targetGuid) || targetGuid)
+        : (this._lineTextByGuid(targetGuid) || targetGuid);
+      const tLabel = String(targetName).length > 40 ? String(targetName).slice(0, 40) + "…" : String(targetName);
+      const targetKey = canon(targetGuid);
+      let perTarget = 0;
+      for (const line of lines || []) {
+        if (chips.length >= 5 || perTarget >= 3) break;
+        const srcGuid = (line && line.record && line.record.guid) || "";
+        const srcKey = canon(srcGuid);
+        if (!srcGuid || skipKeys.has(srcKey) || seenRec.has(srcKey) || srcKey === targetKey) continue;
+        const name = String(this.getOrLoadRecordName(srcGuid) || srcGuid).trim();
+        if (mainName && name === mainName) continue;
+        seenRec.add(srcKey);
+        perTarget++;
+        chips.push({
+          guid: this._resolveCanonicalLineGuid(srcGuid),
+          name,
+          reason: "references " + tLabel,
+          evidence: this._connEvidenceLabel(srcGuid),
+        });
+      }
+    }
+    if (chips.length < 5 && mainRecGuid) {
+      let lines = [];
+      try { lines = await this._queryRefLines(mainRecGuid); } catch (e) { lines = []; }
+      let perMain = 0;
+      for (const line of lines || []) {
+        if (chips.length >= 5 || perMain >= 3) break;
+        const lineGuid = this._resolveCanonicalLineGuid((line && line.guid) || "");
+        const srcGuid = (line && line.record && line.record.guid) || "";
+        const srcKey = canon(srcGuid);
+        if (!lineGuid || !srcGuid || skipKeys.has(srcKey) || seenRec.has(srcKey)) continue;
+        if (ctx.same(srcGuid, mainRecGuid)) continue;
+        const name = String(this.getOrLoadRecordName(srcGuid) || srcGuid).trim();
+        if (mainName && name === mainName) continue;
+        seenRec.add(srcKey);
+        perMain++;
+        let lineText = "";
+        try {
+          if (line.segments) lineText = this._cleanDisplayText(line.segments).trim();
+          else if (line.getSegments) lineText = this._cleanDisplayText(line.getSegments() || []).trim();
+          if (!lineText) lineText = this._lineTextByGuid(lineGuid) || "";
+        } catch (e) {}
+        if (!lineText) lineText = "…";
+        const mention = lineText.length > 24 ? lineText.slice(0, 24) + "…" : lineText;
+        chips.push({
+          guid: lineGuid,
+          name: mention,
+          reason: "mentions " + mainPageLabel,
+          evidence: this._connEvidenceLabel(lineGuid),
+        });
+      }
+    }
+    const shelfGuids = [...new Set([...(items || []).map((it) => it.target).filter(Boolean), mainRecGuid].filter(Boolean))];
+    if (chips.length < 5 && shelfGuids.length) {
+      const store = this._connCooccurLoad();
+      if (store) {
+        const coCand = new Map();
+        for (const pk in store) {
+          const parts = pk.split("|");
+          if (parts.length !== 2) continue;
+          const [a, b] = parts;
+          for (const sg of shelfGuids) {
+            let cand = null;
+            if (a === sg) cand = b;
+            else if (b === sg) cand = a;
+            if (!cand) continue;
+            const days = Number(store[pk]?.day) || 0;
+            if (!days) continue;
+            coCand.set(cand, Math.max(Number(coCand.get(cand)) || 0, days));
+          }
+        }
+        for (const [cand, days] of coCand) {
+          if (chips.length >= 5) break;
+          const ck = canon(cand);
+          if (skipKeys.has(ck) || seenRec.has(ck)) continue;
+          if (!this.data.getRecord?.(cand)) continue;
+          seenRec.add(ck);
+          chips.push({
+            guid: cand,
+            name: this.getOrLoadRecordName(cand) || cand,
+            reason: "co-occurring",
+            evidence: "never linked · appears with this on " + days + (days === 1 ? " day" : " days"),
+          });
+        }
+      }
+    }
+    const hopSrc = mainRecGuid || shelfGuids[0] || "";
+    chips.sort((a, b) => this._connHopWeight(hopSrc, b.guid) - this._connHopWeight(hopSrc, a.guid)
+      || String(a.name || "").localeCompare(String(b.name || "")));
+    return chips.slice(0, 5);
+  }
+
+  _wbLiveRelatedPaint(panelEl, items, chips) {
+    if (!this._wbRelatedEnabled) {
+      if (this._wbRelatedEl) { try { this._wbRelatedEl.remove(); } catch (e) {} this._wbRelatedEl = null; }
+      this._wbRelatedPaintFp = "";
+      return;
+    }
+    let el = this._wbRelatedEl;
+    if (!chips || !chips.length) {
+      this._wbRelatedPaintFp = "";
+      if (el) { el.hidden = true; if (el.replaceChildren) el.replaceChildren(); else el.innerHTML = ""; }
+      return;
+    }
+    const fp = this._wbRelatedPaintFingerprint(chips);
+    if (fp === this._wbRelatedPaintFp && el && el.isConnected && !el.hidden) return;
+    this._wbRelatedPaintFp = fp;
+    if (!el || !el.isConnected) {
+      el = this._el("div", "refx-wb-related");
+      el.setAttribute("contenteditable", "false");
+      this._wbRelatedEl = el;
+    }
+    el.hidden = false;
+    let anchor = null;
+    for (const it of items || []) {
+      const node = panelEl.querySelector('.listitem-transclusion[data-guid="' + it.lineGuid + '"]');
+      if (node) anchor = node;
+    }
+    if (anchor && anchor.parentElement) {
+      try {
+        if (el.parentElement !== anchor.parentElement || el.previousElementSibling !== anchor) {
+          if (anchor.nextSibling) anchor.parentElement.insertBefore(el, anchor.nextSibling);
+          else anchor.parentElement.appendChild(el);
+        }
+      } catch (e) { try { anchor.parentElement.appendChild(el); } catch (e2) {} }
+    } else {
+      const scroller = panelEl.querySelector(".panel-scroller-y") || panelEl;
+      if (el.parentElement !== scroller) { try { scroller.appendChild(el); } catch (e) {} }
+    }
+    if (el.replaceChildren) el.replaceChildren(); else el.innerHTML = "";
+    for (const chip of chips) {
+      const btn = this._el("button", "refx-wb-related-chip");
+      btn.type = "button";
+      const nm = String(chip.name || chip.guid || "").length > 30 ? String(chip.name || chip.guid).slice(0, 30) + "…" : String(chip.name || chip.guid || "");
+      btn.append(this._el("span", "refx-wb-related-glyph", "⧉"));
+      btn.append(this._el("span", "refx-wb-related-name", nm));
+      btn.append(this._el("span", "refx-wb-related-reason", chip.reason || ""));
+      if (chip.evidence) btn.append(this._el("span", "refx-wb-related-evidence", chip.evidence));
+      btn.title = [chip.reason || nm, chip.evidence].filter(Boolean).join(" · ");
+      const guid = chip.guid;
+      btn.addEventListener("click", (ev) => {
+        ev.preventDefault(); ev.stopPropagation();
+        if (guid) this._wbAdd(guid);
+      });
+      el.append(btn);
+    }
+  }
+
+  _wbSharedPaintFingerprint(chips) {
+    return (chips || []).map((c) => String(c.guid || "") + ":" + String(c.coCount || 0)).join("|");
+  }
+
+  _wbSharedScheduleRefresh(delay) {
+    if (!this._wbSharedEnabled) {
+      if (this._wbSharedEl) { try { this._wbSharedEl.remove(); } catch (e) {} this._wbSharedEl = null; }
+      return;
+    }
+    const gen = ++this._wbSharedGen;
+    if (this._wbSharedT) { try { clearTimeout(this._wbSharedT); } catch (e) {} this._wbSharedT = 0; }
+    this._wbSharedT = setTimeout(() => {
+      this._wbSharedT = 0;
+      this._wbSharedRefresh(gen).catch(() => {});
+    }, Math.max(0, Number(delay) || 400));
+  }
+
+  async _wbSharedRefresh(gen) {
+    if (!this._wbSharedEnabled || gen !== this._wbSharedGen || this._unloaded) return;
+    const panel = this._wbLivePanel();
+    if (!panel) { if (this._wbSharedEl) { try { this._wbSharedEl.hidden = true; } catch (e) {} } return; }
+    let panelEl = null;
+    try { panelEl = panel.getElement?.() || null; } catch (e) {}
+    if (!panelEl || gen !== this._wbSharedGen) return;
+    const owner = this._wbOwner;
+    if (gen !== this._wbSharedGen || !this._wbOwnerCurrent(owner)) return;
+    const items = await this._wbLoadLive(null, owner, null);
+    if (gen !== this._wbSharedGen) return;
+    const shelfTargets = [...new Set((items || []).map((it) => it.target).filter(Boolean))];
+    let chips = [];
+    if (shelfTargets.length >= 2) {
+      chips = this._connSharedNeighbours(shelfTargets, {}).slice(0, 5).map((row) => ({
+        guid: row.guid,
+        name: row.name,
+        coCount: row.coCount,
+        reason: row.coCount + " shared",
+      }));
+    }
+    if (gen !== this._wbSharedGen) return;
+    this._wbLiveSharedPaint(panelEl, items, chips);
+  }
+
+  _wbLiveSharedEnsure(panelEl, items) {
+    if (!this._wbSharedEnabled) {
+      if (this._wbSharedEl) { try { this._wbSharedEl.remove(); } catch (e) {} this._wbSharedEl = null; }
+      this._wbSharedPaintFp = "";
+      return;
+    }
+    this._wbSharedScheduleRefresh(0);
+  }
+
+  _wbLiveSharedPaint(panelEl, items, chips) {
+    if (!this._wbSharedEnabled) {
+      if (this._wbSharedEl) { try { this._wbSharedEl.remove(); } catch (e) {} this._wbSharedEl = null; }
+      this._wbSharedPaintFp = "";
+      return;
+    }
+    const shelfCount = (items || []).filter((it) => it?.target).length;
+    let el = this._wbSharedEl;
+    if (shelfCount < 2 || !chips || !chips.length) {
+      this._wbSharedPaintFp = "";
+      if (el) { el.hidden = true; if (el.replaceChildren) el.replaceChildren(); else el.innerHTML = ""; }
+      return;
+    }
+    const fp = this._wbSharedPaintFingerprint(chips);
+    if (fp === this._wbSharedPaintFp && el && el.isConnected && !el.hidden) return;
+    this._wbSharedPaintFp = fp;
+    if (!el || !el.isConnected) {
+      el = this._el("div", "refx-wb-shared");
+      el.setAttribute("contenteditable", "false");
+      this._wbSharedEl = el;
+    }
+    el.hidden = false;
+    const scroller = panelEl.querySelector(".panel-scroller-y") || panelEl;
+    const anchor = (this._wbTrailEl && this._wbTrailEl.isConnected && this._wbTrailEl.parentElement === scroller) ? this._wbTrailEl
+      : ((this._wbTabsEl && this._wbTabsEl.isConnected && this._wbTabsEl.parentElement === scroller) ? this._wbTabsEl : null);
+    if (anchor) {
+      try {
+        if (el.parentElement !== scroller || el.previousElementSibling !== anchor) {
+          if (anchor.nextSibling) scroller.insertBefore(el, anchor.nextSibling);
+          else scroller.appendChild(el);
+        }
+      } catch (e) { try { scroller.appendChild(el); } catch (e2) {} }
+    } else if (el.parentElement !== scroller) {
+      try { scroller.appendChild(el); } catch (e) {}
+    }
+    if (el.replaceChildren) el.replaceChildren(); else el.innerHTML = "";
+    for (const chip of chips) {
+      const btn = this._el("button", "refx-wb-shared-chip");
+      btn.type = "button";
+      const nm = String(chip.name || chip.guid || "").length > 30 ? String(chip.name || chip.guid).slice(0, 30) + "…" : String(chip.name || chip.guid || "");
+      btn.append(this._el("span", "refx-wb-shared-glyph", "∩"));
+      btn.append(this._el("span", "refx-wb-shared-name", nm));
+      btn.append(this._el("span", "refx-wb-shared-reason", chip.reason || ""));
+      btn.title = chip.reason || nm;
+      const guid = chip.guid;
+      btn.addEventListener("click", (ev) => {
+        ev.preventDefault(); ev.stopPropagation();
+        if (guid) this._wbAdd(guid);
+      });
+      el.append(btn);
+    }
   }
 
   _wbPreserveQueryHost(node, it) {
@@ -39438,7 +42975,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     const after = pinned.length ? pinned[pinned.length - 1].line : null;
     try {
       if (!this._wbOwnerCurrent(owner)) return;
-      await rec.createLineItem(null, after, "transclusion", null, { itemref: guid, refx_wb: 1, refx_variant: isRefs ? "refs" : "full" });
+      await this._wbWriteShelfLine(rec, after, { target: guid, variant: isRefs ? "refs" : "full" });
     } catch (e) { this._toast("Couldn't add to the Workbench."); return; }
     if (!this._wbOwnerCurrent(owner)) return;
     // cap: drop the oldest UNPINNED item
@@ -39478,51 +43015,69 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
   // document) so it's cheap; ignores its own header/slot mutations.
   _wbLiveEnsureObserver(panelEl) {
     if (this._wbLiveObs && this._wbLiveObsEl === panelEl) return;
-    this._wbLiveTeardownObserver();
+    this._wbLiveTeardownObserver({ rebind: true });
+    const options = { childList: true, subtree: true };
     const obs = new MutationObserver((muts) => {
-      if (this._unloaded) return;
-      let structural = false;
-      for (const [lg, h] of this._wbHeaders) {
-        if (!h.el.isConnected) {
-          const node = panelEl.querySelector('.listitem-transclusion[data-guid="' + lg + '"]');
-          if (node) { if (node.firstChild !== h.el) { try { node.insertBefore(h.el, node.firstChild); } catch (e) {} } }
-          else structural = true;
-        }
-      }
-      // v3.55.0: keep-alive for WB body fold twisty nodes (line-div swap wipes them).
-      for (const [k, e] of this._wbFoldTwists) {
-        if (e.node && e.node.isConnected) continue;
-        // Re-find the host line-div inside the WB item's transclusion body
-        const itemNode = panelEl.querySelector('.listitem-transclusion[data-guid="' + e.wbLineGuid + '"]');
-        if (!itemNode) continue;
-        const bodyLi = itemNode.querySelector('.transclusion-container-div .listitem[data-guid="' + e.bodyLineGuid + '"]');
-        const lineDiv = bodyLi && bodyLi.querySelector(':scope > .line-div');
-        if (lineDiv) {
-          try { lineDiv.appendChild(e.node); lineDiv.classList.add('refx-wb-twist-host'); } catch (err) {}
-        }
-        // Re-apply fold-hide for registered folds
-        this._wbFoldApply(itemNode, e.bodyLineGuid);
-      }
-      // a transclusion may have appeared (scroll-in / new item) with no header
-      for (const m of muts) {
-        for (const n of (m.addedNodes || [])) {
-          if (n.nodeType === 1 && (n.classList?.contains("refx-wb-hdr") || n.classList?.contains("refx-wb-slot") || n.closest?.(".refx-wb-hdr") || n.classList?.contains("refx-wb-twist"))) continue;
-          if (n.nodeType === 1 && (n.matches?.(".listitem-transclusion[data-guid]") || n.querySelector?.(".listitem-transclusion[data-guid]"))) { structural = true; }
-          // Body-line added: may need a new twisty if it has children
-          if (n.nodeType === 1 && n.matches?.(".listitem[data-guid]") && n.closest?.(".refx-wb-item")) {
-            const wbItem = n.closest(".listitem-transclusion.refx-wb-item");
-            if (wbItem) { const lg = wbItem.getAttribute("data-guid"); if (lg) this._wbFoldMount(wbItem, lg); }
+      this._moGuardCallback('wb', muts || [], { obs, target: panelEl, options, ctx: {} }, (filtered, budgetStart) => {
+      if (this._unloaded || this._wbLiveObsBusy) return;
+      this._wbLiveObsBusy = true;
+      try {
+        let structural = false;
+        for (const [lg, h] of this._wbHeaders) {
+          if (!h.el.isConnected) {
+            const node = panelEl.querySelector('.listitem-transclusion[data-guid="' + lg + '"]');
+            if (node) { if (node.firstChild !== h.el) { try { node.insertBefore(h.el, node.firstChild); } catch (e) {} } }
+            else structural = true;
           }
         }
+        // v3.55.0: keep-alive for WB body fold twisty nodes (line-div swap wipes them).
+        for (const [k, e] of this._wbFoldTwists) {
+          if (e.node && e.node.isConnected) continue;
+          // Re-find the host line-div inside the WB item's transclusion body
+          const itemNode = panelEl.querySelector('.listitem-transclusion[data-guid="' + e.wbLineGuid + '"]');
+          if (!itemNode) continue;
+          const bodyLi = itemNode.querySelector('.transclusion-container-div .listitem[data-guid="' + e.bodyLineGuid + '"]');
+          const lineDiv = bodyLi && bodyLi.querySelector(':scope > .line-div');
+          if (lineDiv) {
+            try { lineDiv.appendChild(e.node); lineDiv.classList.add('refx-wb-twist-host'); } catch (err) {}
+          }
+          // Re-apply fold-hide for registered folds
+          this._wbFoldApply(itemNode, e.bodyLineGuid);
+        }
+        // a transclusion may have appeared (scroll-in / new item) with no header
+        for (const m of filtered) {
+          if (this._moBudgetExceeded(budgetStart)) { structural = true; break; }
+          if (this._wbMutationIgnored(m.target)) continue;
+          for (const n of (m.addedNodes || [])) {
+            if (this._wbMutationIgnored(n)) continue;
+            if (n.nodeType === 1 && (n.classList?.contains("refx-wb-hdr") || n.classList?.contains("refx-wb-slot") || n.classList?.contains("refx-wb-twist"))) continue;
+            if (n.nodeType === 1 && (n.matches?.(".listitem-transclusion[data-guid]") || n.querySelector?.(".listitem-transclusion[data-guid]"))) { structural = true; }
+            // Body-line added: may need a new twisty if it has children
+            if (n.nodeType === 1 && n.matches?.(".listitem[data-guid]")) {
+              let wbItem = null;
+              let cur = n.parentElement;
+              while (cur && cur.nodeType === 1) {
+                if (cur.classList?.contains?.('listitem-transclusion') && cur.classList?.contains?.('refx-wb-item')) { wbItem = cur; break; }
+                if (cur.classList?.contains?.('listitem')) break;
+                cur = cur.parentElement;
+              }
+              if (wbItem) { const lg = wbItem.getAttribute("data-guid"); if (lg) this._wbFoldMount(wbItem, lg); }
+            }
+          }
+        }
+        if (structural) this._wbLiveScheduleRefresh(60);
+        if (this._moBudgetExceeded(budgetStart)) this._scheduleCoalescedRescan('wb', {});
+      } finally {
+        this._wbLiveObsBusy = false;
       }
-      if (structural) this._wbLiveScheduleRefresh(60);
+      });
     });
-    try { obs.observe(panelEl, { childList: true, subtree: true }); } catch (e) {}
+    try { obs.observe(panelEl, options); } catch (e) {}
     this._wbLiveObs = obs; this._wbLiveObsEl = panelEl;
     window.__refxWbLiveObs = obs;
   }
 
-  _wbLiveTeardownObserver() {
+  _wbLiveTeardownObserver(opts) {
     if (this._wbLiveObs) { try { this._wbLiveObs.disconnect(); } catch (e) {} }
     // Drop the A2 marker so the props/footer/title-lock CSS stops applying the
     // moment this panel stops hosting the Workbench (a panel element can be
@@ -39542,6 +43097,18 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     for (const [, e] of this._wbFoldTwists) { try { if (e.node) e.node.remove(); } catch (err) {} }
     this._wbFoldTwists.clear(); this._wbFolds.clear();
     if (this._wbFilterBar) { try { this._wbFilterBar.remove(); } catch (e) {} this._wbFilterBar = null; }
+    if (this._wbTabsEl) { try { this._wbTabsEl.remove(); } catch (e) {} this._wbTabsEl = null; }
+    if (this._wbTrailEl) { try { this._wbTrailEl.remove(); } catch (e) {} this._wbTrailEl = null; }
+    this._wbTrailPaintFp = "";
+    this._wbTrailStopReplay();
+    if (this._wbSharedEl) { try { this._wbSharedEl.remove(); } catch (e) {} this._wbSharedEl = null; }
+    this._wbSharedPaintFp = "";
+    if (this._wbTabsScrollFn && this._wbTabsScrollEl) {
+      try { this._wbTabsScrollEl.removeEventListener("scroll", this._wbTabsScrollFn); } catch (e) {}
+    }
+    this._wbTabsScrollFn = null; this._wbTabsScrollEl = null;
+    if (this._wbTabsScrollT) { try { cancelAnimationFrame(this._wbTabsScrollT); } catch (e) { try { clearTimeout(this._wbTabsScrollT); } catch (e2) {} } this._wbTabsScrollT = 0; }
+    if (!opts || (!opts.keepStorm && !opts.rebind)) this._wbResetStormCounters();
   }
 
   // v3.55.0: mount/refresh fold twisties on the body lines of one WB item node.
@@ -39670,7 +43237,6 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
   _wbLiveFilterBarEnsure(panelEl, items) {
     const scroller = panelEl.querySelector(".panel-scroller-y") || panelEl;
     if (this._wbFilterBar && this._wbFilterBar.isConnected && this._wbFilterBar.parentElement === scroller) {
-      // just update the count
       const c = this._wbFilterBar.querySelector(".refx-wb-fcount"); if (c) c.textContent = items.length + " item" + (items.length === 1 ? "" : "s");
       return;
     }
@@ -39683,7 +43249,28 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     input.addEventListener("input", () => { this._wbLiveFilter = input.value; this._wbLiveApplyFilter(); });
     input.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Escape") { input.value = ""; this._wbLiveFilter = ""; this._wbLiveApplyFilter(); } });
     bar.append(input);
-    // A5: one-shot sort — reorders the backing lines (pinned stay on top).
+    const stackBtn = this._wbBtn("▤", "Workbench stacks", (e) => this._wbLiveStackMenu(e));
+    stackBtn.classList.add("refx-wb-fstack");
+    bar.append(stackBtn);
+    const pathsBtn = this._wbBtn("Paths among these items", "Find reference paths between Workbench items", () => {
+      this._wbConnPathsAmongItems().catch(() => this._toast("Couldn't compute paths."));
+    });
+    pathsBtn.classList.add("refx-wb-fpaths");
+    bar.append(pathsBtn);
+    const reopenWrap = this._el("span", "refx-wb-freopen-wrap");
+    const reopen = this._wbBtn("↶", "Reopen last removed (Ctrl/Cmd+Shift+T)", () => { this._wbReopenLast().catch(() => {}); });
+    reopen.classList.add("refx-wb-freopen");
+    reopen.addEventListener("contextmenu", (e) => { e.preventDefault(); e.stopPropagation(); this._wbReopenMenu(e); });
+    let reopenPressT = 0;
+    reopen.addEventListener("mousedown", (e) => {
+      if (e.button !== 0) return;
+      reopenPressT = setTimeout(() => { reopenPressT = 0; this._wbReopenMenu(e); }, 450);
+    });
+    reopen.addEventListener("mouseup", () => { if (reopenPressT) { clearTimeout(reopenPressT); reopenPressT = 0; } });
+    const reopenDrop = this._wbBtn("▾", "Recently closed", (e) => this._wbReopenMenu(e));
+    reopenDrop.classList.add("refx-wb-freopen-drop");
+    reopenWrap.append(reopen, reopenDrop);
+    bar.append(reopenWrap);
     const sort = this._wbBtn("⇅", "Sort items", (e) => this._openSortMenu(e, [
       { mode: "manual", label: "Manual (native order)" },
       { mode: "az", label: "A–Z" },
@@ -39703,13 +43290,19 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     const panel = this._wbLivePanel();
     let panelEl = null; try { panelEl = panel && panel.getElement(); } catch (e) {}
     if (!panelEl) return;
-    const q = (this._wbLiveFilter || "").trim().toLowerCase();
+    const q = (this._wbLiveFilter || "").trim();
+    const plan = q ? this._searchPlan(q) : null;
     for (const [lg, h] of this._wbHeaders) {
       const node = panelEl.querySelector('.listitem-transclusion[data-guid="' + lg + '"]');
       if (!node) continue;
       if (!q) { node.classList.remove("refx-wb-filtered"); continue; }
-      const txt = (node.textContent || "").toLowerCase();
-      node.classList.toggle("refx-wb-filtered", !txt.includes(q));
+      if (!h.el._refxFilterKey) {
+        const title = (h.el.querySelector('.refx-wb-hdr-title')?.textContent || '').trim();
+        h.el._refxFilterKey = title ? this._searchKey(title) : null;
+      }
+      const hit = h.el._refxFilterKey && plan
+        && this._searchMatchFromKey(h.el._refxFilterKey, plan, { strict: false }).score >= 0;
+      node.classList.toggle("refx-wb-filtered", !hit);
     }
   }
 
@@ -39726,6 +43319,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     for (const it of toDrop) {
       if (!this._wbOwnerCurrent(owner)) return;
       try {
+        this._wbPushClosed(it);
         const h = this._wbHeaders.get(it.lineGuid);
         if (h) { if (h.slot) h.slot.remove(); h.el.remove(); this._wbHeaders.delete(it.lineGuid); }
         await it.line.delete();
@@ -40074,28 +43668,34 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
   // batch touched. A MutationObserver batch can also contain hundreds of plain
   // editor changes; do not let one ref node make all of those lines enter the
   // badge/classification pipeline.
-  _mutatedLines(mutations) {
+  _mutatedLines(mutations, budgetStart) {
     const set = new Set();
     const addFrom = (n) => {
       const li = this._committedMutationLine(n);
       if (li) set.add(li);
     };
     for (const m of mutations) {
+      if (this._moBudgetExceeded(budgetStart)) break;
       if (!m || this._pickerOnlyMutation(m)) continue;
       if (m.type === 'characterData') {
         const parent = m.target && m.target.parentElement;
         if (this.nodeHasReferenceHint(parent)) addFrom(parent);
         continue;
       }
-      if (m.type !== 'childList') continue;
+      if (m.type !== 'childList' && m.type !== 'attributes') continue;
       let relevant = false;
       for (const n of (m.addedNodes || [])) {
+        if (this._moBudgetExceeded(budgetStart)) break;
         if (this._isNativePickerNode(n, true)) continue;
         if (this.nodeHasReferenceHint(n)) { relevant = true; addFrom(n); }
       }
       for (const n of (m.removedNodes || [])) {
+        if (this._moBudgetExceeded(budgetStart)) break;
         if (this._isNativePickerNode(n, true)) continue;
         if (this.nodeHasReferenceHint(n)) relevant = true;
+      }
+      if (!relevant && m.type === 'attributes') {
+        if (this.nodeHasReferenceHint(m.target)) relevant = true;
       }
       if (!relevant) continue;
       addFrom(m.target);
@@ -40685,10 +44285,12 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         // placing one in a CSS attribute selector.
         const safe = String(taskGuid).replace(/[^A-Za-z0-9_-]/g, '');
         if (!safe) continue;
+        // Slot = 2px lead + 16px box + 5.4px gap, matching the native
+        // checkbox-to-text distance (Indent Rainbow's tuned .line-check-div).
         // Key the slot only to Thymer-owned line/chip identity. The GUID set is
         // maintained from mounted task overlays, but a line-div replacement can
         // temporarily drop every plugin class/node without changing this geometry.
-        rules.push('body.trc-zerolayout .line-div .lineitem-ref[data-guid="' + safe + '"],body.trc-zerolayout .line-check-div .lineitem-ref[data-guid="' + safe + '"]{padding-inline-start:20px!important;}');
+        rules.push('body.trc-zerolayout .line-div .lineitem-ref[data-guid="' + safe + '"],body.trc-zerolayout .line-check-div .lineitem-ref[data-guid="' + safe + '"]{padding-inline-start:23.4px!important;}');
       }
       style.textContent = rules.join('\n');
     } catch (e) { this._recordRefxError(e, 'task reservation stylesheet'); }
@@ -40947,7 +44549,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
   // Map a mutation batch to exact committed lines that ALREADY own a registered
   // overlay. Native picker churn and unrelated lines must never schedule layout
   // reads; scroll/resize/mode changes remain the explicit full-pass paths.
-  _overlayAffectedLines(mutations) {
+  _overlayAffectedLines(mutations, budgetStart) {
     const set = new Set();
     // Cheap-first: do not enumerate either overlay registry for suggestion-only
     // churn from Thymer's portaled native picker.
@@ -40963,6 +44565,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       if (guid && liveLines.has(guid)) set.add(guid);
     };
     for (const m of mutations || []) {
+      if (this._moBudgetExceeded(budgetStart)) break;
       if (!m || this._pickerOnlyMutation(m)) continue;
       // FEEDBACK-LOOP GUARD: skip our own overlay's attribute writes (left/top
       // style, size/hover classes, data-guid, title) — repositioning an overlay
@@ -40993,12 +44596,17 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     // root, so a single-root querySelector would miss the others). A full
     // .line-div swap on any line is caught; the affected-lines scoping + the
     // attributeFilter keep it cheap.
+    const target = document.body;
+    const options = { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style', 'data-guid'], attributeOldValue: true };
     const obs = new MutationObserver((mutations) => {
+      this._moGuardCallback('overlay', mutations || [], { obs, target, options, ctx: {} }, (muts, budgetStart) => {
       if (this._unloaded || !this._overlayMode) return;
-      const dirty = this._overlayAffectedLines(mutations);
+      const dirty = this._overlayAffectedLines(muts, budgetStart);
       if (dirty.size) for (const g of dirty) this._scheduleOverlayReposition(g);
+      if (this._moBudgetExceeded(budgetStart)) this._scheduleCoalescedRescan('overlay', {});
+      });
     });
-    try { obs.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style', 'data-guid'] }); } catch (e) {}
+    try { obs.observe(target, options); } catch (e) {}
     this._overlayObs = obs;
     window.__refxOverlayObs = obs;
     // Scroll (capture — the panel scroller is an ancestor, not window) + resize:
@@ -43493,7 +47101,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       for (const alias of set.aliases) {
         const exact = alias.normalized === query.normalized;
         let score = exact ? 2000 : -1;
-        if (!exact) { try { score = this._searchScore(alias.text, query.text); } catch (e) { score = -1; } }
+        if (!exact) { try { score = this._searchScore(alias.text, query.text, { strict: true }); } catch (e) { score = -1; } }
         if (score < 0) continue;
         rows.push({ recordGuid: set.recordGuid, alias, exact, score });
       }
@@ -44085,7 +47693,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       for (const alias of set.aliases) {
         const exact = alias.normalized === query.normalized;
         let score = exact ? 2000 : -1;
-        if (!exact) { try { score = this._searchScore(alias.text, query.text); } catch (e) { score = -1; } }
+        if (!exact) { try { score = this._searchScore(alias.text, query.text, { strict: true }); } catch (e) { score = -1; } }
         if (score < 0) continue;
         rows.push({ lineGuid: set.lineGuid, recordGuid: set.recordGuid, currentText: set.currentText, status: set.status, alias, exact, score });
       }
@@ -45343,7 +48951,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
       const li = await this.loadLineReferenceCount(guid);
       // v3.33.0 (OPT-IN, ADDITIVE): ALSO count records that point at this line
       // via a configured `lineRefProperties` property (e.g. org-remark's
-      // "Source Line"). Deduped against the line-ref source records so a record
+      // "line-guid property"). Deduped against the line-ref source records so a record
       // that both @linkto-references AND property-references the line counts
       // once. Zero-cost when the feature is off (empty index, no scan).
       const inline = li.count;
@@ -45357,7 +48965,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         }
       }
       const visible = inline > 0 ? inline : propOnly;
-      // Counts are strictly INBOUND. A record-level Source Line property may
+      // Counts are strictly INBOUND. A record-level line-guid property property may
       // connect the record to another line, but it never makes every body line
       // inside that record a referenced target.
       return { count: visible, capped: li.capped, sdkPropCount: propOnly };
@@ -45867,7 +49475,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         // line proof. Never call the host getRecord resolver per property value.
         if (knownRecordGuids?.has?.(value)) continue;
         const kind = this._referenceTargetKind(value, false);
-        // A configured Source Line may legitimately be registry-cold, so an
+        // A configured line-guid property may legitimately be registry-cold, so an
         // UNKNOWN named value remains opt-in. A confirmed record never does:
         // relation values such as Attendees/Meeting are record links, not lines.
         if (kind === 'record') continue;
@@ -45994,7 +49602,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
     }
     const idx = this._linePropRefIndex;
     // v3.75.0: a disk-seeded index (builtAt:0, fromDisk:true) is USABLE for the
-    // immediate paint — org-remark "Source Line" refs resolve instantly on reload
+    // immediate paint — org-remark "line-guid property" refs resolve instantly on reload
     // from it — but it is NOT fresh (it may be up to 7 days stale and its
     // recordCount is 0). Return it for use AND schedule a background rebuild to
     // refine it; the rebuild's delta-invalidation (before.recordsByTarget exists on
@@ -46049,7 +49657,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         this._linePropRefIndex = idx;
         // Invalidate cached counts only for targets whose prop-ref membership
         // changed, then refresh so newly-resolved prop-refs (e.g. a just-loaded
-        // org-remark Remark's "Source Line") light up without a manual refresh.
+        // org-remark Remark's "line-guid property") light up without a manual refresh.
         const oldT = before ? before.recordsByTarget : new Map();
         let changed = 0;
         // v3.75.0 review fix: a fromDisk seed can be up to 7 days stale, so a target
@@ -46081,7 +49689,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
   }
 
   // v3.75.0: reconstruct the line-prop-ref index from its persisted snapshot so
-  // the first badge scan resolves org-remark "Source Line" refs synchronously
+  // the first badge scan resolves org-remark "line-guid property" refs synchronously
   // instead of waiting ~540ms for the background walk. Rebuilds recordsByTarget
   // (Map<targetGuid, Set<recordGuid>>) and inverts it into targetsByRecord. The
   // seed is marked fromDisk:true / builtAt:0 so getLinePropRefIndexIfReady returns
@@ -47759,7 +51367,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
           sliceStartedAt = Date.now();
         };
         const wsGuid = getWorkspaceGuid();
-        const lineRefPropNames = (self._lineRefProps && self._lineRefProps.length > 0) ? self._lineRefProps : ['Source Line'];
+        const lineRefPropNames = (self._lineRefProps && self._lineRefProps.length > 0) ? self._lineRefProps : [];
         // Rebuild line edges for lines that arrived without a segment payload.
         for (const lineGuid of lines) {
           if (disposed) return;
@@ -48125,7 +51733,7 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
         if (!(await yieldHydration())) return;
 
         // Determine line-ref property names.
-        const lineRefPropNames = (self._lineRefProps && self._lineRefProps.length > 0) ? self._lineRefProps : ['Source Line'];
+        const lineRefPropNames = (self._lineRefProps && self._lineRefProps.length > 0) ? self._lineRefProps : [];
 
         let chunkStart = Date.now();
         const collectionSnapshots = [];
@@ -48570,414 +52178,6 @@ body.refx-cv-transclusions .listitem-transclusion .transclusion-container-div:ha
   // R7 — Rich facets and typed claim-edge rendering
   // ═════════════════════════════════════════════════════════════════════════════
 
-  // ── R7.0 Native facet snapshot (v4.20.0) ────────────────────────────────────
-  // Compute facet counts synchronously from the already-captured _capturedBackrefs
-  // array (snapshotted in _fillInlineRefs before any further async yields) + the
-  // live g_universe registry (task state) + the per-record collection index.
-  //
-  // This produces EXACT counts (no "≥" prefix) and runs BEFORE _renderRefsGroups
-  // in the same paint. Dimensions:
-  //   kind        — 'line' (inline text ref) | 'property' (relation/property edge)
-  //   collection  — source record's collection (human name from _collectionName)
-  //   taskState   — 'task' (open) | 'done' (completed)
-  //
-  // Returns the same {collection, kind, taskState, partial:false} shape as
-  // _r7FacetSnapshot so _renderR7FacetBar can consume either.
-  // Also populates entry._r7NativeEdgeMap (lineGuid → backref) for client-side
-  // filter rewiring in _r7ApplyFacetFilter.
-  _r7NativeFacetSnapshot(capturedBackrefs, entry) {
-    if (!capturedBackrefs || !capturedBackrefs.length) return null;
-    const reg = (window.g_universe && window.g_universe.itemsByGuid) || {};
-    const labelCache = new Map();
-
-    const colCounts = new Map();   // collectionGuid → count
-    const kindCounts = new Map();  // 'line' | 'property' → count
-    const taskCounts = new Map();  // 'task' | 'done' → count
-
-    // Build lineGuid→backref map for client-side filtering (stored on entry).
-    const lineGuidToEdge = new Map();
-
-    for (const r of capturedBackrefs) {
-      if (!r) continue;
-      const srcGuid = (r.record?.guid) || '';
-      if (!srcGuid) continue;
-
-      // kind dimension
-      const k = (r.kind === 'line') ? 'line' : 'property';
-      kindCounts.set(k, (kindCounts.get(k) || 0) + 1);
-
-      // collection dimension — derive from g_universe (synchronous, no SDK call)
-      const recSt = reg[srcGuid];
-      const colGuid = String((recSt && (recSt.pguid || recSt.rpguid)) || '');
-      if (colGuid) colCounts.set(colGuid, (colCounts.get(colGuid) || 0) + 1);
-
-      // task state — inspect source line in registry
-      const lineGuid = r.lineItemGuid || null;
-      if (lineGuid) {
-        lineGuidToEdge.set(lineGuid, r);
-        try {
-          const st = reg[lineGuid];
-          if (st) {
-            if (st.is_done || st.done) taskCounts.set('done', (taskCounts.get('done') || 0) + 1);
-            else if (st.type === 'task' || st.is_task) taskCounts.set('task', (taskCounts.get('task') || 0) + 1);
-          }
-        } catch (_) {}
-      }
-    }
-
-    // Store the edge map on entry for _r7ApplyFacetFilter rewiring.
-    if (entry) entry._r7NativeEdgeMap = lineGuidToEdge;
-
-    const toFacets = (map, labelFn) => {
-      const arr = [];
-      for (const [key, count] of map) {
-        const resolved = labelFn(key);
-        if (resolved && typeof resolved === 'object') {
-          arr.push({ key, label: resolved.label, count, unresolved: !!resolved.unresolved });
-        } else {
-          arr.push({ key, label: String(resolved || key), count, unresolved: false });
-        }
-      }
-      arr.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
-      return arr;
-    };
-
-    const kindLabels = { line: 'Inline ref', property: 'Property' };
-    const taskLabels = { task: 'Open task', done: 'Completed' };
-
-    return {
-      kind: toFacets(kindCounts, (k) => kindLabels[k] || k),
-      collection: toFacets(colCounts, (g) => this._resolveFacetGuidLabel(g, 'collection', labelCache)),
-      taskState: toFacets(taskCounts, (s) => taskLabels[s] || s),
-      authored: [],
-      sourceProperty: [],
-      dateRange: [],
-      partial: false,  // exact counts from authoritative local data
-    };
-  }
-
-  // ── R7.1 Snapshot facets ────────────────────────────────────────────────────
-  // Build facet counts from the broker's authoritative inEdges() snapshot for
-  // targetGuid. Counts reflect the FULL authoritative set, not the loaded rows.
-  // Returns { collection, kind, authored, taskState, dateRange, sourceProperty }
-  // each as an array of { key, label, count } sorted by count desc.
-  _r7FacetSnapshot(targetGuid) {
-    const broker = window.__thymerReferenceSurfaceV1;
-    if (!broker) return null;
-    // R7R8-4: read broker snapshot status so we can label counts as partial.
-    let brokerStatus = 'complete';
-    try {
-      const snap = broker.snapshot();
-      brokerStatus = (snap && snap.status) || 'complete';
-    } catch (_) {}
-    const isPartial = brokerStatus !== 'complete';
-    const edges = broker.inEdges(targetGuid);
-    if (!edges || !edges.length) return null;
-
-    const colCounts = new Map();   // collectionGuid → count
-    const kindCounts = new Map();  // kind → count
-    let authoredCount = 0, derivedCount = 0;
-    const taskCounts = new Map();  // 'task'|'done' → count
-    const propCounts = new Map();  // propertyId → count
-    const propLabels = new Map();  // propertyId → provenance propertyName
-    const labelCache = new Map();  // per-snapshot GUID resolution cache
-    // dateRange: bucket by calendar month YYYY-MM
-    const dateCounts = new Map();  // 'YYYY-MM' → count
-
-    for (const e of edges) {
-      // collection
-      const col = e.source.collectionGuid;
-      if (col) colCounts.set(col, (colCounts.get(col) || 0) + 1);
-
-      // kind
-      kindCounts.set(e.kind, (kindCounts.get(e.kind) || 0) + 1);
-
-      // authored/derived
-      if (e.authored) authoredCount++;
-      if (e.derived) derivedCount++;
-
-      // source property — R7R8-5: only count edges WITH a lineGuid so the chip
-      // count matches the filtered-row population (the row filter matches by
-      // lineGuid; property/annotation edges with null lineGuid can never match).
-      const pid = e.source.propertyId;
-      if (pid && e.source.lineGuid) {
-        propCounts.set(pid, (propCounts.get(pid) || 0) + 1);
-        const propertyName = String((e.provenance && e.provenance.propertyName) || '').trim();
-        if (propertyName && !propLabels.has(pid)) propLabels.set(pid, propertyName);
-      }
-
-      // task state — inspect source line in registry
-      const lineGuid = e.source.lineGuid;
-      if (lineGuid) {
-        try {
-          const st = ((window.g_universe && window.g_universe.itemsByGuid) || {})[lineGuid];
-          if (st) {
-            if (st.is_done || st.done) taskCounts.set('done', (taskCounts.get('done') || 0) + 1);
-            else if (st.type === 'task' || st.is_task) taskCounts.set('task', (taskCounts.get('task') || 0) + 1);
-          }
-        } catch (_) {}
-      }
-
-      // date range bucket
-      if (e.updatedAt) {
-        try {
-          const d = new Date(e.updatedAt);
-          const bucket = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-          dateCounts.set(bucket, (dateCounts.get(bucket) || 0) + 1);
-        } catch (_) {}
-      }
-    }
-
-    const toFacets = (map, labelFn) => {
-      const arr = [];
-      for (const [key, count] of map) {
-        const resolved = labelFn(key);
-        if (resolved && typeof resolved === 'object') {
-          arr.push({ key, label: resolved.label, count, unresolved: !!resolved.unresolved });
-        } else {
-          arr.push({ key, label: resolved, count, unresolved: false });
-        }
-      }
-      arr.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
-      return arr;
-    };
-
-    const kindLabels = { ref: 'Reference', 'external-link': 'External link', property: 'Property', annotation: 'Annotation', claim: 'Claim' };
-
-    const authoredFacets = [];
-    if (authoredCount > 0) authoredFacets.push({ key: 'authored', label: 'Authored', count: authoredCount });
-    if (derivedCount > 0) authoredFacets.push({ key: 'derived', label: 'Derived', count: derivedCount });
-
-    return {
-      collection: toFacets(colCounts, (g) => this._resolveFacetGuidLabel(g, 'collection', labelCache)),
-      kind: toFacets(kindCounts, (k) => kindLabels[k] || k),
-      authored: authoredFacets,
-      taskState: toFacets(taskCounts, (s) => s === 'done' ? 'Completed' : 'Open task'),
-      sourceProperty: toFacets(propCounts, (p) => propLabels.has(p)
-        ? { label: propLabels.get(p), unresolved: false }
-        : this._resolveFacetGuidLabel(p, 'property', labelCache)),
-      dateRange: toFacets(dateCounts, (d) => d),
-      // R7R8-4: partial flag — true when broker has not completed hydration.
-      partial: isPartial,
-    };
-  }
-
-  // Apply active R7 facet filters to an already-loaded items array (client-side,
-  // no re-query). activeFacets is a Map<dimension, Set<key>>.
-  // entryOrNull: when present and entry._r7NativeEdgeMap is populated (native path),
-  // filtering uses the local lineGuid→backref map instead of broker.inEdges().
-  // Returns filtered array.
-  _r7ApplyFacetFilter(items, activeFacets, targetGuid, entryOrNull) {
-    if (!activeFacets || activeFacets.size === 0) return items;
-
-    // v4.20.0: prefer the native edge map captured in _fillInlineRefs (same data
-    // that computed the facet chip counts — guaranteed consistent). Fall back to
-    // the broker path when not available (line targets, journal pages).
-    const nativeEdgeMap = (entryOrNull && entryOrNull._r7NativeEdgeMap) || null;
-
-    // Broker edge map (fallback path — built only when native map is absent).
-    const edgeByLineGuid = nativeEdgeMap || (() => {
-      const m = new Map();
-      const broker = window.__thymerReferenceSurfaceV1;
-      if (broker && targetGuid) {
-        try {
-          const allEdges = broker.inEdges(targetGuid);
-          for (const e of allEdges) {
-            if (e.source && e.source.lineGuid) m.set(e.source.lineGuid, e);
-          }
-        } catch (_) {}
-      }
-      return m;
-    })();
-
-    const reg = nativeEdgeMap ? ((window.g_universe && window.g_universe.itemsByGuid) || {}) : null;
-
-    return items.filter((line) => {
-      const lineGuid = (line && line.guid) || '';
-      const recordGuid = (line && line.record && line.record.guid) || '';
-      // O(1) lookup via pre-built Map.
-      const edge = lineGuid ? (edgeByLineGuid.get(lineGuid) || null) : null;
-      for (const [dim, keys] of activeFacets) {
-        if (!keys || keys.size === 0) continue;
-        switch (dim) {
-          case 'collection': {
-            let col = null;
-            if (nativeEdgeMap) {
-              // Native path: derive collection from g_universe (same source as snapshot).
-              const srcSt = recordGuid ? (reg[recordGuid] || null) : null;
-              col = srcSt ? String(srcSt.pguid || srcSt.rpguid || '') : '';
-            } else {
-              col = edge ? edge.source.collectionGuid : null;
-            }
-            if (!keys.has(col)) return false;
-            break;
-          }
-          case 'kind': {
-            let k;
-            if (nativeEdgeMap) {
-              // Native path: 'line' or 'property' from the backref entry.
-              k = edge ? ((edge.kind === 'line') ? 'line' : 'property') : 'line';
-            } else {
-              k = edge ? edge.kind : 'ref';
-            }
-            if (!keys.has(k)) return false;
-            break;
-          }
-          case 'authored': {
-            // Only meaningful on broker path (native backref has no authored flag).
-            if (!nativeEdgeMap && edge) {
-              if (keys.has('authored') && !keys.has('derived') && !edge.authored) return false;
-              if (keys.has('derived') && !keys.has('authored') && !edge.derived) return false;
-            }
-            break;
-          }
-          case 'taskState': {
-            try {
-              const st = lineGuid ? ((window.g_universe && window.g_universe.itemsByGuid) || {})[lineGuid] : null;
-              const isDone = st && (st.is_done || st.done);
-              const isTask = st && (st.type === 'task' || st.is_task);
-              if (keys.has('done') && !keys.has('task') && !isDone) return false;
-              if (keys.has('task') && !keys.has('done') && (!isTask || isDone)) return false;
-            } catch (_) {}
-            break;
-          }
-          case 'sourceProperty': {
-            // Native path: edge.propertyId; broker path: edge.source.propertyId.
-            const pid = nativeEdgeMap
-              ? (edge ? (edge.propertyId || null) : null)
-              : (edge ? edge.source.propertyId : null);
-            if (!keys.has(pid)) return false;
-            break;
-          }
-          case 'dateRange': {
-            // Only meaningful on broker path (native backref has no updatedAt field).
-            if (!nativeEdgeMap) {
-              const upd = edge ? edge.updatedAt : null;
-              if (!upd) return false;
-              try {
-                const d = new Date(upd);
-                const bucket = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-                if (!keys.has(bucket)) return false;
-              } catch (_) { return false; }
-            }
-            break;
-          }
-        }
-      }
-      return true;
-    });
-  }
-
-  // Render the R7 facet bar for an inline-refs entry.
-  // On the native path the snapshot is pre-computed from _capturedBackrefs (exact
-  // counts, same paint as rows). On the broker fallback path counts may be partial.
-  // Disable with custom.counter.facetBar = false.
-  _renderR7FacetBar(entry, snapshot, targetGuid) {
-    if (!entry.r7FacetBarEl) return;
-    const bar = entry.r7FacetBarEl;
-    bar.textContent = '';
-    // v4.20.0: ON by default — opt out with custom.counter.facetBar = false.
-    try { if (this.getConfiguration()?.custom?.counter?.facetBar === false) return; } catch (e) { return; }
-    if (!snapshot) return;
-    if (!entry._r7ActiveFacets) entry._r7ActiveFacets = new Map();
-
-    // R7R8-4: when broker has not completed hydration, counts are a lower bound.
-    const partial = !!snapshot.partial;
-
-    const allDims = [
-      { dim: 'kind', facets: snapshot.kind, label: 'Kind' },
-      { dim: 'authored', facets: snapshot.authored, label: 'Authored/Derived' },
-      { dim: 'taskState', facets: snapshot.taskState, label: 'Task state' },
-      { dim: 'collection', facets: snapshot.collection, label: 'Collection' },
-      { dim: 'sourceProperty', facets: snapshot.sourceProperty, label: 'Property' },
-      { dim: 'dateRange', facets: snapshot.dateRange, label: 'Month' },
-    ];
-
-    for (const { dim, facets } of allDims) {
-      if (!facets || facets.length === 0) continue;
-      for (const f of facets) {
-        const active = entry._r7ActiveFacets.has(dim) && entry._r7ActiveFacets.get(dim).has(f.key);
-        const chip = this._el('button', 'refx-r7-facet-chip' + (active ? ' refx-r7-facet-active' : ''), '');
-        chip.type = 'button';
-        chip.setAttribute('aria-pressed', String(active));
-        // R7R8-4: label counts "at least N" and note partial status in tooltip.
-        const countLabel = partial ? `≥${f.count}` : String(f.count);
-        const partialNote = partial ? ' (counts may be incomplete — broker still loading)' : '';
-        chip.setAttribute('title', f.unresolved ? 'unresolved' : `${dim}: ${f.label} (${countLabel} in full set${partialNote})`);
-        chip.dataset.dim = dim;
-        chip.dataset.key = String(f.key);
-        chip.appendChild(this._el('span', 'refx-r7-facet-label', f.label));
-        chip.appendChild(this._el('span', 'refx-r7-facet-count', countLabel));
-        chip.addEventListener('mousedown', (ev) => ev.stopPropagation());
-        chip.addEventListener('click', (ev) => {
-          ev.preventDefault(); ev.stopPropagation();
-          const d = chip.dataset.dim, k = chip.dataset.key;
-          if (!entry._r7ActiveFacets.has(d)) entry._r7ActiveFacets.set(d, new Set());
-          const dimSet = entry._r7ActiveFacets.get(d);
-          if (dimSet.has(k)) dimSet.delete(k);
-          else dimSet.add(k);
-          if (dimSet.size === 0) entry._r7ActiveFacets.delete(d);
-          // Re-filter and re-render without re-query.
-          this._r7RebuildLinksFromFacets(entry, targetGuid);
-          // Refresh the bar to update aria-pressed state.
-          this._renderR7FacetBar(entry, snapshot, targetGuid);
-        });
-        bar.appendChild(chip);
-      }
-    }
-  }
-
-  // Re-filter entry._rawItems using the active R7 facets and rebuild the links
-  // container contents (same PAGE_SIZE model as _fillInlineRefs).
-  _r7RebuildLinksFromFacets(entry, targetGuid) {
-    const rawItems = entry._rawItems || [];
-    const afterChip = this._applyChipFilterToItems(rawItems, entry.chipFilters || new Map());
-    const afterGlobal = this._applyGlobalFilterToItems(afterChip);
-    // v4.20.0: pass entry so _r7ApplyFacetFilter uses native edge map when available.
-    const facetFiltered = this._r7ApplyFacetFilter(afterGlobal, entry._r7ActiveFacets, targetGuid, entry);
-
-    const container = entry._r2LinksContainer;
-    if (!container) return;
-    container.textContent = '';
-
-    // Bump fill-id so stale Show-more closures are inert.
-    entry._r2FillId = ((entry._r2FillId || 0) + 1);
-    const thisFillId = entry._r2FillId;
-    const PAGE_SIZE = 30;
-
-    const appendPage = (offset) => {
-      if (entry._r2FillId !== thisFillId) return;
-      const existingMore = container.querySelector('.refx-inline-refs-showmore');
-      if (existingMore) existingMore.remove();
-      const page = facetFiltered.slice(offset, offset + PAGE_SIZE);
-      if (!page.length) return;
-      this._renderRefsGroups(container, page, {
-        alive: () => !entry.aborted,
-        hostLineGuid: entry.hostLineGuid || null,
-        canEdit: true,
-        targetGuid: entry.targetGuid || targetGuid,
-        onEmbed: (g) => this._sectionToggleEmbed(entry, g),
-        actionsFor: (line, getRow) => [
-          { label: '↗', title: 'Jump to line', fn: () => { this._bridgeJump(line?.guid || '', {}); } },
-          { label: '✎', title: 'Edit line', fn: () => this._beginInlineRowEdit(entry, getRow(), line) },
-          { label: '✎⊞', title: 'Edit live (native transclusion)', fn: () => this._r8EditLive(entry, getRow(), line, { targetGuid }) },
-          { label: '◧', title: 'Open in side panel', fn: () => { this._bridgeJump(line?.guid || '', { newPanel: true }); } },
-          this._inlineRowEmbedAction(entry, line)
-        ]
-      });
-      const newOffset = offset + PAGE_SIZE;
-      if (newOffset < facetFiltered.length) {
-        container.appendChild(this._makeShowMoreButton(facetFiltered.length - newOffset, () => appendPage(newOffset)));
-      }
-      if ((entry.filterEl?.value || '').trim()) this._applyInlineRefsFilter(entry);
-    };
-
-    if (facetFiltered.length === 0) {
-      container.appendChild(this._el('div', 'refx-inline-refs-empty', 'No referencing lines match facet filters.'));
-      return;
-    }
-    appendPage(0);
-  }
 
   // ── R7.2 FilterExpressionV1 ────────────────────────────────────────────────
   // Nested AND/OR over FilterV1 leaf predicates.

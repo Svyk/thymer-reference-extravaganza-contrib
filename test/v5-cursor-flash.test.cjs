@@ -228,7 +228,7 @@ test('V7 wrapped target fixture measures the old 24px obstruction and restores a
     targetBadgeWrap: declarationsAfter(counterStyle.textContent, '\n      .trc-target-badge-wrap {'),
     checkOverlay: declarations(counterStyle.textContent, '.refx-chip-task.refx-check-overlay'),
     popoverActions: declarations(counterStyle.textContent, '.trc-ref-popover-actions'),
-    siblingActions: declarations(counterStyle.textContent, '.refx-ref-sibling-actions'),
+    crumbActs: declarations(counterStyle.textContent, '.trc-ref-crumb-acts'),
   };
   p._taskRefGuids = new Set(['1V5TASKTARGETABCDEFGHIJKLM']);
   p._flushTaskRefStyle();
@@ -246,30 +246,25 @@ test('V7 wrapped target fixture measures the old 24px obstruction and restores a
     targetBadgeWrap: { rest: 0, hover: 0, midTyping: 0 },
     checkOverlay: { rest: 0, hover: 0, midTyping: 0 },
     popoverActions: { rest: 0, hover: 0, midTyping: 0 },
-    siblingActions: { rest: 0, hover: 0, midTyping: 0 },
-    nativeTaskSlot: { rest: 20, hover: 20, midTyping: 20 },
+    crumbActs: { rest: 0, hover: 0, midTyping: 0 },
+    nativeTaskSlot: { rest: 23.4, hover: 23.4, midTyping: 23.4 },
   }, 'native-selector reservations are constant while every optional RefX contributor is zero-width or out of flow');
   assert.equal(rules.popoverActions.position, 'absolute');
-  assert.equal(rules.siblingActions.position, 'absolute');
+  assert.equal(rules.crumbActs.position, 'absolute');
   assert.equal(rules.popoverActions['pointer-events'], 'none');
-  assert.equal(rules.siblingActions['pointer-events'], 'none');
   assert.equal(rules.popoverActions.top, '0');
-  assert.equal(rules.siblingActions.top, '0');
   assert.equal(rules.popoverActions['overflow-x'], 'auto');
-  assert.equal(rules.siblingActions['overflow-x'], 'auto');
   assert.equal(rules.targetBadgeWrap.position, 'absolute');
   assert.equal(rules.targetBadgeWrap.width, '0');
   assert.equal(rules.targetBadgeWrap['min-width'], '0');
   assert.equal(rules.nativeTargetHost.position, 'relative');
-  assert.equal(rules.nativeTaskSlot['padding-inline-start'], '20px!important');
+  assert.equal(rules.nativeTaskSlot['padding-inline-start'], '23.4px!important');
   assert.doesNotMatch(taskStyle.textContent, /refx-ovl-host/, 'task reservation survives a line-div swap without a plugin-owned marker');
   assert.match(counterStyle.textContent,
     /\.trc-ref-popover-action \{[\s\S]*?pointer-events: auto;/,
     'only real buttons re-enable pointer input inside click-through action overlays');
   assert.match(rules.popoverActions.background, /sidebar-bg-hover/,
     'popover fade follows the actual hover-row token in light and dark themes');
-  assert.match(rules.siblingActions.background, /color-mix\(in srgb, var\(--cards-bg, transparent\) 70%, transparent\)/,
-    'sibling fade matches its color-mix list background in light and dark themes');
   assert.match(counterStyle.textContent,
     /\.flowythymer-thread-target \.trc-target-badge,[\s\S]*?\.flowythymer-thread-target \.refx-check-overlay::before,[\s\S]*?transition: none !important;/,
     'positively classified active-line badges and checkbox overlays suppress transition replay');

@@ -456,7 +456,7 @@ async function waitFor(predicate, options = {}) {
 }
 
 function lineRefClickHarness(custom = {}, options = {}) {
-  const h = loadHarness();
+  const h = loadHarness(options);
   h.plugin.getConfiguration = () => ({ custom: { aliasChips: false, lineRefClickMenu: true, ...custom } });
   const lifecycleStubs = [
     '_beginAutoTitleGeneration', '_ensureThemeObserver', '_counterInit', '_rehydrate',
@@ -1132,7 +1132,7 @@ test('v4.39 "popover" context restores the v4.38 parent, sibling, target, child 
   assert.equal(await h.plugin._openLineRefContextForChip(h.chip), true);
   const pop = h.document.querySelector('.refx-line-context-pop');
   assert.ok(pop);
-  assert.equal(pop.querySelector('.refx-line-context-owner').textContent, 'Target page');
+  assert.equal(pop.querySelector('.trc-ref-popover-crumb-rec').textContent, 'Target page');
   assert.deepEqual(
     pop.querySelectorAll('.refx-preview-outline-row').map((row) => [row.dataset.outlineRole, row.dataset.guid]),
     [['parent', 'PARENT'], ['sibling', 'BEFORE'], ['target', 'TARGET_CLICK'], ['child', 'CHILD'], ['sibling', 'AFTER']]
@@ -1211,7 +1211,7 @@ test('v4.39 real single-click router opens one menu with hydrated context above 
   assert.ok(pop.querySelector('.refx-refmenu-context'), 'context section is above the action list');
   assert.equal(pop.querySelector('.refalias-results').textContent.includes('Jump to block'), true);
   assert.equal(pop.querySelector('.refalias-results').textContent.includes('Replace with'), true);
-  const owner = pop.querySelector('.refx-line-context-owner');
+  const owner = pop.querySelector('.trc-ref-popover-crumb-rec');
   assert.ok(owner, 'hydrated owner should render; popover text: ' + pop.textContent);
   assert.equal(owner.textContent, 'Routed owner');
   assert.equal(pop.querySelector('.refx-preview-outline-target').dataset.guid, 'TARGET_CLICK');
@@ -1267,8 +1267,10 @@ test('v4.39 PROBE-A a nested target under SDK-shaped roots renders real context 
       .map((row) => [row.dataset.outlineRole, row.dataset.guid]),
     [['parent', 'SDK_ROOT'], ['target', 'TARGET_CLICK'], ['child', 'SDK_CHILD']]
   );
-  assert.equal(pop.querySelector('.refx-line-context-crumb').textContent, 'SDK root section');
-  assert.equal(pop.querySelector('.refx-line-context-owner').textContent, 'SDK owner');
+  const crumbs = pop.querySelector('.refx-line-context-crumbs');
+  assert.ok(crumbs);
+  assert.equal(pop.querySelector('.trc-ref-popover-crumb-rec').textContent, 'SDK owner');
+  assert.equal(crumbs.querySelector('.trc-ref-crumb-text').textContent, 'SDK root section');
   h.plugin.onUnload();
 });
 
@@ -1306,7 +1308,8 @@ test('v4.39 PROBE-B an SDK-shaped ROOT target resolves with no ancestors and rec
 
   const menu = render('menu');
   assert.equal(menu.querySelector('.refalias-preview-empty'), null);
-  assert.equal(menu.querySelector('.refx-line-context-crumbs'), null, 'a root target has no ancestors');
+  assert.ok(menu.querySelector('.trc-ref-popover-crumb-rec'), 'owner path crumb renders for a root target');
+  assert.equal(menu.querySelector('.refx-line-context-sep'), null, 'a root target has no ancestor crumbs');
   assert.deepEqual(
     menu.querySelectorAll('.refx-preview-outline-row')
       .map((row) => [row.dataset.outlineRole, row.dataset.guid]),
@@ -2249,37 +2252,6 @@ test('v4.48.3 the menu reserves Block Context independently after mounting the c
   );
 });
 
-test('v4.40.1 the section and popover context strips are elastic, only the anchored menu reserves', () => {
-  // The reserved box rendered ~120px of blank space under a one-row target.
-  // These surfaces render ordinary reference rows, which auto-size and fill
-  // async exactly like their neighbours, so EVERY sizing reservation must be
-  // gone: no height, no min-height, no scroll area, no padding holding space.
-  const rules = (selector) => [...source.matchAll(
-    new RegExp('^\\s*' + selector.replace(/[.*]/g, '\\$&') + '[^{}\\n]*\\{([^}]*)\\}', 'gm')
-  )].map((match) => match[1]);
-
-  for (const surface of ['.refx-inline-refs-context', '.trc-ref-popover-context']) {
-    const bodies = rules(surface);
-    assert.ok(bodies.length >= 2, surface + ' and its label/rows rules exist');
-    for (const body of bodies) {
-      assert.doesNotMatch(body, /(^|[^-])height\s*:/, surface + ' declares no height');
-      assert.doesNotMatch(body, /min-height\s*:/, surface + ' declares no min-height');
-      assert.doesNotMatch(body, /overflow(-y)?\s*:\s*(auto|scroll)/, surface + ' owns no scroll area');
-    }
-    assert.match(
-      source,
-      new RegExp(surface.replace(/[.]/g, '\\.') + '-rows \\{\\s*padding: 0;'),
-      surface + ' rows add no padding of their own'
-    );
-  }
-
-  // The menu is anchored once against a chip mid-document, so it keeps a
-  // synchronously fitted box whose height is frozen for later hydration.
-  assert.match(
-    source,
-    /\.refx-refmenu-context \.refx-line-context-body \{\s*height: var\(--refx-line-context-height\); overflow-y: auto;/
-  );
-});
 
 test('v4.12 line-ref click listeners are removed on unload and stale hot-reload cleanup', () => {
   const h = lineRefClickHarness();
@@ -2393,7 +2365,7 @@ function badgeOwner(h, ownerGuid, targetGuid, label) {
   return () => reads;
 }
 
-test('v4.48.6 the real badge route orders context, direct references, then paths', async () => {
+test('WO-2 the real badge route is header, filters, then body', async () => {
   const h = badgeHarness('BADGE_TARGET');
   badgeOwner(h, 'BADGE_OWNER', 'BADGE_TARGET', 'Badge');
 
@@ -2401,162 +2373,17 @@ test('v4.48.6 the real badge route orders context, direct references, then paths
   await tick(10);
   const section = h.document.querySelector('.refx-inline-refs');
   assert.ok(section, 'the production badge router opens the inline section');
-  const strip = section.querySelector('.refx-inline-refs-context');
-  assert.ok(strip, 'a line target renders Block Context');
   assert.equal(
     section.children.map((child) => child.className.split(' ')[0]).join(','),
-    'refx-inline-refs-header,refx-inline-refs-context,refx-inline-refs-chips,refx-r7-facet-bar,refx-inline-refs-body,refx-ref-chain',
-    'the inline surface leads with Block Context, keeps direct rows together, and ends with paths'
+    'refx-inline-refs-header,refx-inline-refs-filters,refx-inline-refs-body',
+    'the inline surface is header, hidden filters, then rows'
   );
-  assert.equal(strip.querySelector('.refalias-preview-empty'), null);
-
-  strip.querySelector('.refx-ctxstrip-twist').dispatchEvent(event('click', {}));
-  await tick(10);
-
-  // It is a NORMAL reference row, not a bespoke widget: source-record group
-  // header, the shared row element, the foldable ancestor outline, children.
-  assert.equal(
-    strip.querySelector('.refx-inline-refs-group-name').textContent,
-    'Badge owner',
-    'grouped under its source record header, like every backlink group'
-  );
-  const row = strip.querySelector('.trc-ref-popover-item');
-  assert.ok(row, 'the target renders through _buildRefContextRow');
-  assert.equal(row.classList.contains('refx-inline-refs-row'), true);
-  const outline = strip.querySelector('.refx-ref-outline');
-  assert.ok(outline, '_fillRefContextRow relocated the row into its fold outline');
-  assert.equal(
-    outline.querySelector('.refx-ref-outline-label').textContent,
-    'Badge root',
-    'the ancestor is an independently foldable node'
-  );
-  const refLine = strip.querySelector('.refx-ref-outline-refline');
-  assert.ok(refLine, 'the target line sits inside the outline as the Reference row');
-  assert.equal(refLine.textContent.includes('Badge target'), true);
-  assert.equal(
-    strip.querySelector('.refx-ref-context-children').textContent.includes('Badge child'),
-    true,
-    'its children render in the shared child region'
-  );
-
-  // The old drill-outline widget is gone from this surface.
-  assert.equal(strip.querySelector('.refx-line-context-body'), null);
-  assert.equal(strip.querySelector('.refx-preview-outline-row'), null);
+  const filters = section.querySelector('.refx-inline-refs-filters');
+  assert.ok(filters.classList.contains('refx-hidden'), 'filters start hidden');
+  assert.equal(section.querySelector('.refx-inline-refs-filter-toggle').getAttribute('aria-expanded'), 'false');
   h.plugin.onUnload();
 });
 
-test('v4.48.6 the real count-badge route is context-first and labels the cross-page ScratchPad hop', async () => {
-  const h = badgeHarness('16KXTSZYE4PGMAFAM9WSM2S9GH', {}, { injectStyle: true });
-  let journalLines = [];
-  let scratchLines = [];
-  const journalOwner = {
-    guid: 'S-JOURNAL-20260731', getName: () => 'Fri Jul 31',
-    getLineItems: async () => journalLines,
-  };
-  const scratchOwner = {
-    guid: 'SCRATCHPAD_RECORD', getName: () => 'ScratchPad',
-    getLineItems: async () => scratchLines,
-  };
-  const makeLine = (owner, guid, segments) => ({
-    guid, parent_guid: owner.guid, type: 'text', children: [], segments,
-    getRecord: () => owner,
-  });
-  const target = makeLine(journalOwner, '16KXTSZYE4PGMAFAM9WSM2S9GH', [
-    { type: 'text', text: 'target block' },
-  ]);
-  const middle = makeLine(journalOwner, '1G02X5PH77EDFGGS7DD4G8H7M9', [
-    { type: 'ref', text: { guid: target.guid, title: 'target' } },
-    { type: 'text', text: ' middle referrer' },
-  ]);
-  const samePageTop = makeLine(journalOwner, 'SAME_PAGE_REFERRER', [
-    { type: 'ref', text: { guid: middle.guid, title: 'middle' } },
-    { type: 'text', text: ' another journal referrer' },
-  ]);
-  const top = makeLine(scratchOwner, '1RPB03PCQX7T71XFDSZQ26WXK1', [
-    { type: 'ref', text: { guid: middle.guid, title: 'middle' } },
-    { type: 'text', text: ' top referrer' },
-  ]);
-  journalLines = [target, middle, samePageTop];
-  scratchLines = [top];
-  for (const owner of [journalOwner, scratchOwner]) {
-    h.records.set(owner.guid, owner);
-    h.plugin._recordNameIndex.set(owner.guid, owner.getName());
-    for (const line of await owner.getLineItems()) {
-      h.window.g_universe.itemsByGuid[line.guid] = { guid: line.guid, rguid: owner.guid, lineItem: line };
-      h.plugin._lineOwnerHints.set(line.guid, owner.guid);
-    }
-  }
-  h.plugin._fillInlineRefs = async (_key, entry) => {
-    entry.titleEl.textContent = '↙ 2 Linked References';
-    h.plugin._fallbackInlineRefChainRootResolve(entry);
-    throw new Error('Direct references unavailable');
-  };
-  h.plugin._hydrateRefRowContext = async () => {
-    throw new Error('Block Context unavailable');
-  };
-  h.window.__thymerLineIndexV1 = {
-    linesReferencing: async (guid) => guid === target.guid
-      ? { items: [{ guid: journalOwner.guid, lineGuid: middle.guid, recordGuid: journalOwner.guid }], complete: true }
-      : { items: [], complete: true },
-  };
-  const incoming = new Map([[middle.guid, [samePageTop, top]]]);
-  h.plugin.data.searchByQuery = async (query) => {
-    const guid = query.match(/"([^"]+)"/)?.[1] || '';
-    return { records: [], lines: incoming.get(guid) || [] };
-  };
-
-  h.plugin._routeBadgeClick(event('click', { target: h.wrap, button: 0 }), null, h.wrap);
-  const topRow = await waitFor(() => {
-    const inline = h.document.querySelector('.refx-inline-refs');
-    return Array.from(inline?.querySelectorAll('.refx-chain-tree-row') || [])
-      .find((row) => row.dataset.guid === top.guid) || null;
-  }, { timeout: 1000 });
-  assert.ok(topRow, 'one real count-badge click reaches 1RPB without a pill gesture');
-  const section = h.document.querySelector('.refx-inline-refs');
-  const chain = section.querySelector('.refx-ref-chain-tree');
-  assert.equal(chain.querySelector('.refx-ref-chain-label').textContent, 'All reference paths');
-  assert.equal(section.querySelector('.refx-inline-refs-title').textContent, '↙ 2 Linked References',
-    'transitive rows do not inflate the direct-reference count');
-  assert.deepEqual(Array.from(chain.querySelectorAll('.refx-chain-tree-row'), (row) => [
-    row.dataset.guid, row.dataset.depth,
-  ]), [[middle.guid, '1'], [samePageTop.guid, '2'], [top.guid, '2']]);
-  const header = section.querySelector('.refx-inline-refs-header');
-  const context = section.querySelector('.refx-inline-refs-context');
-  const directBody = section.querySelector('.refx-inline-refs-body');
-  assert.ok(section.children.indexOf(header) < section.children.indexOf(context));
-  assert.ok(section.children.indexOf(context) < section.children.indexOf(directBody));
-  assert.ok(section.children.indexOf(directBody) < section.children.indexOf(chain),
-    'the inline hierarchy is Block Context, direct references, then All reference paths');
-  assert.equal(section.querySelector('.refx-inline-refs-filter').placeholder, 'Filter direct references…');
-  assert.equal(chain.querySelector('.refx-chain-filter').placeholder, 'Filter paths…');
-  const sourceLinks = Array.from(chain.querySelectorAll('.refx-chain-source-link'));
-  assert.deepEqual(sourceLinks.map((link) => link.textContent), ['Fri Jul 31', 'ScratchPad'],
-    'same-page descendants inherit one heading while a cross-page hop restores its owner');
-  assert.deepEqual(sourceLinks.map((link) => link.dataset.recordGuid), [
-    journalOwner.guid, scratchOwner.guid,
-  ]);
-  assert.equal(topRow.closest('.refx-chain-source-group').dataset.recordGuid, scratchOwner.guid,
-    'the 1RPB row is visibly nested beneath its real ScratchPad source');
-  const sourceJumps = [];
-  h.plugin._bridgeJump = (guid) => sourceJumps.push(guid);
-  sourceLinks[1].dispatchEvent(event('click', { target: sourceLinks[1], button: 0 }));
-  assert.deepEqual(sourceJumps, [scratchOwner.guid],
-    'the source heading navigates explicitly to the page without making the row clickable');
-  const viewport = chain.querySelector('.refx-chain-tree-root');
-  const rowRect = topRow.getBoundingClientRect();
-  const viewportRect = viewport.getBoundingClientRect();
-  assert.equal(h.computedCssValue(viewport, 'overflow-y'), 'auto');
-  assert.equal(rowRect.bottom > viewportRect.top && rowRect.top < viewportRect.bottom, true,
-    'the known deep row intersects the bounded inline viewport without scrolling');
-  const nestedRef = chain.querySelector('.refx-chain-inline-ref');
-  assert.equal(nestedRef.dataset.guid, target.guid,
-    'resolved inline rows preserve clickable nested reference targets');
-
-  const state = chain._refxChainTreeState;
-  h.plugin._removeInlineRefs('BADGE_HOST›' + target.guid);
-  assert.equal(state.cancelled, true, 'closing the inline section cancels its tree generation immediately');
-  h.plugin.onUnload();
-});
 
 test('v4.48.6 an unresolved chain owner stays explicit and never fabricates page navigation', async () => {
   const h = badgeHarness('UNKNOWN_OWNER_TARGET');
@@ -2595,27 +2422,6 @@ test('v4.48.6 an unresolved chain owner stays explicit and never fabricates page
   h.plugin.onUnload();
 });
 
-test('v4.40.1 the context row folds through the same twisty as every other reference row', async () => {
-  const h = badgeHarness('FOLD_TARGET');
-  badgeOwner(h, 'FOLD_OWNER', 'FOLD_TARGET', 'Fold');
-
-  h.plugin._routeBadgeClick(event('click', { target: h.wrap, button: 0 }), null, h.wrap);
-  await tick(10);
-  const strip = h.document.querySelector('.refx-inline-refs-context');
-  strip.querySelector('.refx-ctxstrip-twist').dispatchEvent(event('click', {}));
-  await tick(10);
-  const twist = strip.querySelector('.refx-ref-outline-twist');
-  assert.ok(twist, 'the ancestor owns a fold twisty');
-  const kids = strip.querySelector('.refx-ref-outline-kids');
-  assert.equal(kids.classList.contains('refx-hidden'), false);
-  twist.dispatchEvent(event('click', {}));
-  assert.equal(kids.classList.contains('refx-hidden'), true, 'folding hides everything beneath it');
-  assert.equal(twist.textContent, '▸');
-  twist.dispatchEvent(event('click', {}));
-  assert.equal(kids.classList.contains('refx-hidden'), false);
-  h.plugin.onUnload();
-});
-
 test('v4.40 a record target keeps the previous linked-references shape with no context strip', async () => {
   const h = badgeHarness('BADGE_RECORD');
   let reads = 0;
@@ -2629,42 +2435,15 @@ test('v4.40 a record target keeps the previous linked-references shape with no c
   await tick(10);
   const section = h.document.querySelector('.refx-inline-refs');
   assert.ok(section);
-  assert.equal(section.querySelector('.refx-inline-refs-context'), null, 'a page reference has no block context');
+  assert.ok(section.querySelector('.refx-inline-refs-filters'), 'filters panel is present');
   assert.equal(section.querySelector('.refx-line-context-body'), null);
   assert.equal(reads, 0, 'no context hydration is attempted for a record target');
   const entry = h.plugin._inlineRefs.get('BADGE_HOST›BADGE_RECORD');
-  assert.equal(entry.contextEl, null);
+  assert.ok(entry.filtersEl, 'record targets still get the filters panel');
   h.plugin.onUnload();
 });
 
-test('v4.40.1 the context row reads its source tree once, through the ref-row cache not the drill LRU', async () => {
-  const h = badgeHarness('SHARED_TARGET');
-  const reads = badgeOwner(h, 'SHARED_OWNER', 'SHARED_TARGET', 'Shared');
-
-  h.plugin._routeBadgeClick(event('click', { target: h.wrap, button: 0 }), null, h.wrap);
-  await tick(10);
-  const strip = h.document.querySelector('.refx-inline-refs-context');
-  strip.querySelector('.refx-ctxstrip-twist').dispatchEvent(event('click', {}));
-  await tick(10);
-  assert.ok(strip.querySelector('.refx-ref-outline'), 'the row filled from a source tree');
-  assert.equal(
-    reads(),
-    1,
-    'the row, its ancestors, its children and its siblings all come from ONE tree read'
-  );
-  // Deliberate: this surface uses _fillRefContextRow's own treeCache — the same
-  // getLineItems(false) structure-only read its backlink rows use — instead of
-  // the menu's expansion-on drill LRU, so the strip cannot disagree with the
-  // rows beneath it.
-  assert.equal(
-    h.plugin._lineRefContextCache.has('SHARED_TARGET'),
-    false,
-    'no second, differently-shaped drill read is performed for this surface'
-  );
-  h.plugin.onUnload();
-});
-
-test('v4.40 the context strip leaves section collapse, close, and pin untouched', async () => {
+test('WO-2 header controls keep filter toggle, sort, workbench, pin, and close', async () => {
   const h = badgeHarness('CONTROLS_TARGET');
   badgeOwner(h, 'CONTROLS_OWNER', 'CONTROLS_TARGET', 'Controls');
 
@@ -2672,18 +2451,18 @@ test('v4.40 the context strip leaves section collapse, close, and pin untouched'
   await tick(10);
   const key = 'BADGE_HOST›CONTROLS_TARGET';
   const entry = h.plugin._inlineRefs.get(key);
-  assert.ok(entry?.contextEl, 'the entry owns its strip');
+  assert.ok(entry?.filterToggleEl, 'the entry owns the filter toggle');
   const header = h.document.querySelector('.refx-inline-refs-header');
   assert.deepEqual(
     header.children.map((child) => child.className.split(' ')[0]),
     [
-      'refx-inline-refs-title', 'refx-inline-refs-filter', 'refx-gf-note',
-      'refx-inline-refs-sort', 'refx-inline-refs-collapse-all', 'refx-inline-refs-wb',
-      'refx-inline-refs-pin', 'refx-inline-refs-close',
+      'refx-inline-refs-title', 'refx-inline-refs-filter-toggle',
+      'refx-inline-refs-sort', 'refx-inline-refs-wb', 'refx-inline-refs-pin', 'refx-inline-refs-close',
     ],
-    'the strip is a sibling of the header, not a new header control'
+    'the header cluster is title, filter toggle, sort, workbench, pin, close'
   );
-  assert.equal(header.querySelector('.refx-inline-refs-context'), null);
+  const filters = h.document.querySelector('.refx-inline-refs-filters');
+  assert.ok(filters?.querySelector('.refx-gf-note'), 'global-filter note lives in the filters panel');
 
   let pinToggles = 0;
   h.plugin._togglePin = () => { pinToggles++; };
@@ -2693,41 +2472,10 @@ test('v4.40 the context strip leaves section collapse, close, and pin untouched'
   header.querySelector('.refx-inline-refs-close').dispatchEvent(event('click', {}));
   assert.equal(h.plugin._inlineRefs.has(key), false, 'close still tears the section down');
   assert.equal(h.document.querySelector('.refx-inline-refs'), null);
-  assert.equal(h.document.querySelector('.refx-inline-refs-context'), null, 'the strip leaves with its section');
   h.plugin.onUnload();
 });
 
-test('v4.40.1 the floating badge popover renders the same normal reference row above its rows', async () => {
-  const h = badgeHarness('POPOVER_TARGET');
-  badgeOwner(h, 'POPOVER_OWNER', 'POPOVER_TARGET', 'Popover');
-  h.plugin._clickAction = 'popover'; // Shift-swap role: a plain click opens the floating popover
-  h.plugin.positionRefPopover = () => {};
-
-  h.plugin._routeBadgeClick(event('click', { target: h.wrap, button: 0 }), null, h.wrap);
-  await tick(10);
-  const pop = h.document.querySelector('.trc-ref-popover');
-  assert.ok(pop, 'the popover route opens the production popover');
-  const strip = pop.querySelector('.trc-ref-popover-context');
-  assert.ok(strip);
-  strip.querySelector('.refx-ctxstrip-twist').dispatchEvent(event('click', {}));
-  await tick(10);
-  assert.equal(
-    pop.children.map((child) => child.className.split(' ')[0]).slice(0, 2).join(','),
-    'trc-ref-popover-header,trc-ref-popover-context',
-    'the strip sits above the referencing rows'
-  );
-  assert.equal(strip.querySelector('.refx-inline-refs-group-name').textContent, 'Popover owner');
-  assert.ok(strip.querySelector('.trc-ref-popover-item'), 'the shared row element');
-  assert.ok(strip.querySelector('.refx-ref-outline'), 'the shared fold outline');
-  assert.equal(
-    strip.querySelector('.refx-ref-outline-refline').textContent.includes('Popover target'),
-    true
-  );
-  assert.equal(strip.querySelector('.refx-line-context-body'), null, 'no drill-outline box here');
-  h.plugin.onUnload();
-});
-
-test('v4.40 the floating popover skips the strip for a record target', async () => {
+test('v4.40 the floating popover has no Block Context strip for a record target', async () => {
   const h = badgeHarness('POPOVER_RECORD');
   h.plugin._clickAction = 'popover';
   h.records.set('POPOVER_RECORD', { guid: 'POPOVER_RECORD', getName: () => 'A page' });
@@ -3368,9 +3116,10 @@ test('v4.29 Roam menu promotes common actions and preserves every grouped action
   const fx = refMenuFixture(h, { openEmbed: true });
   const open = () => h.plugin._openRefMenu(fx.r, fx.anchor);
   open();
-  // U6 adds one sibling chain-expansion flyout to the prior compact menu. At
-  // this row height the menu remains usable without pushing common actions off-screen.
-  assert.equal(topMenuRows(h).length, 15, 'open-embed menu stays within its justified compact viewport budget');
+  // WO-18 adds "Show path to…". U6 adds one sibling chain-expansion flyout to the
+  // prior compact menu. At this row height the menu remains usable without pushing
+  // common actions off-screen.
+  assert.equal(topMenuRows(h).length, 16, 'open-embed menu stays within its justified compact viewport budget');
   assert.equal(h.document.querySelector('.refx-menu-section-head'), null, 'headed flat sections are removed');
   for (const label of ['Jump to block', 'Open in side panel', 'Open linked references', 'Copy this reference', 'Remove reference']) {
     assert.ok(topMenuRows(h).some((candidate) => rowLabel(candidate) === label), 'promoted row exists: ' + label);
@@ -4035,7 +3784,7 @@ test('v4.43 general ref-chain resolver guards cycles and enforces depth/fanout c
 test('v4.48.6 public bridge keeps v4 bounded-chain and one-level resolution compatibility', async () => {
   const h = lineRefClickHarness();
   installU6ChainGraph(h);
-  assert.equal(h.window.__refx.version, '4.49.12');
+  assert.equal(h.window.__refx.version, '4.57.2');
   assert.equal(Object.hasOwn(h.window.__refx, 'refChainVersion'), false);
   assert.equal(h.window.__refx.resolveRefChainVersion, 4);
   assert.equal(typeof h.window.__refx.resolveRefChain, 'function');
@@ -5531,45 +5280,6 @@ test('v4.48.3 auto tree marks cycles and duplicate paths without user expansion 
   assert.match(section.querySelector('.refx-chain-duplicate-row').textContent, /↑ already shown · 2 paths/);
   assert.equal(levelQueries, 4, 'root plus exactly one indexed query per canonical node');
   assert.ok(h.window.__REFX_CHAIN_DIAG.maxConcurrent <= 2);
-  h.plugin.onUnload();
-});
-
-test('v4.48.3 typed remark records render separately and auto-expand as chain nodes', async () => {
-  const h = lineRefClickHarness();
-  const ownerGuid = 'REMARK_REF_OWNER';
-  const remarkGuid = 'REMARK_RECORD';
-  const referrerGuid = 'REMARK_REFERRER';
-  h.plugin._recordNameIndex.set(ownerGuid, 'Remark ref owner');
-  h.plugin._recordNameIndex.set(remarkGuid, 'Remark page');
-  h.plugin._remarksIndex = {
-    bySourceLine: new Map([['REMARK_ROOT', [{ recordGuid: remarkGuid, excerpt: 'typed remark excerpt' }]]]),
-    byRecord: new Map([[remarkGuid, new Set(['REMARK_ROOT'])]]),
-  };
-  const referrer = {
-    guid: referrerGuid, type: 'ulist', children: [], segments: [{ type: 'text', text: 'refers to remark' }],
-  };
-  h.window.g_universe.itemsByGuid[referrerGuid] = {
-    guid: referrerGuid, rguid: ownerGuid, lineItem: referrer,
-  };
-  h.window.__thymerLineIndexV1 = {
-    linesReferencing: async (guid) => ({
-      items: guid === remarkGuid ? [{ lineGuid: referrerGuid, recordGuid: ownerGuid }] : [],
-      complete: true,
-    }),
-  };
-  h.plugin._countCache = new Map([
-    [remarkGuid, { count: 1, capped: false, sdkPropCount: 0, updatedAt: Date.now() }],
-    [referrerGuid, { count: 0, capped: false, sdkPropCount: 0, updatedAt: Date.now() }],
-  ]);
-  const body = h.document.createElement('div');
-  h.document.body.append(body);
-  const section = h.plugin._appendLazyRefChainTree(body, 'REMARK_ROOT');
-  await tick(50);
-  const remarkSection = section.querySelector('.refx-chain-remark-section');
-  assert.ok(remarkSection);
-  assert.equal(remarkSection.querySelector('.refx-chain-typed-edge').textContent, 'remark');
-  assert.ok(section.querySelectorAll('.refx-chain-tree-row')
-    .some((node) => node.dataset.guid === referrerGuid));
   h.plugin.onUnload();
 });
 

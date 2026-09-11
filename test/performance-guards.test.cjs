@@ -33,9 +33,9 @@ test('reference hydration seeds all record identities before property-edge class
 
 test('runtime and manifest versions identify the current release', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'plugin.json'), 'utf8'));
-  assert.equal(manifest.version, '4.49.12');
-  assert.ok(source.startsWith('// v4.49.12'), 'first line must be // v4.49.9');
-  assert.match(source, /window\.__REFX_VERSION = "4\.49\.12"/);
+  assert.equal(manifest.version, '4.57.2');
+  assert.ok(source.startsWith('// v4.57.2'), 'first line must be // v4.57.2');
+  assert.match(source, /window\.__REFX_VERSION = "4\.57\.2"/);
 });
 
 test('reference expansion avoids whole-body probes and broad record-update discovery', () => {
@@ -91,6 +91,7 @@ test('startup-wide indexes share one input-aware cooperative lane', () => {
   assert.match(source, /_runBackgroundWork\('record-name-index'/);
   assert.match(source, /_runBackgroundWork\('property-reference-index'/);
   assert.match(source, /_runBackgroundWork\('line-property-reference-index'/);
+  assert.match(source, /_runBackgroundWork\('connection-index'/);
   const coordinator = source.slice(source.indexOf('  _initBackgroundWorkCoordinator()'), source.indexOf('  _nativePickerSelector()'));
   assert.match(coordinator, /this\._backgroundWorkTail = settled\.catch/);
   assert.match(coordinator, /Date\.now\(\) - \(this\._backgroundLastInputAt \|\| 0\) < quietMs/);
@@ -200,7 +201,7 @@ test('cooperative property indexes cannot publish across record mutations', () =
 test('native picker portals bypass observer registry work globally', () => {
   assert.match(source, /\.autocomplete/);
   assert.match(source, /\[role="listbox"\]/);
-  assert.match(source, /mutations\?\.length && mutations\.every\(\(m\) => this\._pickerOnlyMutation\(m\)\)\) return;/);
+  assert.match(source, /muts\?\.length && muts\.every\(\(m\) => this\._pickerOnlyMutation\(m\)\)\) return;/);
   const overlay = source.slice(source.indexOf('  _overlayAffectedLines('), source.indexOf('  _ensureOverlayObserver()'));
   assert.ok(overlay.indexOf('mutations.every') < overlay.indexOf('this._liveCheckOverlays.values()'), 'pure picker batches must return before live overlay enumeration');
 });

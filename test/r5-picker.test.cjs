@@ -388,11 +388,22 @@ test('R5 frecency: recently used GUID returns positive boost', () => {
   assert.ok(boost > 0, `Expected boost > 0, got ${boost}`);
 });
 
-test('R5 frecency boost is bounded to [0, 120]', () => {
+test('R5 traversal boost is bounded to [0, 60]', () => {
   const { plugin } = makePlugin();
-  for (let i = 0; i < 100; i++) plugin._r5RecordFrecency('GUID_MANY');
-  const boost = plugin._r5FrecencyBoost('GUID_MANY');
-  assert.ok(boost >= 0 && boost <= 120, `Boost ${boost} out of [0, 120]`);
+  for (let i = 0; i < 100; i++) plugin._connRecordHop('SRC', 'GUID_MANY', 'jump');
+  const boost = plugin._connHopWeight('SRC', 'GUID_MANY');
+  assert.ok(boost >= 0 && boost <= 60, `Boost ${boost} out of [0, 60]`);
+});
+
+test('R5 traversal: LRU eviction keeps at most 1000 edges', () => {
+  const { plugin } = makePlugin();
+  plugin._wbWorkspaceGuid = () => 'WS_R5';
+  plugin._connTraversalCache = null;
+  for (let i = 0; i < 1010; i++) {
+    plugin._connRecordHop('SRC', 'GUID_' + String(i).padStart(4, '0'), 'jump');
+  }
+  const store = plugin._connTraversalLoad();
+  assert.ok(Object.keys(store).length <= 1000, `Expected <= 1000, got ${Object.keys(store).length}`);
 });
 
 test('R5 frecency: LRU eviction keeps at most 500 entries', () => {
@@ -1306,16 +1317,16 @@ test('R5 v4.26.1: 10k cold breadcrumb builds perform zero SDK or body reads', ()
 
 test('R5 manifest version is 4.48.6', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(root, 'plugin.json'), 'utf8'));
-  assert.equal(manifest.version, '4.49.12');
+  assert.equal(manifest.version, '4.57.2');
 });
 
 test('R5 plugin.js header declares v4.48.6', () => {
   const firstLine = source.split('\n')[0];
-  assert.ok(firstLine.includes('v4.49.12'), `Expected header to contain v4.49.12, got: ${firstLine}`);
+  assert.ok(firstLine.includes("v4.57.2"), `Expected header to contain v4.57.2, got: ${firstLine}`);
 });
 
 test('R5 __REFX_VERSION runtime tell is 4.48.6', () => {
-  assert.ok(source.includes('window.__REFX_VERSION = "4.49.12"'), 'Expected __REFX_VERSION = "4.49.12" in source');
+  assert.ok(source.includes('window.__REFX_VERSION = "4.57.2"'), 'Expected __REFX_VERSION = "4.51.0" in source');
 });
 
 test('R5 CHANGELOG.md has a v4.28.0 entry', () => {
